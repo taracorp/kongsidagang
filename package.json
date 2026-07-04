@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "shot": "LD_LIBRARY_PATH=$HOME/.local/lib/kd-pwlibs node scripts/shot.mjs"
+    "shot": "LD_LIBRARY_PATH=$HOME/.local/lib/kd-pwlibs node scripts/shot.mjs",
+    "flow": "LD_LIBRARY_PATH=$HOME/.local/lib/kd-pwlibs node scripts/flow.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",

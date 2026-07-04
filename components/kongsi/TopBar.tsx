@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CompassRose, IconCart, IconBell } from "./icons";
 import { useCart } from "./cart";
+import { createClient } from "@/lib/supabase/client";
 
 function IconButton({
   children,
@@ -38,6 +40,17 @@ function IconButton({
 
 export function TopBar({ notifCount = 0 }: { notifCount?: number }) {
   const { count: cartCount } = useCart();
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => setLoggedIn(Boolean(data.user)));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setLoggedIn(Boolean(session?.user));
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
   return (
     <div className="sticky top-0 z-50 border-b-2 border-kongsi-ink bg-kongsi-parchment">
       <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-3 px-5 py-[11px]">
@@ -60,10 +73,10 @@ export function TopBar({ notifCount = 0 }: { notifCount?: number }) {
             <IconBell size={19} />
           </IconButton>
           <Link
-            href="/masuk"
+            href={loggedIn ? "/pakhuis" : "/masuk"}
             className="whitespace-nowrap rounded-[3px] border-2 border-kongsi-ink bg-kongsi-beeswax px-[15px] py-2 text-[13px] font-bold text-kongsi-ink shadow-hard-sm transition-transform hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0_#3a2417]"
           >
-            Masuk Loji
+            {loggedIn ? "Pakhuis-ku" : "Masuk Loji"}
           </Link>
         </div>
       </div>
