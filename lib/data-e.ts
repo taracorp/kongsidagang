@@ -144,3 +144,49 @@ export const lelangClue: LelangClue = {
     "Free minibar",
   ],
 };
+
+// ===== Pakhuis (akun) =====
+export const levelTangga = [
+  "Pelanggan Kecil",
+  "Pelanggan Besar",
+  "Tuan Kecil",
+  "Tuan Besar",
+  "Juragan",
+];
+
+export const pakhuisDummy = {
+  pundi: 1250000,
+  levelIndex: 2, // Tuan Kecil
+  levelProgress: 58,
+  nextLevelNote: "Rp 1,2 jt lagi menuju Tuan Besar — buka akses Vendu tanpa antre & potongan bea.",
+  capFilled: 7,
+  capTotal: 10,
+};
+
+export type Voucher = {
+  title: string;
+  note: string;
+};
+
+export const vouchers: Voucher[] = [
+  {
+    title: "Hotel Artotel — Deluxe 1 malam",
+    note: "Menang lelang · berlaku s/d 30 Sep 2026",
+  },
+  {
+    title: "Serum Vitamin C — Loji Sari Ayu",
+    note: "Tebus neraca · berlaku s/d 12 Agu 2026",
+  },
+];
+
+export type RiwayatLelang = {
+  barang: string;
+  tebakan: number;
+  hasil: "Menang" | "Top 3" | "Belum beruntung";
+};
+
+export const riwayatLelang: RiwayatLelang[] = [
+  { barang: "Hotel Artotel Yogyakarta", tebakan: 469000, hasil: "Menang" },
+  { barang: "Voucher Spa Amanjiwo", tebakan: 285000, hasil: "Top 3" },
+  { barang: "Dinner Kaum Jakarta", tebakan: 340000, hasil: "Belum beruntung" },
+];
