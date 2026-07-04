@@ -63,9 +63,11 @@ export default async function LojiDetail({
             <ProdukCard
               key={p.name}
               name={p.name}
+              shop={loji.name}
               price={p.price}
               oldPrice={p.oldPrice}
               tone={p.tone}
+              addable
             />
           ))}
         </div>

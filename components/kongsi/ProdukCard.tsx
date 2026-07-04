@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { cn, formatKeping } from "@/lib/utils";
 import { CompassRose } from "./icons";
+import { AddToCartButton } from "./AddToCartButton";
 
 export type Tone =
   | "sage"
@@ -28,6 +29,7 @@ export function ProdukCard({
   oldPrice,
   tone = "sage",
   ribbon,
+  addable,
   className,
 }: {
   name: string;
@@ -36,6 +38,7 @@ export function ProdukCard({
   oldPrice?: number;
   tone?: Tone;
   ribbon?: ReactNode;
+  addable?: boolean;
   className?: string;
 }) {
   return (
@@ -71,6 +74,9 @@ export function ProdukCard({
             </span>
           ) : null}
         </div>
+        {addable ? (
+          <AddToCartButton item={{ name, shop, price, tone }} />
+        ) : null}
       </div>
     </div>
   );

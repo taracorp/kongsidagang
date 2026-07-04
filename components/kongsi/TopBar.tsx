@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { CompassRose, IconCart, IconBell } from "./icons";
+import { useCart } from "./cart";
 
 function IconButton({
   children,
@@ -33,13 +36,8 @@ function IconButton({
   );
 }
 
-export function TopBar({
-  cartCount = 0,
-  notifCount = 0,
-}: {
-  cartCount?: number;
-  notifCount?: number;
-}) {
+export function TopBar({ notifCount = 0 }: { notifCount?: number }) {
+  const { count: cartCount } = useCart();
   return (
     <div className="sticky top-0 z-50 border-b-2 border-kongsi-ink bg-kongsi-parchment">
       <div className="mx-auto flex max-w-[1080px] items-center justify-between gap-3 px-5 py-[11px]">

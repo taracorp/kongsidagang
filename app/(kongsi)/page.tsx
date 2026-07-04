@@ -70,6 +70,7 @@ export default function Beranda() {
               <ProdukCard
                 key={p.name}
                 {...p}
+                addable
                 className="min-w-[158px]"
                 ribbon={<Pill variant="gold">Kurasi</Pill>}
               />
@@ -83,7 +84,7 @@ export default function Beranda() {
           <RowHead title="Pilihan Untukmu" note="berdasarkan minatmu" />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             {pilihanUntukmu.map((p) => (
-              <ProdukCard key={p.name} {...p} />
+              <ProdukCard key={p.name} {...p} addable />
             ))}
           </div>
           <p className="mt-4 text-center text-[12px] text-kongsi-ink-soft">
