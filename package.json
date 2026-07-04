@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "shot": "LD_LIBRARY_PATH=$HOME/.local/lib/kd-pwlibs node scripts/shot.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
@@ -22,6 +23,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "playwright": "^1.61.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
