@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kongsi Dagang — Mockup v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,900;1,9..144,500;1,9..144,600&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --parchment:#F6E7C7; --parchment-2:#EFD9AF; --parchment-3:#FBEDD2;
+    --grenadine:#D0451F; --grenadine-d:#A9370F;
+    --beeswax:#E7A24A; --beeswax-d:#C9852F;
+    --sage:#A9C6AE; --olive:#77804C;
+    --indigo:#16495D; --indigo-d:#0E3543;
+    --ink:#3A2417; --ink-soft:#6A5540;
+    --green-ok:#4C7A4E; --red-bad:#B23A1E;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:'Work Sans',sans-serif;color:var(--ink);background:var(--parchment);
+    background-image:radial-gradient(circle at 12% 8%,rgba(231,162,74,.10),transparent 40%),radial-gradient(circle at 88% 4%,rgba(22,73,93,.08),transparent 36%);
+    line-height:1.55;overflow-x:hidden;padding-bottom:74px}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:.42;mix-blend-mode:multiply;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E")}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px;position:relative;z-index:2}
+  a{color:inherit;cursor:pointer}
+  .star{color:var(--beeswax-d);font-size:13px}
+
+  /* ===== mockup jump navigator (alat review, bukan produk) ===== */
+  .jump{position:sticky;top:0;z-index:60;background:#241a12;border-bottom:2px solid #000}
+  .jump-in{max-width:1080px;margin:0 auto;padding:7px 20px;display:flex;gap:5px;align-items:center;flex-wrap:wrap}
+  .jump b{color:var(--beeswax);font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-right:6px}
+  .jump button{background:transparent;border:1px solid rgba(246,231,199,.25);color:#D9C7A8;font-size:11px;font-weight:600;padding:4px 9px;border-radius:3px;cursor:pointer;white-space:nowrap}
+  .jump button:hover,.jump button.active{background:var(--beeswax);color:var(--ink);border-color:var(--beeswax)}
+
+  /* ===== TOP BAR (produk) ===== */
+  .topbar{position:sticky;top:33px;z-index:55;background:var(--parchment);border-bottom:2px solid var(--ink)}
+  .topbar-in{max-width:1080px;margin:0 auto;padding:11px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .tb-logo{display:flex;align-items:center;gap:10px}
+  .tb-logo .rose{width:30px;height:30px;color:var(--grenadine)}
+  .tb-logo .bn{font-family:'Fraunces',serif;font-weight:900;font-size:19px;color:var(--indigo);line-height:1}
+  .tb-logo .bt{font-size:9px;letter-spacing:2.5px;text-transform:uppercase;color:var(--olive);font-weight:700}
+  .tb-right{display:flex;align-items:center;gap:12px}
+  .icon-btn{position:relative;width:38px;height:38px;border:2px solid var(--ink);border-radius:3px;background:var(--parchment-3);display:flex;align-items:center;justify-content:center;cursor:pointer}
+  .icon-btn svg{width:19px;height:19px;color:var(--ink)}
+  .icon-btn .dot{position:absolute;top:-6px;right:-6px;background:var(--grenadine);color:var(--parchment);font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;border:1.5px solid var(--ink);display:flex;align-items:center;justify-content:center;padding:0 3px}
+  .btn-masuk{border:2px solid var(--ink);padding:8px 15px;border-radius:3px;font-weight:700;font-size:13px;background:var(--beeswax);box-shadow:3px 3px 0 var(--ink);white-space:nowrap}
+  .btn-masuk:hover{transform:translate(1px,1px);box-shadow:2px 2px 0 var(--ink)}
+  @media(max-width:560px){.tb-logo .bt{display:none}}
+
+  /* ===== BOTTOM NAV (produk) ===== */
+  .bottomnav{position:fixed;bottom:0;left:0;right:0;z-index:55;background:var(--indigo-d);border-top:3px solid var(--ink);display:flex;justify-content:space-around;padding:8px 4px 10px}
+  .bn-item{display:flex;flex-direction:column;align-items:center;gap:3px;color:#9FBBC2;font-size:10px;font-weight:600;cursor:pointer;padding:2px 6px;border-radius:5px;flex:1;max-width:120px}
+  .bn-item svg{width:22px;height:22px}
+  .bn-item.on{color:var(--beeswax)}
+  .bn-item.on svg{color:var(--beeswax)}
+
+  /* ===== shared ===== */
+  .page{display:none;animation:fade .25s ease}
+  .page.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .btn{font-weight:700;font-size:14px;padding:12px 22px;border-radius:3px;border:2px solid var(--ink);cursor:pointer;display:inline-block;transition:.12s;text-align:center;text-decoration:none}
+  .btn-primary{background:var(--grenadine);color:var(--parchment);box-shadow:4px 4px 0 var(--ink)}
+  .btn-primary:hover{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink)}
+  .btn-gold{background:var(--beeswax);color:var(--ink);box-shadow:4px 4px 0 var(--ink)}
+  .btn-gold:hover{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink)}
+  .btn-ghost{background:transparent;box-shadow:4px 4px 0 rgba(58,36,23,.22)}
+  .btn-ghost:hover{background:var(--sage);transform:translate(2px,2px);box-shadow:2px 2px 0 rgba(58,36,23,.22)}
+  .btn-block{display:block;width:100%}
+  .kicker{font-family:'Fraunces',serif;font-style:italic;color:var(--grenadine);font-size:16px;font-weight:600}
+  .h-title{font-family:'Fraunces',serif;font-weight:900;color:var(--indigo);line-height:1.03}
+  .sec{padding:34px 0}
+  .row-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px;gap:10px}
+  .row-head h3{font-family:'Fraunces';font-weight:900;font-size:22px;color:var(--indigo)}
+  .row-head .more{font-size:13px;font-weight:700;color:var(--grenadine)}
+  .card{background:var(--parchment);border:2px solid var(--ink);border-radius:4px;box-shadow:5px 5px 0 var(--ink)}
+  .pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;padding:3px 9px;border-radius:20px;border:1.5px solid var(--ink)}
+  .pill-sage{background:var(--sage)} .pill-gold{background:var(--beeswax)} .pill-live{background:var(--grenadine);color:var(--parchment)} .pill-indigo{background:var(--indigo);color:var(--parchment)}
+  .term{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--olive);font-weight:700}
+  .badge-segel{display:inline-flex;align-items:center;gap:4px;background:var(--grenadine);color:var(--parchment);font-size:10px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;padding:3px 7px;border-radius:20px;border:1.5px solid var(--ink)}
+  .badge-segel svg{width:10px;height:10px}
+
+  /* product card (reusable) */
+  .pgrid{display:grid;gap:16px}
+  .pgrid.c4{grid-template-columns:repeat(4,1fr)}
+  .pgrid.c3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:820px){.pgrid.c4{grid-template-columns:1fr 1fr}.pgrid.c3{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.pgrid.c4,.pgrid.c3{grid-template-columns:1fr 1fr}}
+  .prod{background:var(--parchment);border:2px solid var(--ink);border-radius:5px;overflow:hidden;box-shadow:4px 4px 0 var(--ink);display:flex;flex-direction:column}
+  .prod .ph{height:104px;border-bottom:2px solid var(--ink);display:flex;align-items:center;justify-content:center;color:var(--indigo);opacity:.9;position:relative}
+  .prod .ph .rib{position:absolute;top:8px;left:8px}
+  .prod .pb{padding:10px 12px;flex:1;display:flex;flex-direction:column}
+  .prod .pn{font-weight:600;font-size:13px;line-height:1.3;flex:1}
+  .prod .shop{font-size:11px;color:var(--olive);font-weight:600;margin-top:4px}
+  .prod .pp{font-family:'Fraunces';font-weight:900;color:var(--grenadine);font-size:16px;margin-top:6px}
+  .prod .po{font-size:11px;color:var(--ink-soft);text-decoration:line-through;margin-left:5px}
+  .hscroll{display:flex;gap:14px;overflow-x:auto;padding-bottom:8px}
+  .hscroll .prod{min-width:158px}
+
+  /* ===== BERANDA ===== */
+  .hero{text-align:center;padding:40px 0 22px}
+  .hero .eb{display:inline-flex;align-items:center;gap:9px;font-family:'Fraunces';font-style:italic;color:var(--olive);font-weight:600;margin-bottom:12px;font-size:15px}
+  .hero .eb::before,.hero .eb::after{content:"";width:34px;height:1px;background:var(--olive)}
+  .hero h1{font-family:'Fraunces',serif;font-weight:900;font-size:clamp(42px,8.5vw,80px);line-height:.93;color:var(--indigo);text-shadow:2px 2px 0 rgba(231,162,74,.5)}
+  .hero h1 .amp{color:var(--grenadine);font-style:italic;font-weight:500}
+  .hero p.sub{max-width:540px;margin:16px auto 0;font-size:16px;color:var(--ink-soft)}
+  .wave{height:13px;margin:26px 0 0;border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);
+    background:repeating-linear-gradient(90deg,var(--grenadine) 0 18px,var(--beeswax) 18px 36px,var(--indigo) 36px 54px,var(--sage) 54px 72px)}
+
+  /* live auction banner */
+  .live-toggle{display:flex;gap:6px;justify-content:center;margin-bottom:14px}
+  .live-toggle button{font-size:12px;font-weight:700;padding:5px 11px;border:2px solid var(--ink);border-radius:3px;background:var(--parchment);cursor:pointer}
+  .live-toggle button.on{background:var(--indigo);color:var(--parchment)}
+  .live-auction{border:2px solid var(--ink);border-radius:6px;overflow:hidden;box-shadow:6px 6px 0 var(--ink);display:grid;grid-template-columns:1.1fr 1fr}
+  @media(max-width:720px){.live-auction{grid-template-columns:1fr}}
+  .live-auction .la-media{background:linear-gradient(135deg,var(--indigo),var(--indigo-d));color:var(--parchment);padding:26px;display:flex;flex-direction:column;justify-content:center;position:relative}
+  .live-auction .la-media .pill-live{position:absolute;top:14px;left:14px}
+  .live-auction .la-media .cat{font-family:'Fraunces';font-weight:900;font-size:24px;margin-top:14px}
+  .live-auction .la-media .nm{opacity:.85;font-size:14px;margin-top:2px}
+  .live-auction .la-media .nm b{font-family:'Fraunces';letter-spacing:3px;color:var(--beeswax)}
+  .live-auction .la-body{background:var(--parchment);padding:24px;text-align:center;display:flex;flex-direction:column;justify-content:center}
+  .live-auction .la-body .tm{font-family:'Fraunces';font-weight:900;font-size:44px;color:var(--grenadine);line-height:1}
+  .live-auction .la-body .tm small{display:block;font-family:'Work Sans';font-weight:700;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--olive)}
+  .live-auction .la-body .pn{font-size:14px;color:var(--ink-soft);margin:12px 0}
+  .live-auction .la-body .pn b{font-family:'Fraunces';text-decoration:line-through;color:var(--grenadine);font-size:18px}
+  .ad-slot{border:2px dashed var(--olive);border-radius:6px;background:var(--parchment-3);padding:40px 24px;text-align:center;color:var(--ink-soft)}
+  .ad-slot .h-title{font-size:20px}
+
+  /* juru tunjuk teaser */
+  .jt-teaser{background:linear-gradient(120deg,var(--beeswax),var(--grenadine));border:2px solid var(--ink);border-radius:6px;box-shadow:6px 6px 0 var(--ink);padding:22px 24px;display:flex;align-items:center;gap:20px;color:var(--ink);flex-wrap:wrap}
+  .jt-teaser .jt-ic{width:56px;height:56px;background:var(--parchment);border:2px solid var(--ink);border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none}
+  .jt-teaser h3{font-family:'Fraunces';font-weight:900;font-size:22px}
+  .jt-teaser p{font-size:14px;max-width:440px}
+
+  /* ===== BALAI LELANG (phase) ===== */
+  .phase-switch{display:flex;gap:5px;justify-content:center;flex-wrap:wrap;margin:16px 0}
+  .phase-switch button{font-weight:700;font-size:11px;padding:5px 10px;border:2px solid var(--ink);border-radius:3px;background:var(--parchment);cursor:pointer}
+  .phase-switch button.on{background:var(--indigo);color:var(--parchment)}
+  .stage{max-width:500px;margin:0 auto}
+  .timer{font-family:'Fraunces',serif;font-weight:900;font-size:48px;color:var(--grenadine);text-align:center;line-height:1}
+  .timer small{display:block;font-family:'Work Sans';font-weight:700;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--olive)}
+  .clue-box{padding:24px;text-align:center}
+  .clue-cat{font-family:'Fraunces';font-weight:900;font-size:21px;color:var(--indigo)}
+  .clue-name{font-size:13px;color:var(--ink-soft);margin-top:2px}
+  .clue-name b{font-family:'Fraunces';letter-spacing:3px;color:var(--grenadine)}
+  .facilities{text-align:left;background:var(--parchment-3);border:1.5px dashed var(--olive);border-radius:4px;padding:14px 16px;margin:16px 0;font-size:13px}
+  .facilities .ft{font-weight:700;margin-bottom:5px;color:var(--olive);text-transform:uppercase;font-size:10px;letter-spacing:1px}
+  .facilities li{list-style:none;padding:2px 0 2px 18px;position:relative}
+  .facilities li::before{content:"◆";position:absolute;left:0;color:var(--beeswax)}
+  .price-normal{font-size:13px;color:var(--ink-soft)}
+  .price-normal b{text-decoration:line-through;color:var(--grenadine);font-size:18px;font-family:'Fraunces'}
+  .counter{font-family:'Fraunces';font-weight:900;font-size:32px;color:var(--indigo);text-align:center;margin:6px 0}
+  .counter small{font-family:'Work Sans';font-weight:600;font-size:12px;color:var(--ink-soft);display:block}
+  .progress{height:11px;background:var(--parchment-2);border:2px solid var(--ink);border-radius:20px;overflow:hidden;margin:6px 0 14px}
+  .progress i{display:block;height:100%;background:var(--beeswax);width:70%}
+  .guess-input{display:flex;margin:14px 0}
+  .guess-input .rp{display:flex;align-items:center;border:2px solid var(--ink);border-radius:3px;overflow:hidden;flex:1;background:#fff}
+  .guess-input .rp span{background:var(--indigo);color:var(--parchment);font-weight:700;padding:0 12px;align-self:stretch;display:flex;align-items:center}
+  .guess-input .rp input{border:0;outline:0;font-family:'Fraunces';font-weight:900;font-size:20px;padding:8px 12px;width:100%;background:#fff}
+  .prow{display:flex;align-items:center;justify-content:space-between;padding:7px 11px;border:1.5px solid var(--ink);border-radius:3px;margin-bottom:5px;background:var(--parchment-3);font-size:13px}
+  .prow.done{background:#E4EFE5}
+  .prow .st{font-family:'Fraunces';font-weight:900;letter-spacing:2px;color:var(--grenadine)}
+  .prow .no{color:var(--ink-soft);font-size:12px}
+  .finalist{display:flex;align-items:center;gap:12px;padding:12px 16px;border:2px solid var(--ink);border-radius:4px;margin-bottom:8px;background:var(--parchment);box-shadow:3px 3px 0 var(--ink)}
+  .finalist .rank{font-family:'Fraunces';font-weight:900;font-size:24px;color:var(--beeswax-d);width:30px}
+  .finalist .nm{font-weight:700;flex:1}
+  .reveal-num{display:flex;justify-content:center;gap:22px;margin:16px 0}
+  .reveal-num .lb{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--olive);font-weight:700}
+  .reveal-num .vl{font-family:'Fraunces';font-weight:900;font-size:22px;color:var(--indigo)}
+  .reveal-num .vl.hit{color:var(--green-ok)}
+
+  /* ===== NERACA ===== */
+  .neraca-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px}
+  .neraca-head .q{display:flex;align-items:center;border:2px solid var(--ink);border-radius:3px;overflow:hidden;background:#fff;max-width:400px;flex:1}
+  .neraca-head .q input{border:0;outline:0;padding:10px 12px;width:100%;font-size:14px}
+  .neraca-head .q button{background:var(--indigo);color:var(--parchment);border:0;padding:0 16px;font-weight:700;cursor:pointer}
+  table.neraca{width:100%;border-collapse:separate;border-spacing:0;border:2px solid var(--ink);border-radius:6px;overflow:hidden;background:var(--parchment)}
+  table.neraca th{background:var(--indigo);color:var(--parchment);font-family:'Fraunces';font-weight:600;font-size:12px;text-align:left;padding:11px 13px}
+  table.neraca td{padding:11px 13px;border-top:1.5px solid rgba(58,36,23,.16);font-size:13px}
+  table.neraca tr:nth-child(even) td{background:rgba(169,198,174,.13)}
+  table.neraca .rk{font-family:'Fraunces';font-weight:900;font-size:17px;color:var(--beeswax-d)}
+  table.neraca .rk.top{color:var(--grenadine)}
+  table.neraca .prc{font-family:'Fraunces';font-weight:900;color:var(--indigo)}
+  table.neraca .prc.best{color:var(--green-ok)}
+  table.neraca .save{font-size:11px;color:var(--green-ok);font-weight:700}
+  @media(max-width:640px){table.neraca .hide-sm{display:none}}
+
+  /* ===== LOJI ===== */
+  .loji-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  @media(max-width:820px){.loji-grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.loji-grid{grid-template-columns:1fr}}
+  .loji{background:var(--parchment);border:2px solid var(--ink);border-radius:5px;box-shadow:5px 5px 0 var(--ink);overflow:hidden;cursor:pointer;transition:.15s}
+  .loji:hover{transform:translate(-2px,-2px);box-shadow:7px 7px 0 var(--ink)}
+  .loji .banner{height:88px;display:flex;align-items:flex-end;padding:10px}
+  .loji .banner .sig{width:34px;height:34px;color:var(--parchment);opacity:.9}
+  .loji .body{padding:13px 15px 16px}
+  .loji h4{font-family:'Fraunces';font-weight:900;font-size:18px;color:var(--indigo);display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .loji .cat{font-size:11px;color:var(--olive);font-weight:600;margin:2px 0 8px;text-transform:uppercase;letter-spacing:1px}
+  .loji .meta{display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-top:8px}
+
+  /* ===== DETAIL LOJI ===== */
+  .loji-hero{border-radius:6px;overflow:hidden;border:2px solid var(--ink);box-shadow:6px 6px 0 var(--ink);margin-bottom:22px}
+  .loji-hero .cover{height:130px}
+  .loji-hero .info{background:var(--parchment);padding:18px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  .loji-hero .avatar{width:66px;height:66px;border-radius:8px;border:2px solid var(--ink);margin-top:-48px;background:var(--beeswax);display:flex;align-items:center;justify-content:center;color:var(--ink)}
+  .loji-hero h2{font-family:'Fraunces';font-weight:900;font-size:25px;color:var(--indigo);display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+
+  /* ===== TUKAR GULING ===== */
+  .tukar-intro{background:var(--parchment-3);border:2px solid var(--ink);border-radius:6px;box-shadow:5px 5px 0 var(--ink);padding:20px 22px;margin-bottom:22px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  .tukar-intro .ti-ic{width:52px;height:52px;flex:none;background:var(--sage);border:2px solid var(--ink);border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .tukar-intro h3{font-family:'Fraunces';font-weight:900;font-size:20px;color:var(--indigo)}
+  .tukar-intro p{font-size:13px;color:var(--ink-soft);max-width:520px}
+  .barter-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+  @media(max-width:820px){.barter-grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.barter-grid{grid-template-columns:1fr}}
+  .barter{background:var(--parchment);border:2px solid var(--ink);border-radius:5px;box-shadow:4px 4px 0 var(--ink);overflow:hidden}
+  .barter .bp{height:96px;background:var(--sage);border-bottom:2px solid var(--ink);display:flex;align-items:center;justify-content:center;color:var(--indigo);opacity:.9}
+  .barter .bb{padding:12px 14px}
+  .barter .bn2{font-weight:700;font-size:14px}
+  .barter .own{font-size:11px;color:var(--olive);margin:3px 0}
+  .barter .val{font-family:'Fraunces';font-weight:900;color:var(--grenadine);font-size:15px}
+  .barter .want{font-size:12px;color:var(--ink-soft);margin-top:6px;border-top:1.5px dashed rgba(58,36,23,.2);padding-top:6px}
+  .barter .want b{color:var(--indigo)}
+  /* barter deal example */
+  .deal{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;background:var(--parchment);border:2px solid var(--ink);border-radius:6px;box-shadow:5px 5px 0 var(--ink);padding:20px;margin-top:22px}
+  @media(max-width:560px){.deal{grid-template-columns:1fr;text-align:center}}
+  .deal .side{text-align:center}
+  .deal .side .sq{height:80px;background:var(--parchment-3);border:2px solid var(--ink);border-radius:5px;display:flex;align-items:center;justify-content:center;color:var(--indigo);margin-bottom:8px}
+  .deal .swap{font-size:28px;color:var(--grenadine);font-weight:900}
+  .deal .plus{font-size:12px;color:var(--olive);font-weight:700;margin-top:3px}
+
+  /* ===== KABAR ===== */
+  .kabar-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:18px}
+  @media(max-width:820px){.kabar-grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:520px){.kabar-grid{grid-template-columns:1fr}}
+  .artikel{background:var(--parchment);border:2px solid var(--ink);border-radius:5px;box-shadow:4px 4px 0 var(--ink);overflow:hidden;cursor:pointer}
+  .artikel .ac{height:120px;display:flex;align-items:flex-end;padding:12px}
+  .artikel.big .ac{height:200px}
+  .artikel .ab{padding:14px 16px}
+  .artikel .tag{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--grenadine);font-weight:700}
+  .artikel h4{font-family:'Fraunces';font-weight:900;color:var(--indigo);font-size:17px;margin-top:4px;line-height:1.15}
+  .artikel.big h4{font-size:24px}
+  .artikel p{font-size:12px;color:var(--ink-soft);margin-top:6px}
+
+  /* ===== JURU TUNJUK ===== */
+  .jt-stage{max-width:520px;margin:0 auto;text-align:center}
+  .jt-step{display:none}
+  .jt-step.on{display:block}
+  .jt-q{font-family:'Fraunces';font-weight:900;font-size:26px;color:var(--indigo);margin-bottom:6px}
+  .jt-sub{color:var(--ink-soft);font-size:14px;margin-bottom:22px}
+  .jt-chips{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}
+  .jt-chip{border:2px solid var(--ink);border-radius:6px;background:var(--parchment);box-shadow:3px 3px 0 var(--ink);padding:16px 22px;font-weight:700;cursor:pointer;font-size:15px;display:flex;flex-direction:column;align-items:center;gap:6px;min-width:110px}
+  .jt-chip:hover{background:var(--beeswax);transform:translate(1px,1px);box-shadow:2px 2px 0 var(--ink)}
+  .jt-chip .em{font-size:26px}
+  .jt-progress{display:flex;gap:6px;justify-content:center;margin-bottom:26px}
+  .jt-progress i{width:36px;height:6px;border-radius:3px;background:var(--parchment-2);border:1.5px solid var(--ink)}
+  .jt-progress i.on{background:var(--grenadine)}
+  .jt-waiter{width:70px;height:70px;margin:0 auto 14px;background:var(--beeswax);border:2px solid var(--ink);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:34px}
+
+  /* ===== KERANJANG / BAYAR ===== */
+  .cart-grid{display:grid;grid-template-columns:1.5fr 1fr;gap:24px;align-items:start}
+  @media(max-width:760px){.cart-grid{grid-template-columns:1fr}}
+  .cart-item{display:flex;gap:14px;align-items:center;border:2px solid var(--ink);border-radius:5px;background:var(--parchment);padding:12px;margin-bottom:12px}
+  .cart-item .ci-ph{width:60px;height:60px;background:var(--sage);border:2px solid var(--ink);border-radius:4px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--indigo)}
+  .cart-item .ci-b{flex:1}
+  .cart-item .ci-b .nm{font-weight:600;font-size:14px}
+  .cart-item .ci-b .sh{font-size:11px;color:var(--olive)}
+  .cart-item .ci-p{font-family:'Fraunces';font-weight:900;color:var(--grenadine)}
+  .summary{border:2px solid var(--ink);border-radius:6px;box-shadow:5px 5px 0 var(--ink);background:var(--parchment);padding:20px}
+  .summary h3{font-family:'Fraunces';font-weight:900;color:var(--indigo);font-size:19px;margin-bottom:14px}
+  .sum-row{display:flex;justify-content:space-between;font-size:14px;padding:6px 0}
+  .sum-row.total{border-top:2px solid var(--ink);margin-top:8px;padding-top:12px;font-family:'Fraunces';font-weight:900;font-size:20px;color:var(--indigo)}
+  .gate{border:2px solid var(--grenadine);border-radius:6px;background:#FBE3D5;padding:16px 18px;margin-bottom:16px;font-size:13px;color:var(--grenadine-d)}
+  .gate b{color:var(--grenadine)}
+
+  /* ===== FORMS / AUTH ===== */
+  .form-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:30px;align-items:start}
+  @media(max-width:820px){.form-grid{grid-template-columns:1fr}}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-weight:700;font-size:13px;margin-bottom:5px}
+  .field input,.field select{width:100%;border:2px solid var(--ink);border-radius:3px;padding:10px 12px;font-family:'Work Sans';font-size:14px;background:#fff}
+  .field input:focus,.field select:focus{outline:2px solid var(--beeswax)}
+  .benefit{display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-bottom:1.5px dashed rgba(58,36,23,.2)}
+  .benefit .bi{width:32px;height:32px;flex:none;background:var(--beeswax);border:2px solid var(--ink);border-radius:50%;display:flex;align-items:center;justify-content:center}
+  .benefit b{font-family:'Fraunces';color:var(--indigo)}
+  .auth-card{max-width:390px;margin:0 auto}
+  .auth-tabs{display:flex;border-bottom:2px solid var(--ink)}
+  .auth-tabs button{flex:1;padding:13px;background:var(--parchment-2);border:0;font-family:'Fraunces';font-weight:900;font-size:15px;cursor:pointer;color:var(--ink-soft)}
+  .auth-tabs button.on{background:var(--parchment);color:var(--indigo);box-shadow:inset 0 -3px 0 var(--grenadine)}
+
+  /* ===== PAKHUIS ===== */
+  .pundi{background:var(--grenadine);color:var(--parchment);border:2px solid var(--ink);border-radius:8px;box-shadow:5px 5px 0 var(--ink);padding:22px 24px;position:relative;overflow:hidden;margin-bottom:22px}
+  .pundi .cl{font-size:11px;letter-spacing:2px;text-transform:uppercase;opacity:.85;font-weight:700}
+  .pundi .cv{font-family:'Fraunces';font-weight:900;font-size:38px;line-height:1;margin-top:3px}
+  .pundi .cv small{font-size:15px;opacity:.8}
+  .pundi .rose{position:absolute;right:-8px;bottom:-8px;width:90px;height:90px;opacity:.16;color:var(--parchment)}
+  .pundi .isi{margin-top:14px;display:inline-block}
+  .level-card{border:2px solid var(--ink);border-radius:8px;background:var(--parchment);box-shadow:5px 5px 0 var(--ink);padding:20px 22px;margin-bottom:22px}
+  .level-now{display:flex;align-items:center;gap:12px;margin-bottom:6px}
+  .level-now .lv{font-family:'Fraunces';font-weight:900;font-size:24px;color:var(--indigo)}
+  .level-bar{height:12px;background:var(--parchment-2);border:2px solid var(--ink);border-radius:20px;overflow:hidden;margin:10px 0 6px}
+  .level-bar i{display:block;height:100%;background:var(--beeswax);width:58%}
+  .ladder{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+  .ladder .step{font-size:11px;font-weight:700;padding:4px 9px;border:1.5px solid var(--ink);border-radius:20px;background:var(--parchment-3);color:var(--ink-soft)}
+  .ladder .step.done{background:var(--sage);color:var(--ink)}
+  .ladder .step.now{background:var(--grenadine);color:var(--parchment)}
+  .voucher{display:flex;align-items:center;gap:14px;border:2px dashed var(--ink);border-radius:6px;padding:14px 16px;margin-bottom:10px;background:var(--parchment-3)}
+  .voucher .vc{width:44px;height:44px;flex:none;background:var(--beeswax);border:2px solid var(--ink);border-radius:6px;display:flex;align-items:center;justify-content:center}
+  .voucher .vt{flex:1}
+  .voucher .vt b{font-family:'Fraunces';color:var(--indigo);font-size:15px}
+  .voucher .vt div{font-size:12px;color:var(--ink-soft)}
+  .cap-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .cap{width:36px;height:36px;border-radius:50%;border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;font-size:15px}
+  .cap.filled{background:var(--beeswax)} .cap.empty{background:var(--parchment-2);opacity:.6}
+
+  /* ===== ADMIN ===== */
+  .admin-stat{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+  @media(max-width:720px){.admin-stat{grid-template-columns:1fr 1fr}}
+  .stat{padding:16px;border:2px solid var(--ink);border-radius:5px;background:var(--parchment);box-shadow:4px 4px 0 var(--ink)}
+  .stat .sl{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--olive);font-weight:700}
+  .stat .sv{font-family:'Fraunces';font-weight:900;font-size:26px;color:var(--indigo);margin-top:3px}
+  .stat .sv.rev{color:var(--green-ok)}
+  table.admin{width:100%;border-collapse:separate;border-spacing:0;border:2px solid var(--ink);border-radius:6px;overflow:hidden;background:var(--parchment);font-size:12px}
+  table.admin th{background:var(--indigo-d);color:var(--parchment);text-align:left;padding:10px 12px;font-family:'Fraunces';font-weight:600}
+  table.admin td{padding:9px 12px;border-top:1.5px solid rgba(58,36,23,.15)}
+  table.admin .secret{color:var(--red-bad);font-weight:700}
+  table.admin .live{color:var(--grenadine);font-weight:700}
+  .warn{background:#FBE3D5;border:2px solid var(--grenadine);border-radius:5px;padding:11px 15px;font-size:13px;margin-bottom:18px;color:var(--grenadine-d)}
+  .warn b{color:var(--grenadine)}
+
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute"><defs>
+  <g id="rose"><circle cx="24" cy="24" r="22" fill="none" stroke="currentColor" stroke-width="2"/><path d="M24 3 L28 24 L24 45 L20 24 Z" fill="currentColor"/><path d="M3 24 L24 20 L45 24 L24 28 Z" fill="currentColor" opacity=".55"/><path d="M9 9 L24 24 L39 39 M39 9 L24 24 L9 39" stroke="currentColor" stroke-width="1.4" opacity=".4" fill="none"/><circle cx="24" cy="24" r="3" fill="currentColor"/></g>
+  <g id="seal-mini"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 5l2 7-2 6-2-6z" fill="currentColor"/></g>
+</defs></svg>
+
+<!-- ===== JUMP NAVIGATOR (review) ===== -->
+<div class="jump">
+  <div class="jump-in">
+    <b>Mockup</b>
+    <button class="active" data-go="beranda">Beranda</button>
+    <button data-go="lelang">Balai Lelang</button>
+    <button data-go="tukar">Tukar Guling</button>
+    <button data-go="neraca">Neraca</button>
+    <button data-go="loji">Loji</button>
+    <button data-go="loji-detail">Detail Loji</button>
+    <button data-go="kabar">Kabar</button>
+    <button data-go="juru">Juru Tunjuk</button>
+    <button data-go="keranjang">Keranjang</button>
+    <button data-go="bayar">Bayar (gate)</button>
+    <button data-go="pakhuis">Pakhuis</button>
+    <button data-go="masuk">Masuk</button>
+    <button data-go="saudagar">Jadi Saudagar</button>
+    <button data-go="admin">Kantor Kongsi</button>
+  </div>
+</div>
+
+<!-- ===== TOP BAR ===== -->
+<div class="topbar">
+  <div class="topbar-in">
+    <div class="tb-logo" onclick="go('beranda')">
+      <svg class="rose" viewBox="0 0 48 48"><use href="#rose"/></svg>
+      <div><div class="bn">Kongsi Dagang</div><div class="bt">Jalur Rempah Nusantara</div></div>
+    </div>
+    <div class="tb-right">
+      <div class="icon-btn" onclick="go('keranjang')" title="Keranjang">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6h15l-1.5 9h-12z"/><circle cx="9" cy="20" r="1.4" fill="currentColor"/><circle cx="18" cy="20" r="1.4" fill="currentColor"/><path d="M6 6L4.5 3H2"/></svg>
+        <span class="dot">2</span>
+      </div>
+      <div class="icon-btn" title="Kabar Kongsi">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 9a6 6 0 10-12 0c0 6-2 8-2 8h16s-2-2-2-8z"/><path d="M10.5 20a2 2 0 003 0"/></svg>
+        <span class="dot">5</span>
+      </div>
+      <a class="btn-masuk" onclick="go('masuk')">Masuk Loji</a>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ BERANDA ============================ -->
+<div class="page active" id="page-beranda">
+  <header class="hero">
+    <div class="wrap">
+      <div class="eb">Anno 1602 — dihidupkan kembali</div>
+      <h1>Kongsi <span class="amp">&amp;</span> Dagang</h1>
+      <p class="sub">Balai lelang, neraca harga, dan loji para saudagar — satu jalur perdagangan tempat kamu menawar, menimbang, dan berbelanja dengan seru.</p>
+    </div>
+    <div class="wave"></div>
+  </header>
+
+  <!-- LELANG BERLANGSUNG -->
+  <section class="sec"><div class="wrap">
+    <div class="row-head"><h3>Lelang yang sedang berlangsung</h3><span class="more" onclick="go('lelang')">Masuk balai →</span></div>
+    <div class="live-toggle">
+      <button class="on" onclick="toggleLive(true)">Ada lelang</button>
+      <button onclick="toggleLive(false)">Belum ada (slot iklan)</button>
+    </div>
+    <div id="liveOn" class="live-auction">
+      <div class="la-media">
+        <span class="pill pill-live">◉ Lelang Reguler · terbuka</span>
+        <div class="cat">🏨 Hotel Bintang 4 di Jogjakarta</div>
+        <div class="nm">Nama loji: <b>A•••••••</b> · disamarkan sampai menang</div>
+      </div>
+      <div class="la-body">
+        <div class="tm">08:42 <small>mulai dalam</small></div>
+        <div class="pn">Harga normal <b>Rp 500.000</b></div>
+        <div class="counter" style="font-size:22px">7<small>dari 10 peserta</small></div>
+        <a class="btn btn-primary btn-block" onclick="go('lelang')">Ikut Lelang</a>
+      </div>
+    </div>
+    <div id="liveOff" class="ad-slot" style="display:none">
+      <div class="pill pill-gold">Slot Iklan / Video</div>
+      <h3 class="h-title" style="margin-top:10px">Belum ada lelang berjalan</h3>
+      <p style="margin-top:6px;font-size:14px">Saat balai kosong, ruang ini diisi iklan saudagar atau video promosi Pekan Raya.</p>
+    </div>
+    <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">◆ <b>Lelang Reguler</b> terbuka untuk siapa saja (daftar hanya saat mau menebus). <b>Vendu</b> (lelang khusus) hanya untuk yang sudah masuk loji.</p>
+  </div></section>
+
+  <!-- JURU TUNJUK TEASER -->
+  <section class="sec" style="padding-top:0"><div class="wrap">
+    <div class="jt-teaser">
+      <div class="jt-ic" style="font-size:28px">🧭</div>
+      <div style="flex:1">
+        <h3>Bingung cari apa? Panggil Juru Tunjuk.</h3>
+        <p>Pelayan Kongsi bakal nanya beberapa hal — mau makanan atau baju, pedas atau manis, kisaran harga — lalu menunjukkan barang yang pas.</p>
+      </div>
+      <a class="btn btn-primary" onclick="go('juru')">Panggil Juru Tunjuk</a>
+    </div>
+  </div></section>
+
+  <!-- ETALASE (highlight kurasi) -->
+  <section class="sec" style="padding-top:0"><div class="wrap">
+    <div class="row-head"><h3>Etalase — Pilihan Kurator</h3><span class="more">Lihat semua →</span></div>
+    <div class="hscroll">
+      <div class="prod"><div class="ph" style="background:var(--sage)"><span class="pill pill-gold rib">Kurasi</span><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Serum Vitamin C 20ml</div><div class="shop">Loji Sari Ayu</div><div class="pp">Rp 89.000<span class="po">120.000</span></div></div></div>
+      <div class="prod"><div class="ph" style="background:var(--beeswax)"><span class="pill pill-gold rib">Kurasi</span><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Kain Batik Tulis Sogan</div><div class="shop">Loji Kain Batik</div><div class="pp">Rp 245.000<span class="po">320.000</span></div></div></div>
+      <div class="prod"><div class="ph" style="background:var(--grenadine)"><span class="pill pill-gold rib">Kurasi</span><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Kopi Gayo 200g</div><div class="shop">Loji Kopi Rakyat</div><div class="pp">Rp 62.000<span class="po">80.000</span></div></div></div>
+      <div class="prod"><div class="ph" style="background:var(--olive)"><span class="pill pill-gold rib">Kurasi</span><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Parfum Melati Ratu</div><div class="shop">Loji Wangi Ratu</div><div class="pp">Rp 135.000<span class="po">175.000</span></div></div></div>
+      <div class="prod"><div class="ph" style="background:var(--indigo)"><span class="pill pill-gold rib">Kurasi</span><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Madu Hutan 500ml</div><div class="shop">Loji Rempah Timur</div><div class="pp">Rp 98.000<span class="po">130.000</span></div></div></div>
+    </div>
+  </div></section>
+
+  <!-- PILIHAN UNTUKMU (personal) -->
+  <section class="sec" style="padding-top:0"><div class="wrap">
+    <div class="row-head"><h3>Pilihan Untukmu</h3><span class="term" style="font-weight:700">berdasarkan minatmu</span></div>
+    <div class="pgrid c4">
+      <div class="prod"><div class="ph" style="background:var(--sage)"><svg width="28" height="28" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Toner Beras 100ml</div><div class="shop">Loji Glow Nusantara</div><div class="pp">Rp 65.000</div></div></div>
+      <div class="prod"><div class="ph" style="background:var(--beeswax)"><svg width="28" height="28" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Masker Kunyit 5pcs</div><div class="shop">Loji Sari Ayu</div><div class="pp">Rp 45.000</div></div></div>
+      <div class="prod"><div class="ph" style="background:var(--grenadine)"><svg width="28" height="28" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Lulur Bali 250g</div><div class="shop">Loji Cantika</div><div class="pp">Rp 52.000</div></div></div>
+      <div class="prod"><div class="ph" style="background:var(--olive)"><svg width="28" height="28" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Face Mist Mawar</div><div class="shop">Loji Wangi Ratu</div><div class="pp">Rp 55.000</div></div></div>
+    </div>
+  </div></section>
+</div>
+
+<!-- ============================ BALAI LELANG ============================ -->
+<div class="page" id="page-lelang"><section class="sec"><div class="wrap">
+  <div style="text-align:center"><div class="kicker">Balai Lelang</div><h2 class="h-title" style="font-size:32px;margin-top:4px">Tebak harga, menangi barang</h2>
+  <div style="margin-top:8px"><span class="pill pill-live">◉ Lelang Reguler · terbuka</span> <span class="pill pill-indigo">Vendu = khusus login</span></div></div>
+  <div class="phase-switch">
+    <button data-ph="1" class="on">1 · Kumpul</button><button data-ph="2">2 · Tebak</button><button data-ph="3">2.5 · Jeda</button><button data-ph="4">3 · Final</button><button data-ph="5">4 · Pemenang</button><button data-ph="6">5 · Bayar</button><button data-ph="7">6 · Selesai</button>
+  </div>
+
+  <div class="stage ph-view" data-view="1"><div class="card clue-box">
+    <span class="pill pill-live">◉ Menunggu peserta</span>
+    <div class="clue-cat" style="margin-top:10px">🏨 Hotel Bintang 4 di Jogjakarta</div>
+    <div class="clue-name">Nama loji: <b>A•••••••</b></div>
+    <div class="facilities"><div class="ft">Yang kamu dapat</div><ul><li>Kamar Deluxe (2 dewasa)</li><li>Sarapan untuk 2 orang</li><li>Late check-out 14:00</li><li>Free minibar</li></ul></div>
+    <div class="price-normal">Harga normal: <b>Rp 500.000</b> / malam</div>
+    <div class="counter" style="margin-top:12px">7 <small>dari 10 peserta — butuh 3 lagi</small></div>
+    <div class="progress"><i></i></div>
+    <div class="timer" style="font-size:28px">08:42 <small>mulai dalam</small></div>
+    <a class="btn btn-primary btn-block" style="margin-top:14px">Ikut Lelang</a>
+    <p style="font-size:11px;color:var(--ink-soft);margin-top:8px">Belum masuk loji? Tak apa — daftar kilat muncul saat kamu klik ikut.</p>
+  </div></div>
+
+  <div class="stage ph-view" data-view="2" style="display:none"><div class="card clue-box">
+    <div class="timer">00:34 <small>tebak babak 1</small></div>
+    <div class="price-normal" style="margin-top:8px">Harga normal <b>Rp 500.000</b> — tebak harga yang kami set!</div>
+    <div class="guess-input"><div class="rp"><span>Rp</span><input value="467.000" inputmode="numeric"></div></div>
+    <a class="btn btn-gold btn-block">Ubah Tebakan</a>
+    <div style="text-align:left;margin-top:12px">
+      <div class="prow done"><span>✓ Tara D.</span><span class="st">4•••••0</span></div>
+      <div class="prow done"><span>✓ Rina A.</span><span class="st">3•••••0</span></div>
+      <div class="prow done"><span>✓ Dewi S.</span><span class="st">4•••••0</span></div>
+      <div class="prow"><span>○ Ahmad R.</span><span class="no">belum submit</span></div>
+    </div>
+  </div></div>
+
+  <div class="stage ph-view" data-view="3" style="display:none"><div class="card clue-box">
+    <span class="pill pill-gold">🏆 Top 3 · Masuk Final</span>
+    <div style="margin-top:16px;text-align:left">
+      <div class="finalist"><span class="rank">1</span><span class="nm">Tara D.</span><span class="term">disamarkan</span></div>
+      <div class="finalist"><span class="rank">2</span><span class="nm">Rina A.</span><span class="term">disamarkan</span></div>
+      <div class="finalist"><span class="rank">3</span><span class="nm">Dewi S.</span><span class="term">disamarkan</span></div>
+    </div>
+    <div class="timer" style="margin-top:14px">00:22 <small>babak final dimulai</small></div>
+  </div></div>
+
+  <div class="stage ph-view" data-view="4" style="display:none"><div class="card clue-box">
+    <span class="pill pill-live">🏆 Babak Final · 3 peserta</span>
+    <div class="timer" style="margin-top:10px">00:45 <small>tebak final — rahasia penuh</small></div>
+    <div class="guess-input"><div class="rp"><span>Rp</span><input placeholder="_______" inputmode="numeric"></div></div>
+    <a class="btn btn-primary btn-block">Kunci Tebakan</a>
+    <div style="text-align:left;margin-top:12px">
+      <div class="prow done"><span>✓ Tara D.</span><span class="no">sudah submit</span></div>
+      <div class="prow"><span>○ Rina A.</span><span class="no">belum submit</span></div>
+      <div class="prow done"><span>✓ Dewi S.</span><span class="no">sudah submit</span></div>
+    </div>
+  </div></div>
+
+  <div class="stage ph-view" data-view="5" style="display:none"><div class="card clue-box">
+    <span class="pill pill-gold">🎉 Pemenang!</span>
+    <div class="h-title" style="font-size:28px;color:var(--grenadine);margin-top:8px">Tara D.</div>
+    <div class="reveal-num">
+      <div><div class="lb">Tebakan</div><div class="vl">Rp 469.000</div></div>
+      <div><div class="lb">Harga asli</div><div class="vl hit">Rp 470.000</div></div>
+      <div><div class="lb">Selisih</div><div class="vl">Rp 1.000</div></div>
+    </div>
+    <div class="price-normal">Nama loji masih disamarkan: <b style="text-decoration:none;font-size:15px">A•••••••</b></div>
+    <a class="btn btn-primary btn-block" style="margin-top:14px" onclick="go('bayar')">Bayar Sekarang — Rp 470.000</a>
+    <div class="term" style="margin-top:8px">Bayar dalam 30:00 menit</div>
+  </div></div>
+
+  <div class="stage ph-view" data-view="6" style="display:none"><div class="card clue-box">
+    <span class="pill pill-live">◉ Menunggu pembayaran</span>
+    <div class="timer" style="margin-top:10px">29:12 <small>batas bayar</small></div>
+    <div class="reveal-num" style="justify-content:center"><div><div class="lb">Total tebus</div><div class="vl">Rp 470.000</div></div></div>
+    <a class="btn btn-primary btn-block" onclick="go('bayar')">Lanjut ke DOKU</a>
+    <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">Peserta lain melihat: <em>“Menunggu pemenang menyelesaikan pembayaran…”</em></p>
+  </div></div>
+
+  <div class="stage ph-view" data-view="7" style="display:none"><div class="card clue-box">
+    <span class="pill pill-sage">✅ Pembayaran berhasil</span>
+    <div class="h-title" style="font-size:24px;margin-top:8px">🏨 Hotel Artotel Yogyakarta</div>
+    <p style="color:var(--ink-soft);margin-top:5px">Kamar Deluxe — 1 malam · Free breakfast</p>
+    <div class="voucher" style="margin-top:16px;text-align:left"><div class="vc"><svg width="22" height="22" viewBox="0 0 24 24"><use href="#seal-mini"/></svg></div><div class="vt"><b>Surat Jalan terbit</b><div>Voucher dikirim ke email dalam 15 menit</div></div></div>
+    <a class="btn btn-gold btn-block" onclick="go('pakhuis')">Lihat di Pakhuis-ku</a>
+    <div class="term" style="margin-top:10px">Item berikutnya mulai otomatis…</div>
+  </div></div>
+</div></section></div>
+
+<!-- ============================ TUKAR GULING ============================ -->
+<div class="page" id="page-tukar"><section class="sec"><div class="wrap">
+  <div style="text-align:center;margin-bottom:22px"><div class="kicker">Tukar Guling</div><h2 class="h-title" style="font-size:32px;margin-top:4px">Barter antar sesama</h2></div>
+  <div class="tukar-intro">
+    <div class="ti-ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--indigo)" stroke-width="2"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg></div>
+    <div style="flex:1"><h3>Punya barang nganggur? Tukar, bukan jual.</h3><p>Unggah barangmu + taksiran nilainya. Kalau ada yang cocok, kalian sepakati tukar. Boleh <b>tambah keping</b> biar nilainya seimbang. Versi awal: ketemuan / COD, saling kasih penilaian. Sengketa diadili <b>Syahbandar</b>.</p></div>
+    <a class="btn btn-primary" onclick="go('masuk')">Tawarkan Barangmu</a>
+  </div>
+
+  <div class="row-head"><h3>Barang yang ditawarkan</h3><span class="term" style="font-weight:700">18 tawaran aktif</span></div>
+  <div class="barter-grid">
+    <div class="barter"><div class="bp"><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="bb"><div class="bn2">Sepatu Lari (jarang dipakai)</div><div class="own">oleh Rani · Sleman</div><div class="val">≈ Rp 250.000</div><div class="want">Mau ditukar: <b>tas ransel / jam tangan</b></div></div></div>
+    <div class="barter"><div class="bp" style="background:var(--beeswax)"><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="bb"><div class="bn2">Buku Novel (10 judul)</div><div class="own">oleh Dimas · Jogja</div><div class="val">≈ Rp 180.000</div><div class="want">Mau ditukar: <b>skincare / parfum</b></div></div></div>
+    <div class="barter"><div class="bp" style="background:var(--grenadine)"><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="bb"><div class="bn2">Kamera Analog Jadul</div><div class="own">oleh Sasa · Bantul</div><div class="val">≈ Rp 400.000</div><div class="want">Mau ditukar: <b>headphone + tambahan keping</b></div></div></div>
+    <div class="barter"><div class="bp" style="background:var(--olive)"><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="bb"><div class="bn2">Tanaman Monstera</div><div class="own">oleh Bagus · Sleman</div><div class="val">≈ Rp 120.000</div><div class="want">Mau ditukar: <b>pot keramik / bibit</b></div></div></div>
+    <div class="barter"><div class="bp" style="background:var(--indigo)"><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="bb"><div class="bn2">Jam Tangan Kulit</div><div class="own">oleh Tia · Jogja</div><div class="val">≈ Rp 300.000</div><div class="want">Mau ditukar: <b>sepatu / tas</b></div></div></div>
+    <div class="barter"><div class="bp" style="background:var(--sage)"><svg width="30" height="30" viewBox="0 0 48 48" style="color:var(--indigo)"><use href="#rose"/></svg></div><div class="bb"><div class="bn2">Gitar Akustik</div><div class="own">oleh Fajar · Kulon Progo</div><div class="val">≈ Rp 550.000</div><div class="want">Mau ditukar: <b>keyboard / mixer</b></div></div></div>
+  </div>
+
+  <div class="row-head" style="margin-top:26px"><h3>Contoh kesepakatan tukar</h3></div>
+  <div class="deal">
+    <div class="side"><div class="sq"><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div style="font-weight:700;font-size:14px">Sepatu Lari</div><div class="term">Rani · ≈250rb</div></div>
+    <div><div class="swap">⇄</div><div class="plus">+ Rp 50.000 keping</div></div>
+    <div class="side"><div class="sq" style="background:var(--beeswax)"><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div style="font-weight:700;font-size:14px">Jam Tangan Kulit</div><div class="term">Tia · ≈300rb</div></div>
+  </div>
+  <p style="text-align:center;margin-top:14px"><a class="btn btn-gold">Setuju &amp; Lanjut Tukar</a></p>
+</div></section></div>
+
+<!-- ============================ NERACA ============================ -->
+<div class="page" id="page-neraca"><section class="sec"><div class="wrap">
+  <div style="text-align:center;margin-bottom:20px"><div class="kicker">Neraca Harga · Dacin Kongsi</div><h2 class="h-title" style="font-size:32px;margin-top:4px">Timbang 10 barang terbaik</h2></div>
+  <div class="neraca-head">
+    <div class="q"><input value="Serum Vitamin C 20ml"><button>Timbang</button></div>
+    <div style="font-size:13px;color:var(--ink-soft)">Ditimbang dari <b style="color:var(--grenadine)">18 lapak</b> · diperbarui 2 jam lalu</div>
+  </div>
+  <table class="neraca">
+    <thead><tr><th style="width:40px">#</th><th>Loji / Sumber</th><th class="hide-sm">Nilai</th><th>Harga</th><th class="hide-sm">Hemat</th><th></th></tr></thead>
+    <tbody>
+      <tr><td class="rk top">1</td><td>Loji Sari Ayu <span class="badge-segel"><svg viewBox="0 0 24 24"><use href="#seal-mini"/></svg>Segel</span></td><td class="hide-sm"><span class="star">★★★★★</span> 4.9</td><td class="prc best">Rp 89.000</td><td class="hide-sm save">termurah</td><td><a class="pill pill-gold">Tebus</a></td></tr>
+      <tr><td class="rk">2</td><td>Loji Glow Nusantara <span class="badge-segel"><svg viewBox="0 0 24 24"><use href="#seal-mini"/></svg>Segel</span></td><td class="hide-sm"><span class="star">★★★★★</span> 4.8</td><td class="prc">Rp 92.500</td><td class="hide-sm save">+3.500</td><td><a class="pill pill-sage">Tebus</a></td></tr>
+      <tr><td class="rk">3</td><td>Loji Cantika</td><td class="hide-sm"><span class="star">★★★★☆</span> 4.6</td><td class="prc">Rp 95.000</td><td class="hide-sm save">+6.000</td><td><a class="pill pill-sage">Tebus</a></td></tr>
+      <tr><td class="rk">4</td><td>Loji Rupawan</td><td class="hide-sm"><span class="star">★★★★☆</span> 4.5</td><td class="prc">Rp 98.000</td><td class="hide-sm save">+9.000</td><td><a class="pill pill-sage">Tebus</a></td></tr>
+      <tr><td class="rk">5</td><td>Loji Ayu Lestari</td><td class="hide-sm"><span class="star">★★★★☆</span> 4.4</td><td class="prc">Rp 99.900</td><td class="hide-sm save">+10.900</td><td><a class="pill pill-sage">Tebus</a></td></tr>
+      <tr><td class="rk">6</td><td>Loji Damai Beauty</td><td class="hide-sm"><span class="star">★★★★☆</span> 4.4</td><td class="prc">Rp 102.000</td><td class="hide-sm save">+13.000</td><td><a class="pill pill-sage">Tebus</a></td></tr>
+      <tr><td class="rk">7</td><td>Loji Kirana</td><td class="hide-sm"><span class="star">★★★★☆</span> 4.3</td><td class="prc">Rp 105.000</td><td class="hide-sm save">+16.000</td><td><a class="pill pill-sage">Tebus</a></td></tr>
+      <tr><td class="rk">8</td><td>Loji Melati</td><td class="hide-sm"><span class="star">★★★☆☆</span> 4.1</td><td class="prc">Rp 108.500</td><td class="hide-sm save">+19.500</td><td><a class="pill pill-sage">Tebus</a></td></tr>
+      <tr><td class="rk">9</td><td>Loji Pesona</td><td class="hide-sm"><span class="star">★★★☆☆</span> 4.0</td><td class="prc">Rp 110.000</td><td class="hide-sm save">+21.000</td><td><a class="pill pill-sage">Tebus</a></td></tr>
+      <tr><td class="rk">10</td><td>Loji Anggun</td><td class="hide-sm"><span class="star">★★★☆☆</span> 3.9</td><td class="prc">Rp 114.000</td><td class="hide-sm save">+25.000</td><td><a class="pill pill-sage">Tebus</a></td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:12px;color:var(--ink-soft);margin-top:12px">◆ Harga dari lapak mitra &amp; feed resmi. Loji <b>bersegel</b> memberi harga langsung — paling tepercaya (bertera).</p>
+</div></section></div>
+
+<!-- ============================ LOJI ============================ -->
+<div class="page" id="page-loji"><section class="sec"><div class="wrap">
+  <div style="text-align:center;margin-bottom:22px"><div class="kicker">Loji Saudagar</div><h2 class="h-title" style="font-size:32px;margin-top:4px">Lorong para saudagar</h2></div>
+  <div class="loji-grid">
+    <div class="loji" onclick="go('loji-detail')"><div class="banner" style="background:var(--grenadine)"><svg class="sig" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="body"><h4>Loji Sari Ayu <span class="badge-segel"><svg viewBox="0 0 24 24"><use href="#seal-mini"/></svg>Segel</span></h4><div class="cat">Kecantikan &amp; Rempah</div><div class="meta"><span class="star">★★★★★ 4.9</span><span class="pill pill-gold">Obral Kilat</span></div></div></div>
+    <div class="loji" onclick="go('loji-detail')"><div class="banner" style="background:var(--indigo)"><svg class="sig" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="body"><h4>Loji Glow Nusantara <span class="badge-segel"><svg viewBox="0 0 24 24"><use href="#seal-mini"/></svg>Segel</span></h4><div class="cat">Skincare</div><div class="meta"><span class="star">★★★★★ 4.8</span><span class="pill pill-sage">Buka</span></div></div></div>
+    <div class="loji" onclick="go('loji-detail')"><div class="banner" style="background:var(--olive)"><svg class="sig" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="body"><h4>Loji Rempah Timur</h4><div class="cat">Bumbu &amp; Herbal</div><div class="meta"><span class="star">★★★★☆ 4.6</span><span class="pill pill-sage">Buka</span></div></div></div>
+    <div class="loji" onclick="go('loji-detail')"><div class="banner" style="background:var(--beeswax-d)"><svg class="sig" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="body"><h4>Loji Kain Batik <span class="badge-segel"><svg viewBox="0 0 24 24"><use href="#seal-mini"/></svg>Segel</span></h4><div class="cat">Wastra &amp; Busana</div><div class="meta"><span class="star">★★★★★ 4.9</span><span class="pill pill-gold">Obral Kilat</span></div></div></div>
+    <div class="loji" onclick="go('loji-detail')"><div class="banner" style="background:var(--sage)"><svg class="sig" viewBox="0 0 48 48" style="color:var(--indigo)"><use href="#rose"/></svg></div><div class="body"><h4>Loji Kopi Rakyat</h4><div class="cat">Kuliner &amp; Minuman</div><div class="meta"><span class="star">★★★★☆ 4.5</span><span class="pill pill-sage">Buka</span></div></div></div>
+    <div class="loji" onclick="go('loji-detail')"><div class="banner" style="background:var(--grenadine-d)"><svg class="sig" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="body"><h4>Loji Wangi Ratu <span class="badge-segel"><svg viewBox="0 0 24 24"><use href="#seal-mini"/></svg>Segel</span></h4><div class="cat">Parfum &amp; Aroma</div><div class="meta"><span class="star">★★★★☆ 4.7</span><span class="pill pill-sage">Buka</span></div></div></div>
+  </div>
+</div></section></div>
+
+<!-- ============================ DETAIL LOJI ============================ -->
+<div class="page" id="page-loji-detail"><section class="sec"><div class="wrap">
+  <div class="loji-hero">
+    <div class="cover" style="background:linear-gradient(120deg,var(--grenadine),var(--beeswax-d))"></div>
+    <div class="info">
+      <div class="avatar"><svg width="36" height="36" viewBox="0 0 48 48"><use href="#rose"/></svg></div>
+      <div style="flex:1"><h2>Loji Sari Ayu <span class="badge-segel"><svg viewBox="0 0 24 24"><use href="#seal-mini"/></svg>Saudagar Bersegel</span></h2>
+      <div style="color:var(--ink-soft);font-size:13px">Kecantikan &amp; Rempah · Yogyakarta · <span class="star">★★★★★ 4.9</span> (1.284 tebusan)</div></div>
+      <a class="btn btn-gold">Ikuti Loji</a>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <h3 class="h-title" style="font-size:22px">Barang di lapak</h3><span class="pill pill-live">🔥 Obral Kilat 03:14:22</span>
+  </div>
+  <div class="pgrid c4">
+    <div class="prod"><div class="ph" style="background:var(--sage)"><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Serum Vitamin C 20ml</div><div class="pp">Rp 89.000<span class="po">120.000</span></div></div></div>
+    <div class="prod"><div class="ph" style="background:var(--beeswax)"><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Toner Beras 100ml</div><div class="pp">Rp 65.000<span class="po">85.000</span></div></div></div>
+    <div class="prod"><div class="ph" style="background:var(--grenadine)"><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Masker Kunyit 5pcs</div><div class="pp">Rp 45.000<span class="po">60.000</span></div></div></div>
+    <div class="prod"><div class="ph" style="background:var(--olive)"><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Sabun Rempah 3pcs</div><div class="pp">Rp 38.000<span class="po">55.000</span></div></div></div>
+    <div class="prod"><div class="ph" style="background:var(--indigo)"><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Lulur Bali 250g</div><div class="pp">Rp 52.000<span class="po">70.000</span></div></div></div>
+    <div class="prod"><div class="ph" style="background:var(--sage)"><svg width="30" height="30" viewBox="0 0 48 48" style="color:var(--indigo)"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Minyak Zaitun 60ml</div><div class="pp">Rp 48.000<span class="po">65.000</span></div></div></div>
+    <div class="prod"><div class="ph" style="background:var(--beeswax-d)"><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Body Butter Kelapa</div><div class="pp">Rp 72.000<span class="po">95.000</span></div></div></div>
+    <div class="prod"><div class="ph" style="background:var(--grenadine-d)"><svg width="30" height="30" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Face Mist Mawar</div><div class="pp">Rp 55.000<span class="po">75.000</span></div></div></div>
+  </div>
+</div></section></div>
+
+<!-- ============================ KABAR ============================ -->
+<div class="page" id="page-kabar"><section class="sec"><div class="wrap">
+  <div style="text-align:center;margin-bottom:22px"><div class="kicker">Kabar Kongsi</div><h2 class="h-title" style="font-size:32px;margin-top:4px">Cerita dari jalur dagang</h2></div>
+  <div class="kabar-grid">
+    <div class="artikel big" style="grid-row:span 2"><div class="ac" style="background:linear-gradient(135deg,var(--indigo),var(--grenadine))"><span class="pill pill-gold">Panduan</span></div><div class="ab"><div class="tag">Tips Belanja</div><h4>Cara menang lelang tanpa buang-buang tebakan</h4><p>Trik membaca harga normal, memahami selisih, dan kapan waktu paling pas menekan tombol submit di Balai Lelang.</p></div></div>
+    <div class="artikel"><div class="ac" style="background:var(--beeswax)"></div><div class="ab"><div class="tag">Cerita Saudagar</div><h4>Loji Kopi Rakyat: dari gerobak jadi bersegel</h4><p>Perjalanan satu saudagar kecil naik kelas.</p></div></div>
+    <div class="artikel"><div class="ac" style="background:var(--sage)"></div><div class="ab"><div class="tag">Rempah</div><h4>5 rempah Nusantara yang dulu lebih mahal dari emas</h4><p>Pala, cengkih, dan kawan-kawan.</p></div></div>
+    <div class="artikel"><div class="ac" style="background:var(--grenadine)"></div><div class="ab"><div class="tag">Tukar Guling</div><h4>Etika barter: biar tukar-menukar tetap adil</h4><p>Panduan menaksir nilai &amp; menghindari sengketa.</p></div></div>
+    <div class="artikel"><div class="ac" style="background:var(--olive)"></div><div class="ab"><div class="tag">Pekan Raya</div><h4>Jadwal obral akbar bulan ini</h4><p>Loji mana yang ikut &amp; kapan mulai.</p></div></div>
+  </div>
+</div></section></div>
+
+<!-- ============================ JURU TUNJUK ============================ -->
+<div class="page" id="page-juru"><section class="sec"><div class="wrap"><div class="jt-stage">
+  <div class="jt-waiter">🧭</div>
+  <div class="jt-progress"><i class="on" id="jp1"></i><i id="jp2"></i><i id="jp3"></i></div>
+
+  <div class="jt-step on" data-step="1">
+    <div class="jt-q">Mau cari apa hari ini?</div>
+    <div class="jt-sub">Juru Tunjuk siap mengantar ke lorong yang tepat.</div>
+    <div class="jt-chips">
+      <div class="jt-chip" onclick="jtNext(2)"><span class="em">🍜</span>Makanan</div>
+      <div class="jt-chip" onclick="jtNext(2)"><span class="em">👗</span>Baju</div>
+      <div class="jt-chip" onclick="jtNext(2)"><span class="em">🧴</span>Kecantikan</div>
+      <div class="jt-chip" onclick="jtNext(2)"><span class="em">🏺</span>Perabot</div>
+    </div>
+  </div>
+
+  <div class="jt-step" data-step="2">
+    <div class="jt-q">Selera yang mana?</div>
+    <div class="jt-sub">Biar hasilnya pas di lidah.</div>
+    <div class="jt-chips">
+      <div class="jt-chip" onclick="jtNext(3)"><span class="em">🌶️</span>Pedas</div>
+      <div class="jt-chip" onclick="jtNext(3)"><span class="em">🍯</span>Manis</div>
+      <div class="jt-chip" onclick="jtNext(3)"><span class="em">🧂</span>Gurih</div>
+    </div>
+  </div>
+
+  <div class="jt-step" data-step="3">
+    <div class="jt-q">Kisaran harga?</div>
+    <div class="jt-sub">Sesuaikan dengan isi pundi.</div>
+    <div class="jt-chips">
+      <div class="jt-chip" onclick="jtNext(4)">&lt; Rp 25rb</div>
+      <div class="jt-chip" onclick="jtNext(4)">Rp 25–75rb</div>
+      <div class="jt-chip" onclick="jtNext(4)">&gt; Rp 75rb</div>
+    </div>
+  </div>
+
+  <div class="jt-step" data-step="4">
+    <div class="jt-waiter" style="margin-top:-84px">✨</div>
+    <div class="jt-q">Ini temuan Juru Tunjuk</div>
+    <div class="jt-sub">Makanan · pedas · Rp 25–75rb</div>
+    <div class="pgrid c3" style="margin-top:16px;text-align:left">
+      <div class="prod"><div class="ph" style="background:var(--grenadine)"><svg width="26" height="26" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Sambal Roa Botolan</div><div class="shop">Loji Rempah Timur</div><div class="pp">Rp 45.000</div></div></div>
+      <div class="prod"><div class="ph" style="background:var(--beeswax-d)"><svg width="26" height="26" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Keripik Balado Pedas</div><div class="shop">Loji Damai</div><div class="pp">Rp 32.000</div></div></div>
+      <div class="prod"><div class="ph" style="background:var(--olive)"><svg width="26" height="26" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="pb"><div class="pn">Mie Cabe Level 5</div><div class="shop">Loji Kuliner</div><div class="pp">Rp 28.000</div></div></div>
+    </div>
+    <a class="btn btn-gold" style="margin-top:18px" onclick="jtReset()">Tanya Lagi</a>
+  </div>
+</div></div></section></div>
+
+<!-- ============================ KERANJANG ============================ -->
+<div class="page" id="page-keranjang"><section class="sec"><div class="wrap">
+  <div style="text-align:center;margin-bottom:22px"><div class="kicker">Keranjang</div><h2 class="h-title" style="font-size:32px;margin-top:4px">Barang bawaanmu</h2></div>
+  <div class="cart-grid">
+    <div>
+      <div class="cart-item"><div class="ci-ph"><svg width="26" height="26" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="ci-b"><div class="nm">Serum Vitamin C 20ml</div><div class="sh">Loji Sari Ayu · Bersegel</div></div><div class="ci-p">Rp 89.000</div></div>
+      <div class="cart-item"><div class="ci-ph" style="background:var(--beeswax)"><svg width="26" height="26" viewBox="0 0 48 48"><use href="#rose"/></svg></div><div class="ci-b"><div class="nm">Kopi Gayo 200g</div><div class="sh">Loji Kopi Rakyat</div></div><div class="ci-p">Rp 62.000</div></div>
+      <p style="font-size:13px;color:var(--ink-soft);margin-top:6px">◆ Tamu boleh menaruh barang di keranjang tanpa masuk loji. Daftar hanya diminta saat menebus.</p>
+    </div>
+    <div class="summary">
+      <h3>Ringkasan</h3>
+      <div class="sum-row"><span>Subtotal (2 barang)</span><span>Rp 151.000</span></div>
+      <div class="sum-row"><span>Bea layanan</span><span>Rp 2.000</span></div>
+      <div class="sum-row"><span>Ongkir (Sleman)</span><span>Rp 9.000</span></div>
+      <div class="sum-row total"><span>Total</span><span>Rp 162.000</span></div>
+      <a class="btn btn-primary btn-block" style="margin-top:14px" onclick="go('bayar')">Lanjut Menebus</a>
+      <p style="font-size:11px;color:var(--ink-soft);margin-top:8px;text-align:center">Dibayar dengan Keping (isi Pundi) atau langsung via DOKU.</p>
+    </div>
+  </div>
+</div></section></div>
+
+<!-- ============================ BAYAR (gate daftar) ============================ -->
+<div class="page" id="page-bayar"><section class="sec"><div class="wrap">
+  <div style="text-align:center;margin-bottom:22px"><div class="kicker">Gerbang Tebus</div><h2 class="h-title" style="font-size:30px;margin-top:4px">Satu langkah lagi</h2></div>
+  <div class="cart-grid">
+    <div class="card auth-card" style="max-width:none;box-shadow:5px 5px 0 var(--ink)">
+      <div class="gate">🔑 <b>Daftar dulu untuk menebus.</b> Keliling &amp; isi keranjang bebas — akun cuma dibutuhkan saat bayar, biar barang &amp; Surat Jalan-mu tersimpan aman.</div>
+      <div class="auth-tabs"><button class="on" id="b-daftar" onclick="bayarTab('daftar')">Daftar Kilat</button><button id="b-masuk" onclick="bayarTab('masuk')">Sudah punya akun</button></div>
+      <div style="padding:22px">
+        <div class="field" id="b-namafield"><label>Nama panggilan</label><input placeholder="cth. Tara D."></div>
+        <div class="field"><label>Surel / No. HP</label><input placeholder="nama@surel.com atau 08xx"></div>
+        <div class="field"><label>Kata sandi</label><input type="password" placeholder="••••••••"></div>
+        <a class="btn btn-primary btn-block">Daftar &amp; Lanjut Bayar</a>
+        <p style="font-size:11px;color:var(--ink-soft);margin-top:10px;text-align:center">Dengan daftar, kamu jadi <b>Pelanggan Kecil</b> — level naik seiring transaksi.</p>
+      </div>
+    </div>
+    <div class="summary">
+      <h3>Yang ditebus</h3>
+      <div class="sum-row"><span>Serum Vitamin C</span><span>Rp 89.000</span></div>
+      <div class="sum-row"><span>Kopi Gayo 200g</span><span>Rp 62.000</span></div>
+      <div class="sum-row"><span>Bea + ongkir</span><span>Rp 11.000</span></div>
+      <div class="sum-row total"><span>Total</span><span>Rp 162.000</span></div>
+      <div style="margin-top:12px" class="term">Metode: Pundi (Keping) / DOKU</div>
+    </div>
+  </div>
+</div></section></div>
+
+<!-- ============================ PAKHUIS ============================ -->
+<div class="page" id="page-pakhuis"><section class="sec"><div class="wrap">
+  <div style="margin-bottom:20px"><div class="kicker">Pakhuis-ku</div><h2 class="h-title" style="font-size:32px;margin-top:2px">Halo, Tara D.</h2></div>
+
+  <div class="pundi">
+    <div class="cl">Pundi · Keping</div>
+    <div class="cv">1.250.000 <small>keping (= Rp 1.250.000)</small></div>
+    <a class="btn btn-gold isi">Isi Pundi</a>
+    <svg class="rose" viewBox="0 0 48 48"><use href="#rose"/></svg>
+  </div>
+
+  <div class="level-card">
+    <div class="level-now"><span class="pill pill-live">Level</span><span class="lv">Tuan Kecil</span></div>
+    <div style="font-size:13px;color:var(--ink-soft)">Rp 1,2 jt lagi menuju <b>Tuan Besar</b> — buka akses Vendu tanpa antre &amp; potongan bea.</div>
+    <div class="level-bar"><i></i></div>
+    <div class="ladder">
+      <span class="step done">Pelanggan Kecil</span>
+      <span class="step done">Pelanggan Besar</span>
+      <span class="step now">Tuan Kecil</span>
+      <span class="step">Tuan Besar</span>
+      <span class="step">Juragan</span>
+    </div>
+    <div style="margin-top:14px"><span class="term">Cap terkumpul (10 = 1 potongan)</span>
+      <div class="cap-row">
+        <span class="cap filled">✓</span><span class="cap filled">✓</span><span class="cap filled">✓</span><span class="cap filled">✓</span><span class="cap filled">✓</span><span class="cap filled">✓</span><span class="cap filled">✓</span><span class="cap empty">·</span><span class="cap empty">·</span><span class="cap empty">·</span>
+      </div>
+    </div>
+  </div>
+
+  <h3 class="h-title" style="font-size:20px;margin-bottom:12px">Surat Jalan (voucher)</h3>
+  <div class="voucher"><div class="vc"><svg width="24" height="24" viewBox="0 0 24 24"><use href="#seal-mini"/></svg></div><div class="vt"><b>Hotel Artotel — Deluxe 1 malam</b><div>Menang lelang · berlaku s/d 30 Sep 2026</div></div><a class="pill pill-gold">Tebus</a></div>
+  <div class="voucher"><div class="vc"><svg width="24" height="24" viewBox="0 0 24 24"><use href="#seal-mini"/></svg></div><div class="vt"><b>Serum Vitamin C — Loji Sari Ayu</b><div>Tebus neraca · berlaku s/d 12 Agu 2026</div></div><a class="pill pill-gold">Tebus</a></div>
+
+  <h3 class="h-title" style="font-size:20px;margin:24px 0 12px">Riwayat lelang</h3>
+  <table class="neraca"><thead><tr><th>Barang</th><th class="hide-sm">Tebakan</th><th>Hasil</th></tr></thead><tbody>
+    <tr><td>Hotel Artotel Yogyakarta</td><td class="hide-sm">Rp 469.000</td><td><span class="pill pill-gold">Menang</span></td></tr>
+    <tr><td>Voucher Spa Amanjiwo</td><td class="hide-sm">Rp 285.000</td><td><span class="pill pill-sage">Top 3</span></td></tr>
+    <tr><td>Dinner Kaum Jakarta</td><td class="hide-sm">Rp 340.000</td><td><span class="term">Belum beruntung</span></td></tr>
+  </tbody></table>
+</div></section></div>
+
+<!-- ============================ MASUK ============================ -->
+<div class="page" id="page-masuk"><section class="sec"><div class="wrap">
+  <div style="text-align:center;margin-bottom:20px"><div class="kicker">Gerbang Kongsi</div><h2 class="h-title" style="font-size:30px;margin-top:4px">Masuk ke lojimu</h2></div>
+  <div class="card auth-card">
+    <div class="auth-tabs"><button class="on" id="tab-masuk" onclick="authTab('masuk')">Masuk</button><button id="tab-daftar" onclick="authTab('daftar')">Daftar</button></div>
+    <div style="padding:24px">
+      <div class="field"><label>Surel / No. HP</label><input placeholder="nama@surel.com"></div>
+      <div class="field" id="namafield" style="display:none"><label>Nama panggilan</label><input placeholder="cth. Tara D."></div>
+      <div class="field"><label>Kata sandi</label><input type="password" placeholder="••••••••"></div>
+      <a class="btn btn-primary btn-block" id="authbtn">Masuk Loji</a>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:12px;text-align:center">Keliling &amp; isi keranjang tak perlu akun. Masuk hanya untuk menebus, ikut Vendu, &amp; menyimpan Surat Jalan.</p>
+    </div>
+  </div>
+</div></section></div>
+
+<!-- ============================ JADI SAUDAGAR ============================ -->
+<div class="page" id="page-saudagar"><section class="sec"><div class="wrap">
+  <div style="text-align:center;margin-bottom:22px"><div class="kicker">Obral Kilat</div><h2 class="h-title" style="font-size:32px;margin-top:4px">Buka lapak di Kongsi</h2></div>
+  <div class="form-grid">
+    <div class="card" style="padding:24px">
+      <h3 class="h-title" style="font-size:19px;margin-bottom:14px">Daftarkan lojimu</h3>
+      <div class="field"><label>Nama loji</label><input placeholder="cth. Loji Sari Ayu"></div>
+      <div class="field"><label>Jenis dagangan</label><select><option>Kecantikan &amp; Rempah</option><option>Skincare</option><option>Kuliner &amp; Minuman</option><option>Wastra &amp; Busana</option><option>Lainnya</option></select></div>
+      <div class="field"><label>Nama saudagar (penanggung jawab)</label><input placeholder="Nama lengkap"></div>
+      <div class="field"><label>No. WhatsApp</label><input placeholder="08xx"></div>
+      <div class="field"><label>Mau ikut Obral Kilat pertama?</label><select><option>Ya, sekalian flash sale</option><option>Belum, buka lapak biasa dulu</option></select></div>
+      <a class="btn btn-primary btn-block">Ajukan Jadi Saudagar</a>
+      <p style="font-size:12px;color:var(--ink-soft);margin-top:10px;text-align:center">Ditinjau tim Kongsi 1×24 jam untuk dapat cap segel.</p>
+    </div>
+    <div>
+      <h3 class="h-title" style="font-size:19px;margin-bottom:6px">Kenapa gabung?</h3>
+      <div class="benefit"><div class="bi">🎯</div><div><b>Pembeli didatangkan</b><div style="font-size:13px;color:var(--ink-soft)">Barangmu tampil di lelang, neraca &amp; etalase.</div></div></div>
+      <div class="benefit"><div class="bi">⚡</div><div><b>Obral Kilat terjadwal</b><div style="font-size:13px;color:var(--ink-soft)">Flash sale-mu diramaikan serentak.</div></div></div>
+      <div class="benefit"><div class="bi">🛡️</div><div><b>Cap segel = kepercayaan</b><div style="font-size:13px;color:var(--ink-soft)">Loji bersegel naik peringkat di neraca.</div></div></div>
+      <div class="benefit"><div class="bi">💰</div><div><b>Setelmen jelas</b><div style="font-size:13px;color:var(--ink-soft)">Lewat DOKU, riwayat rapi di Kantor Kongsi.</div></div></div>
+    </div>
+  </div>
+</div></section></div>
+
+<!-- ============================ KANTOR KONGSI (admin) ============================ -->
+<div class="page" id="page-admin"><section class="sec"><div class="wrap">
+  <div style="margin-bottom:20px"><div class="kicker">Kantor Kongsi · Admin</div><h2 class="h-title" style="font-size:30px;margin-top:2px">Ruang kendali dagang</h2></div>
+  <div class="warn">⚠️ <b>Rahasia:</b> harga deal &amp; harga set hanya tampil di sini. Halaman publik pakai <code>auction_items_public</code> (tanpa kolom rahasia).</div>
+  <div class="admin-stat">
+    <div class="stat"><div class="sl">Lelang aktif</div><div class="sv live">Fase 2</div></div>
+    <div class="stat"><div class="sl">Peserta sekarang</div><div class="sv">7</div></div>
+    <div class="stat"><div class="sl">Untung hari ini</div><div class="sv rev">Rp 210rb</div></div>
+    <div class="stat"><div class="sl">Skip rate</div><div class="sv">12%</div></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+    <h3 class="h-title" style="font-size:20px">Barang lelang</h3><a class="btn btn-gold">+ Tambah Barang</a>
+  </div>
+  <table class="admin">
+    <thead><tr><th>#</th><th>Loji (rahasia)</th><th>Clue</th><th>Normal</th><th>Deal</th><th>Set</th><th>Margin</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>0</td><td class="secret">Hotel Artotel</td><td>A••••••• · Hotel B4 Jogja</td><td>500rb</td><td class="secret">400rb</td><td class="secret">470rb</td><td style="color:var(--green-ok);font-weight:700">70rb</td><td class="live">● berjalan</td></tr>
+      <tr><td>1</td><td class="secret">Spa Amanjiwo</td><td>A••••••• · Spa Mewah</td><td>450rb</td><td class="secret">300rb</td><td class="secret">360rb</td><td style="color:var(--green-ok);font-weight:700">60rb</td><td>antre</td></tr>
+      <tr><td>2</td><td class="secret">Kaum Jakarta</td><td>K•••• · Fine Dining</td><td>500rb</td><td class="secret">320rb</td><td class="secret">400rb</td><td style="color:var(--green-ok);font-weight:700">80rb</td><td>antre</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:12px;color:var(--ink-soft);margin-top:10px">◆ Kantor Kongsi juga mengelola: pengajuan Saudagar (cap segel), sengketa Tukar Guling (Syahbandar), &amp; artikel Kabar.</p>
+</div></section></div>
+
+<!-- ===== BOTTOM NAV ===== -->
+<div class="bottomnav">
+  <div class="bn-item on" data-go="beranda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Beranda</div>
+  <div class="bn-item" data-go="tukar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg>Tukar Guling</div>
+  <div class="bn-item" data-go="neraca"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 4v16M6 20h12M5 8h14"/><path d="M5 8l-2 5a4 4 0 008 0z" fill="none"/><path d="M19 8l2 5a4 4 0 01-8 0z" fill="none"/></svg>Neraca</div>
+  <div class="bn-item" data-go="loji"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9l1-5h14l1 5M4 9v11h16V9M4 9h16"/></svg>Loji</div>
+  <div class="bn-item" data-go="kabar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 4h11a2 2 0 012 2v14H7a2 2 0 01-2-2z"/><path d="M9 8h6M9 12h6"/></svg>Kabar</div>
+</div>
+
+<script>
+  function go(id){
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    var el=document.getElementById('page-'+id); if(el) el.classList.add('active');
+    document.querySelectorAll('.jump button').forEach(t=>t.classList.toggle('active',t.dataset.go===id));
+    document.querySelectorAll('.bn-item').forEach(t=>t.classList.toggle('on',t.dataset.go===id));
+    window.scrollTo({top:0,behavior:'smooth'});
+  }
+  document.querySelectorAll('.jump button').forEach(t=>t.addEventListener('click',()=>go(t.dataset.go)));
+  document.querySelectorAll('.bn-item').forEach(t=>t.addEventListener('click',()=>go(t.dataset.go)));
+
+  document.querySelectorAll('.phase-switch button').forEach(b=>b.addEventListener('click',()=>{
+    document.querySelectorAll('.phase-switch button').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    document.querySelectorAll('.ph-view').forEach(v=>v.style.display=(v.dataset.view===b.dataset.ph)?'block':'none');
+  }));
+
+  function toggleLive(on){
+    document.getElementById('liveOn').style.display=on?'grid':'none';
+    document.getElementById('liveOff').style.display=on?'none':'block';
+    document.querySelectorAll('.live-toggle button').forEach((b,i)=>b.classList.toggle('on',(i===0)===on));
+  }
+
+  function authTab(w){
+    document.getElementById('tab-masuk').classList.toggle('on',w==='masuk');
+    document.getElementById('tab-daftar').classList.toggle('on',w==='daftar');
+    document.getElementById('namafield').style.display=(w==='daftar')?'block':'none';
+    document.getElementById('authbtn').textContent=(w==='daftar')?'Daftar & Masuk':'Masuk Loji';
+  }
+  function bayarTab(w){
+    document.getElementById('b-daftar').classList.toggle('on',w==='daftar');
+    document.getElementById('b-masuk').classList.toggle('on',w==='masuk');
+    document.getElementById('b-namafield').style.display=(w==='daftar')?'block':'none';
+  }
+
+  function jtNext(step){
+    document.querySelectorAll('.jt-step').forEach(s=>s.classList.toggle('on',s.dataset.step==String(step)));
+    for(var i=1;i<=3;i++){document.getElementById('jp'+i).classList.toggle('on',i<=Math.min(step,3));}
+  }
+  function jtReset(){jtNext(1);}
+</script>
+</body>
+</html>

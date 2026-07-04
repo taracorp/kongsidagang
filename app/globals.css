@@ -1,26 +1,73 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-kongsi-parchment: #f6e7c7;
+  --color-kongsi-parchment-2: #efd9af;
+  --color-kongsi-parchment-3: #fbedd2;
+
+  --color-kongsi-grenadine: #d0451f;
+  --color-kongsi-grenadine-dark: #a9370f;
+
+  --color-kongsi-beeswax: #e7a24a;
+  --color-kongsi-beeswax-dark: #c9852f;
+
+  --color-kongsi-sage: #a9c6ae;
+  --color-kongsi-olive: #77804c;
+
+  --color-kongsi-indigo: #16495d;
+  --color-kongsi-indigo-dark: #0e3543;
+
+  --color-kongsi-ink: #3a2417;
+  --color-kongsi-ink-soft: #6a5540;
+
+  --color-kongsi-ok: #4c7a4e;
+  --color-kongsi-bad: #b23a1e;
+
+  --shadow-hard-sm: 3px 3px 0 #3a2417;
+  --shadow-hard: 4px 4px 0 #3a2417;
+  --shadow-hard-lg: 8px 8px 0 #3a2417;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-fraunces: var(--ff-fraunces), serif;
+  --font-work: var(--ff-work), "Work Sans", sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.35'/%3E%3C/svg%3E");
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-kongsi-parchment);
+  background-image:
+    radial-gradient(circle at 12% 8%, rgba(231, 162, 74, 0.1), transparent 40%),
+    radial-gradient(circle at 88% 4%, rgba(22, 73, 93, 0.08), transparent 36%);
+  color: var(--color-kongsi-ink);
+  font-family: var(--ff-work), "Work Sans", sans-serif;
+  line-height: 1.55;
+}
+
+/* Grain overlay kertas (mockup body::before) */
+.grain::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.42;
+  mix-blend-mode: multiply;
+  background-image: var(--grain);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
 }
