@@ -1,28 +1,100 @@
+import Link from "next/link";
 import { KongsiLinkButton } from "@/components/kongsi/KongsiButton";
 import { Pill } from "@/components/kongsi/Pill";
+import { ProdukCard } from "@/components/kongsi/ProdukCard";
+import { RowHead } from "@/components/kongsi/RowHead";
+import { LiveAuction } from "@/components/kongsi/LiveAuction";
+import { etalaseKurasi, pilihanUntukmu, lelangAktif } from "@/lib/dummy";
 
 export default function Beranda() {
   return (
-    <div className="mx-auto max-w-[1080px] px-5">
-      <header className="py-10 text-center">
-        <div className="mb-3 font-fraunces text-[15px] font-semibold italic text-kongsi-olive">
-          Anno 1602 — dihidupkan kembali
+    <>
+      <header className="pb-[22px] pt-10 text-center">
+        <div className="mx-auto max-w-[1080px] px-5">
+          <div className="mb-3 inline-flex items-center gap-[9px] font-fraunces text-[15px] font-semibold italic text-kongsi-olive before:h-px before:w-[34px] before:bg-kongsi-olive after:h-px after:w-[34px] after:bg-kongsi-olive">
+            Anno 1602 — dihidupkan kembali
+          </div>
+          <h1 className="font-fraunces text-[clamp(42px,8.5vw,80px)] font-black leading-[0.93] text-kongsi-indigo [text-shadow:2px_2px_0_rgba(231,162,74,0.5)]">
+            Kongsi{" "}
+            <span className="font-medium italic text-kongsi-grenadine">&amp;</span>{" "}
+            Dagang
+          </h1>
+          <p className="mx-auto mt-4 max-w-[540px] text-base text-kongsi-ink-soft">
+            Balai lelang, neraca harga, dan loji para saudagar — satu jalur
+            perdagangan tempat kamu menawar, menimbang, dan berbelanja dengan
+            seru.
+          </p>
         </div>
-        <h1 className="font-fraunces text-[clamp(42px,8.5vw,80px)] font-black leading-[0.93] text-kongsi-indigo [text-shadow:2px_2px_0_rgba(231,162,74,0.5)]">
-          Kongsi <span className="font-medium italic text-kongsi-grenadine">&amp;</span> Dagang
-        </h1>
-        <p className="mx-auto mt-4 max-w-[540px] text-base text-kongsi-ink-soft">
-          Balai lelang, neraca harga, dan loji para saudagar — satu jalur
-          perdagangan tempat kamu menawar, menimbang, dan berbelanja.
-        </p>
-        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-          <KongsiLinkButton href="/kongsi-kit" variant="gold">
-            Lihat Kongsi Kit
-          </KongsiLinkButton>
-          <Pill variant="live">Fase A · rangka siap</Pill>
-        </div>
+        <div className="mt-[26px] h-[13px] border-y-2 border-kongsi-ink [background:repeating-linear-gradient(90deg,var(--color-kongsi-grenadine)_0_18px,var(--color-kongsi-beeswax)_18px_36px,var(--color-kongsi-indigo)_36px_54px,var(--color-kongsi-sage)_54px_72px)]" />
       </header>
-      <div className="h-[13px] border-y-2 border-kongsi-ink [background:repeating-linear-gradient(90deg,var(--color-kongsi-grenadine)_0_18px,var(--color-kongsi-beeswax)_18px_36px,var(--color-kongsi-indigo)_36px_54px,var(--color-kongsi-sage)_54px_72px)]" />
-    </div>
+
+      <section className="py-[34px]">
+        <div className="mx-auto max-w-[1080px] px-5">
+          <RowHead
+            title="Lelang yang sedang berlangsung"
+            moreHref="/lelang"
+            moreLabel="Masuk balai"
+          />
+          <LiveAuction data={lelangAktif} />
+        </div>
+      </section>
+
+      <section className="pb-[34px]">
+        <div className="mx-auto max-w-[1080px] px-5">
+          <div className="flex flex-wrap items-center gap-5 rounded-[6px] border-2 border-kongsi-ink bg-gradient-to-br from-kongsi-beeswax to-kongsi-grenadine px-6 py-[22px] text-kongsi-ink shadow-hard-lg">
+            <div className="flex h-14 w-14 flex-none items-center justify-center rounded-full border-2 border-kongsi-ink bg-kongsi-parchment text-[28px]">
+              🧭
+            </div>
+            <div className="flex-1">
+              <h3 className="font-fraunces text-[22px] font-black">
+                Bingung cari apa? Panggil Juru Tunjuk.
+              </h3>
+              <p className="max-w-[440px] text-sm">
+                Pelayan Kongsi bakal nanya beberapa hal — mau makanan atau baju,
+                pedas atau manis, kisaran harga — lalu menunjukkan barang yang
+                pas.
+              </p>
+            </div>
+            <KongsiLinkButton href="/juru-tunjuk" variant="primary">
+              Panggil Juru Tunjuk
+            </KongsiLinkButton>
+          </div>
+        </div>
+      </section>
+
+      <section className="pb-[34px]">
+        <div className="mx-auto max-w-[1080px] px-5">
+          <RowHead title="Etalase — Pilihan Kurator" moreHref="/loji" />
+          <div className="flex gap-[14px] overflow-x-auto pb-2">
+            {etalaseKurasi.map((p) => (
+              <ProdukCard
+                key={p.name}
+                {...p}
+                className="min-w-[158px]"
+                ribbon={<Pill variant="gold">Kurasi</Pill>}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="pb-[34px]">
+        <div className="mx-auto max-w-[1080px] px-5">
+          <RowHead title="Pilihan Untukmu" note="berdasarkan minatmu" />
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {pilihanUntukmu.map((p) => (
+              <ProdukCard key={p.name} {...p} />
+            ))}
+          </div>
+          <p className="mt-4 text-center text-[12px] text-kongsi-ink-soft">
+            Keliling &amp; isi keranjang tak perlu akun.{" "}
+            <Link href="/masuk" className="font-bold text-kongsi-grenadine">
+              Masuk Loji
+            </Link>{" "}
+            hanya saat mau menebus.
+          </p>
+        </div>
+      </section>
+    </>
   );
 }
