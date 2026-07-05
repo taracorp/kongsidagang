@@ -1,8 +1,15 @@
 import { CompassRose } from "@/components/kongsi/icons";
-import { KongsiLinkButton, KongsiButton } from "@/components/kongsi/KongsiButton";
+import { KongsiLinkButton } from "@/components/kongsi/KongsiButton";
+import { Pill } from "@/components/kongsi/Pill";
 import { RowHead } from "@/components/kongsi/RowHead";
+import {
+  AjukanTukar,
+  TutupBarang,
+  DealActions,
+} from "@/components/kongsi/BarterActions";
+import { createClient } from "@/lib/supabase/server";
+import { getBarterRows, getMyBarter, type BarterRow } from "@/lib/queries";
 import { cn, formatKeping } from "@/lib/utils";
-import { getBarter } from "@/lib/queries";
 import type { Tone } from "@/components/kongsi/ProdukCard";
 
 const toneBg: Record<Tone, string> = {
@@ -15,8 +22,63 @@ const toneBg: Record<Tone, string> = {
   indigo: "bg-kongsi-indigo",
 };
 
+function BarterCard({
+  item,
+  children,
+}: {
+  item: BarterRow;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-[5px] border-2 border-kongsi-ink bg-kongsi-parchment shadow-hard">
+      <div
+        className={cn(
+          "flex h-24 items-center justify-center border-b-2 border-kongsi-ink text-kongsi-indigo",
+          toneBg[item.tone],
+        )}
+      >
+        <CompassRose size={30} />
+      </div>
+      <div className="px-[14px] py-3">
+        <div className="text-sm font-bold">{item.title}</div>
+        <div className="my-[3px] text-[11px] text-kongsi-olive">
+          {item.city ?? "—"}
+        </div>
+        <div className="font-fraunces text-[15px] font-black text-kongsi-grenadine">
+          ≈ {formatKeping(item.est_value)}
+        </div>
+        {item.want_text ? (
+          <div className="mt-[6px] border-t-[1.5px] border-dashed border-kongsi-ink/20 pt-[6px] text-[12px] text-kongsi-ink-soft">
+            Mau ditukar: <b className="text-kongsi-indigo">{item.want_text}</b>
+          </div>
+        ) : null}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const dealStatusPill: Record<string, "gold" | "sage" | "indigo"> = {
+  proposed: "gold",
+  agreed: "sage",
+  done: "indigo",
+  ditolak: "indigo",
+};
+
 export default async function TukarPage() {
-  const barterItems = await getBarter();
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const rows = await getBarterRows();
+  const { mine, deals } = user
+    ? await getMyBarter(user.id)
+    : { mine: [], deals: [] };
+
+  const others = user ? rows.filter((r) => r.user_id !== user.id) : rows;
+  const myItemOptions = mine.map((m) => ({ id: m.id, title: m.title }));
+
   return (
     <section className="py-[34px]">
       <div className="mx-auto max-w-[1080px] px-5">
@@ -42,72 +104,90 @@ export default async function TukarPage() {
             ketemuan / COD, saling kasih penilaian. Sengketa diadili{" "}
             <b>Syahbandar</b>.
           </p>
-          <KongsiLinkButton href="/masuk" variant="primary" block className="mt-1">
+          <KongsiLinkButton
+            href={user ? "/tukar/tawarkan" : "/masuk"}
+            variant="primary"
+            block
+            className="mt-1"
+          >
             Tawarkan Barangmu
           </KongsiLinkButton>
         </div>
 
-        <RowHead title="Barang yang ditawarkan" note={`${barterItems.length} tawaran aktif`} />
-        <div className="grid grid-cols-2 gap-4">
-          {barterItems.map((it) => (
-            <div
-              key={it.title}
-              className="overflow-hidden rounded-[5px] border-2 border-kongsi-ink bg-kongsi-parchment shadow-hard"
-            >
-              <div
-                className={cn(
-                  "flex h-24 items-center justify-center border-b-2 border-kongsi-ink text-kongsi-indigo",
-                  toneBg[it.tone],
-                )}
-              >
-                <CompassRose size={30} />
-              </div>
-              <div className="px-[14px] py-3">
-                <div className="text-sm font-bold">{it.title}</div>
-                <div className="my-[3px] text-[11px] text-kongsi-olive">
-                  oleh {it.owner} · {it.city}
-                </div>
-                <div className="font-fraunces text-[15px] font-black text-kongsi-grenadine">
-                  ≈ {formatKeping(it.estValue)}
-                </div>
-                <div className="mt-[6px] border-t-[1.5px] border-dashed border-kongsi-ink/20 pt-[6px] text-[12px] text-kongsi-ink-soft">
-                  Mau ditukar: <b className="text-kongsi-indigo">{it.want}</b>
-                </div>
-              </div>
+        {user && mine.length > 0 ? (
+          <>
+            <RowHead title="Barangku" note={`${mine.length} aktif`} />
+            <div className="mb-6 grid grid-cols-2 gap-4">
+              {mine.map((it) => (
+                <BarterCard key={it.id} item={it}>
+                  <TutupBarang id={it.id} />
+                </BarterCard>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        ) : null}
 
-        <RowHead title="Contoh kesepakatan tukar" />
-        <div className="grid grid-cols-1 items-center gap-[14px] rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-5 shadow-hard">
-          <div className="text-center">
-            <div className="mb-2 flex h-20 items-center justify-center rounded-[5px] border-2 border-kongsi-ink bg-kongsi-parchment-3 text-kongsi-indigo">
-              <CompassRose size={30} />
+        {user && deals.length > 0 ? (
+          <>
+            <RowHead title="Tawaran Tukar" note={`${deals.length}`} />
+            <div className="mb-6 space-y-2">
+              {deals.map((d) => (
+                <div
+                  key={d.id}
+                  className="rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-3 shadow-hard-sm"
+                >
+                  <div className="flex items-center justify-between gap-2 text-[13px]">
+                    <span className="font-bold">
+                      {d.iAmRecipient ? "Masuk" : "Keluar"}
+                    </span>
+                    <Pill variant={dealStatusPill[d.status] ?? "indigo"}>
+                      {d.status}
+                    </Pill>
+                  </div>
+                  <div className="mt-1 text-[13px]">
+                    <b className="text-kongsi-indigo">{d.theirItem}</b> ⇄{" "}
+                    <b className="text-kongsi-indigo">{d.myItem}</b>
+                    {d.topup > 0 ? (
+                      <span className="text-kongsi-ink-soft">
+                        {" "}
+                        (+{formatKeping(d.topup)})
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-2">
+                    <DealActions
+                      id={d.id}
+                      status={d.status}
+                      iAmRecipient={d.iAmRecipient}
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className="text-sm font-bold">Sepatu Lari</div>
-            <div className="text-[10px] font-bold uppercase tracking-[1px] text-kongsi-olive">
-              Rani · ≈250rb
-            </div>
+          </>
+        ) : null}
+
+        <RowHead
+          title="Barang yang ditawarkan"
+          note={`${others.length} tawaran aktif`}
+        />
+        {others.length === 0 ? (
+          <p className="rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-4 py-8 text-center text-[13px] text-kongsi-ink-soft">
+            Belum ada tawaran dari saudagar lain.
+          </p>
+        ) : (
+          <div className="grid grid-cols-2 gap-4">
+            {others.map((it) => (
+              <BarterCard key={it.id} item={it}>
+                <AjukanTukar
+                  targetId={it.id}
+                  myItems={myItemOptions}
+                  loggedIn={Boolean(user)}
+                />
+              </BarterCard>
+            ))}
           </div>
-          <div className="text-center">
-            <div className="text-[28px] font-black text-kongsi-grenadine">⇄</div>
-            <div className="mt-[3px] text-[12px] font-bold text-kongsi-olive">
-              + Rp 50.000 keping
-            </div>
-          </div>
-          <div className="text-center">
-            <div className="mb-2 flex h-20 items-center justify-center rounded-[5px] border-2 border-kongsi-ink bg-kongsi-beeswax text-kongsi-indigo">
-              <CompassRose size={30} />
-            </div>
-            <div className="text-sm font-bold">Jam Tangan Kulit</div>
-            <div className="text-[10px] font-bold uppercase tracking-[1px] text-kongsi-olive">
-              Tia · ≈300rb
-            </div>
-          </div>
-        </div>
-        <p className="mt-[14px] text-center">
-          <KongsiButton variant="gold">Setuju &amp; Lanjut Tukar</KongsiButton>
-        </p>
+        )}
       </div>
     </section>
   );

@@ -182,6 +182,104 @@ export async function getBarter(): Promise<BarterItem[]> {
   return dummyBarter;
 }
 
+export type BarterRow = {
+  id: string;
+  user_id: string;
+  title: string;
+  est_value: number;
+  want_text: string | null;
+  city: string | null;
+  tone: Tone;
+};
+
+export async function getBarterRows(): Promise<BarterRow[]> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("barter_items")
+      .select("id,user_id,title,est_value,want_text,city,tone")
+      .eq("status", "aktif")
+      .order("created_at", { ascending: false });
+    return (
+      (data ?? []).map((b) => ({
+        id: b.id as string,
+        user_id: b.user_id as string,
+        title: b.title as string,
+        est_value: b.est_value as number,
+        want_text: (b.want_text as string) ?? null,
+        city: (b.city as string) ?? null,
+        tone: asTone(b.tone),
+      })) ?? []
+    );
+  } catch {
+    return [];
+  }
+}
+
+export type BarterDeal = {
+  id: string;
+  status: string;
+  topup: number;
+  myItem: string;
+  theirItem: string;
+  iAmRecipient: boolean;
+};
+
+export async function getMyBarter(userId: string): Promise<{
+  mine: BarterRow[];
+  deals: BarterDeal[];
+}> {
+  try {
+    const supabase = await createClient();
+    const [mineRes, dealsRes] = await Promise.all([
+      supabase
+        .from("barter_items")
+        .select("id,user_id,title,est_value,want_text,city,tone")
+        .eq("user_id", userId)
+        .eq("status", "aktif")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("barter_deals")
+        .select(
+          "id,topup_keping,status,a:barter_items!barter_deals_item_a_fkey(title,user_id),b:barter_items!barter_deals_item_b_fkey(title,user_id)",
+        )
+        .order("created_at", { ascending: false }),
+    ]);
+
+    const mine: BarterRow[] = (mineRes.data ?? []).map((b) => ({
+      id: b.id as string,
+      user_id: b.user_id as string,
+      title: b.title as string,
+      est_value: b.est_value as number,
+      want_text: (b.want_text as string) ?? null,
+      city: (b.city as string) ?? null,
+      tone: asTone(b.tone),
+    }));
+
+    const deals: BarterDeal[] = (dealsRes.data ?? []).map((d) => {
+      const a = (Array.isArray(d.a) ? d.a[0] : d.a) as
+        | { title?: string; user_id?: string }
+        | undefined;
+      const b = (Array.isArray(d.b) ? d.b[0] : d.b) as
+        | { title?: string; user_id?: string }
+        | undefined;
+      const iAmRecipient = b?.user_id === userId;
+      return {
+        id: d.id as string,
+        status: d.status as string,
+        topup: (d.topup_keping as number) ?? 0,
+        myItem: iAmRecipient ? (b?.title ?? "-") : (a?.title ?? "-"),
+        theirItem: iAmRecipient ? (a?.title ?? "-") : (b?.title ?? "-"),
+        iAmRecipient,
+      };
+    });
+
+    return { mine, deals };
+  } catch {
+    return { mine: [], deals: [] };
+  }
+}
+
 export async function getArticles(): Promise<Artikel[]> {
   try {
     const supabase = await createClient();
