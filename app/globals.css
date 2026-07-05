@@ -71,6 +71,130 @@ html {
   box-shadow: none;
 }
 
+/* ===== Panggung Teater (Balai Lelang) ===== */
+.stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  min-height: 420px;
+  padding: 54px 14px 22px;
+  background: radial-gradient(120% 80% at 50% 0, #16495d 0, #0e3543 72%);
+  box-shadow: var(--shadow-hard);
+  border: 2px solid #3a2417;
+}
+.stage-content {
+  position: relative;
+  z-index: 2;
+}
+.stage-spotlight {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(
+    58% 46% at 50% 14%,
+    rgba(231, 162, 74, 0.24),
+    transparent 70%
+  );
+}
+.stage-floor {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 46px;
+  z-index: 1;
+  background: linear-gradient(#0e3543, rgba(14, 53, 67, 0));
+  box-shadow: inset 0 12px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Tirai beludru kiri/kanan */
+.curtain {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 55%;
+  z-index: 20;
+  background-color: #a9370f;
+  background-image:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07), rgba(0, 0, 0, 0.4)),
+    repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.32) 0,
+      rgba(0, 0, 0, 0) 11px,
+      rgba(255, 255, 255, 0.08) 19px,
+      rgba(0, 0, 0, 0.32) 30px
+    );
+  box-shadow: inset 0 0 45px rgba(0, 0, 0, 0.55);
+  transition: transform 1.25s cubic-bezier(0.66, 0, 0.34, 1);
+  will-change: transform;
+}
+.curtain-left {
+  left: 0;
+  border-right: 2px solid rgba(0, 0, 0, 0.35);
+  border-radius: 0 0 40% 0 / 0 0 8px 0;
+}
+.curtain-right {
+  right: 0;
+  border-left: 2px solid rgba(0, 0, 0, 0.35);
+  border-radius: 0 0 0 40% / 0 0 0 8px;
+}
+.curtain-open.curtain-left {
+  transform: translateX(-103%);
+}
+.curtain-open.curtain-right {
+  transform: translateX(103%);
+}
+
+/* Valance (rumbai emas atas) */
+.valance {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 44px;
+  z-index: 30;
+  background-image: linear-gradient(#efc078, #c9852f);
+  border-top: 2px solid #3a2417;
+  -webkit-mask: radial-gradient(15px at 50% 100%, #0000 96%, #000) 50% 0 / 34px
+    100% repeat-x;
+  mask: radial-gradient(15px at 50% 100%, #0000 96%, #000) 50% 0 / 34px 100%
+    repeat-x;
+}
+
+/* Bingkai proscenium */
+.proscenium {
+  position: absolute;
+  inset: 0;
+  z-index: 31;
+  pointer-events: none;
+  border: 5px solid #c9852f;
+  border-radius: 10px;
+  box-shadow:
+    inset 0 0 0 2px #a9370f,
+    inset 0 0 30px rgba(0, 0, 0, 0.35);
+}
+
+/* Confetti pemenang */
+@keyframes kongsi-confetti {
+  0% {
+    transform: translateY(-30px) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(440px) rotate(540deg);
+    opacity: 0;
+  }
+}
+.confetti-piece {
+  position: absolute;
+  top: 40px;
+  width: 8px;
+  height: 13px;
+  z-index: 25;
+  border-radius: 1px;
+  animation: kongsi-confetti 2.4s linear infinite;
+}
+
 body {
   background-color: var(--color-kongsi-parchment);
   background-image:

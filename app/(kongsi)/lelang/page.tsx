@@ -1,8 +1,7 @@
-import { Pill } from "@/components/kongsi/Pill";
 import { KongsiLinkButton } from "@/components/kongsi/KongsiButton";
-import { LelangLive } from "@/components/kongsi/LelangLive";
+import { TheatreLelang } from "@/components/kongsi/TheatreLelang";
 import { createClient } from "@/lib/supabase/server";
-import { getActiveAuction, getMyGuess } from "@/lib/queries";
+import { getActiveAuction, getMyGuess, getAdSettings } from "@/lib/queries";
 
 export default async function LelangPage({
   searchParams,
@@ -18,7 +17,10 @@ export default async function LelangPage({
   } = await supabase.auth.getUser();
 
   const auction = await getActiveAuction(isVendu ? "vendu" : "reguler");
-  const myGuess = auction ? await getMyGuess(auction.id) : null;
+  const [myGuess, ad] = await Promise.all([
+    auction ? getMyGuess(auction.id) : Promise.resolve(null),
+    getAdSettings(),
+  ]);
 
   return (
     <section className="py-[34px]">
@@ -60,15 +62,13 @@ export default async function LelangPage({
               Masuk Loji
             </KongsiLinkButton>
           </div>
-        ) : auction ? (
-          <LelangLive auction={auction} userId={user?.id ?? null} initialGuess={myGuess} />
         ) : (
-          <div className="mx-auto mt-8 max-w-md rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-6 py-12 text-center">
-            <Pill variant="gold">Slot Iklan / Video</Pill>
-            <p className="mt-3 text-sm text-kongsi-ink-soft">
-              Belum ada lelang berjalan. Pantau Beranda untuk jadwal berikutnya.
-            </p>
-          </div>
+          <TheatreLelang
+            auction={auction}
+            ad={ad}
+            userId={user?.id ?? null}
+            initialGuess={myGuess}
+          />
         )}
       </div>
     </section>
