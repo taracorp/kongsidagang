@@ -261,6 +261,66 @@ export async function getMyGuess(auctionId: string): Promise<number | null> {
   }
 }
 
+export type AdminAuction = {
+  id: string;
+  clue_category: string;
+  clue_name_masked: string;
+  normal_price: number;
+  deal_price: number | null;
+  set_price: number | null;
+  status: string;
+};
+
+export type AdminApplication = {
+  id: string;
+  loji_name: string;
+  category: string;
+  owner_name: string;
+  whatsapp: string;
+  status: string;
+  created_at: string;
+};
+
+export async function getAdminData(): Promise<{
+  auctions: AdminAuction[];
+  applications: AdminApplication[];
+  counts: { auctionsAktif: number; pengajuan: number; loji: number };
+}> {
+  const supabase = await createClient();
+  const [auctionsRes, appsRes, aktifRes, pengajuanRes, lojiRes] =
+    await Promise.all([
+      supabase
+        .from("auctions")
+        .select(
+          "id,clue_category,clue_name_masked,normal_price,deal_price,set_price,status",
+        )
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("merchant_applications")
+        .select("id,loji_name,category,owner_name,whatsapp,status,created_at")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("auctions")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["kumpul", "tebak", "jeda", "final"]),
+      supabase
+        .from("merchant_applications")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending"),
+      supabase.from("merchants").select("id", { count: "exact", head: true }),
+    ]);
+
+  return {
+    auctions: (auctionsRes.data as AdminAuction[]) ?? [],
+    applications: (appsRes.data as AdminApplication[]) ?? [],
+    counts: {
+      auctionsAktif: aktifRes.count ?? 0,
+      pengajuan: pengajuanRes.count ?? 0,
+      loji: lojiRes.count ?? 0,
+    },
+  };
+}
+
 export type PakhuisData = {
   name: string;
   balance: number;
