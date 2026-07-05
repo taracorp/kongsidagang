@@ -108,7 +108,7 @@ export default function JuruTunjukPage() {
             <div className="mb-4 text-sm text-kongsi-ink-soft">
               {answers.join(" · ")}
             </div>
-            <div className="grid grid-cols-1 gap-4 text-left sm:grid-cols-3">
+            <div className="grid grid-cols-2 gap-4 text-left">
               {juruHasil.map((p) => (
                 <ProdukCard
                   key={p.name}

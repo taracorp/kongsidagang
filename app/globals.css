@@ -81,10 +81,10 @@ body {
   line-height: 1.55;
 }
 
-/* Grain overlay kertas (mockup body::before) */
+/* Grain overlay kertas (mockup body::before) — scoped ke frame app */
 .grain::before {
   content: "";
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 1;

@@ -17,7 +17,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-50 flex justify-around border-t-[3px] border-kongsi-ink bg-kongsi-indigo-dark px-1 pb-[10px] pt-2">
+    <nav className="fixed bottom-0 left-1/2 z-50 flex w-full max-w-[480px] -translate-x-1/2 justify-around border-t-[3px] border-kongsi-ink bg-kongsi-indigo-dark px-1 pb-[10px] pt-2">
       {tabs.map(({ href, label, Icon, exact }) => {
         const active = exact
           ? pathname === href

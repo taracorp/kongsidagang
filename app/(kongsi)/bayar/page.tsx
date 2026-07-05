@@ -199,7 +199,7 @@ export default function BayarPage() {
             </KongsiLinkButton>
           </div>
         ) : (
-          <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[1.5fr_1fr]">
+          <div className="grid grid-cols-1 items-start gap-6">
             <GateForm />
             <div className="rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-5 shadow-hard">
               <h3 className="mb-[14px] font-fraunces text-[19px] font-black text-kongsi-indigo">

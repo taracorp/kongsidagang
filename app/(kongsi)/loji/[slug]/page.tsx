@@ -54,7 +54,7 @@ export default async function LojiDetail({
           ) : null}
         </div>
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4">
           {loji.products.map((p) => (
             <ProdukCard
               key={p.name}

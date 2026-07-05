@@ -36,7 +36,7 @@ export default function SaudagarDaftarPage() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 items-start gap-[30px] lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="grid grid-cols-1 items-start gap-[30px]">
           <SaudagarForm />
           <div>
             <h3 className="mb-[6px] font-fraunces text-[19px] font-black text-kongsi-indigo">

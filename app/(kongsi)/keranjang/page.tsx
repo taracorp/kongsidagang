@@ -45,7 +45,7 @@ export default function KeranjangPage() {
             </KongsiLinkButton>
           </div>
         ) : (
-          <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[1.5fr_1fr]">
+          <div className="grid grid-cols-1 items-start gap-6">
             <div>
               {items.map((it) => (
                 <div

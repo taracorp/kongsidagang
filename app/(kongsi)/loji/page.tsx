@@ -16,7 +16,7 @@ export default async function LojiPage() {
             Lorong para saudagar
           </h2>
         </div>
-        <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-[18px]">
           {merchants.map((m) => (
             <PintuCard
               key={m.slug}

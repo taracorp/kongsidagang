@@ -29,7 +29,7 @@ export default async function KabarPage() {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-[18px]">
           <Link
             href={`/kabar/${big.slug}`}
             className="overflow-hidden rounded-[5px] border-2 border-kongsi-ink bg-kongsi-parchment shadow-hard sm:col-span-2 lg:row-span-2"

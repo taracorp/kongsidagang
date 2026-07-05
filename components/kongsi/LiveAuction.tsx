@@ -18,7 +18,7 @@ const desc = (s: string): string => {
 
 function AuctionCard({ auction }: { auction: AuctionPublic }) {
   return (
-    <div className="grid grid-cols-1 overflow-hidden rounded-[6px] border-2 border-kongsi-ink shadow-hard-lg md:grid-cols-[1.1fr_1fr]">
+    <div className="grid grid-cols-1 overflow-hidden rounded-[6px] border-2 border-kongsi-ink shadow-hard-lg">
       <div className="relative flex flex-col justify-center bg-gradient-to-br from-kongsi-indigo to-kongsi-indigo-dark p-[26px] text-kongsi-parchment">
         <Pill
           variant="live"

@@ -20,7 +20,7 @@ export default async function Beranda() {
           <div className="mb-3 inline-flex items-center gap-[9px] font-fraunces text-[15px] font-semibold italic text-kongsi-olive before:h-px before:w-[34px] before:bg-kongsi-olive after:h-px after:w-[34px] after:bg-kongsi-olive">
             Anno 1602 — dihidupkan kembali
           </div>
-          <h1 className="font-fraunces text-[clamp(42px,8.5vw,80px)] font-black leading-[0.93] text-kongsi-indigo [text-shadow:2px_2px_0_rgba(231,162,74,0.5)]">
+          <h1 className="font-fraunces text-[52px] font-black leading-[0.93] text-kongsi-indigo [text-shadow:2px_2px_0_rgba(231,162,74,0.5)]">
             Kongsi{" "}
             <span className="font-medium italic text-kongsi-grenadine">&amp;</span>{" "}
             Dagang
@@ -88,7 +88,7 @@ export default async function Beranda() {
       <section className="pb-[34px]">
         <div className="mx-auto max-w-[1080px] px-5">
           <RowHead title="Pilihan Untukmu" note="berdasarkan minatmu" />
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4">
             {pilihan.map((p) => (
               <ProdukCard key={p.name} {...p} addable />
             ))}

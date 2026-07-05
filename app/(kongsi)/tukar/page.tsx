@@ -50,7 +50,7 @@ export default async function TukarPage() {
         </div>
 
         <RowHead title="Barang yang ditawarkan" note={`${barterItems.length} tawaran aktif`} />
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4">
           {barterItems.map((it) => (
             <div
               key={it.title}
@@ -81,7 +81,7 @@ export default async function TukarPage() {
         </div>
 
         <RowHead title="Contoh kesepakatan tukar" />
-        <div className="grid grid-cols-1 items-center gap-[14px] rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-5 shadow-hard sm:grid-cols-[1fr_auto_1fr]">
+        <div className="grid grid-cols-1 items-center gap-[14px] rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-5 shadow-hard">
           <div className="text-center">
             <div className="mb-2 flex h-20 items-center justify-center rounded-[5px] border-2 border-kongsi-ink bg-kongsi-parchment-3 text-kongsi-indigo">
               <CompassRose size={30} />

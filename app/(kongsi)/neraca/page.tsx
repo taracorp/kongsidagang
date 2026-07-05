@@ -44,9 +44,9 @@ export default async function NeracaPage() {
               <tr className="bg-kongsi-indigo text-left font-fraunces text-xs text-kongsi-parchment">
                 <th className="w-[40px] p-[11px_13px]">#</th>
                 <th className="p-[11px_13px]">Loji / Sumber</th>
-                <th className="hidden p-[11px_13px] sm:table-cell">Nilai</th>
+                <th className="hidden p-[11px_13px]">Nilai</th>
                 <th className="p-[11px_13px]">Harga</th>
-                <th className="hidden p-[11px_13px] sm:table-cell">Hemat</th>
+                <th className="hidden p-[11px_13px]">Hemat</th>
                 <th className="p-[11px_13px]"></th>
               </tr>
             </thead>
@@ -70,7 +70,7 @@ export default async function NeracaPage() {
                       {r.sealed ? <SegelBadge /> : null}
                     </span>
                   </td>
-                  <td className="hidden border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px] sm:table-cell">
+                  <td className="hidden border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px]">
                     <Stars rating={r.rating} />
                   </td>
                   <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px]">
@@ -84,7 +84,7 @@ export default async function NeracaPage() {
                       {formatKeping(r.price)}
                     </span>
                   </td>
-                  <td className="hidden border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px] text-[11px] font-bold text-kongsi-ok sm:table-cell">
+                  <td className="hidden border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px] text-[11px] font-bold text-kongsi-ok">
                     {r.cheapest ? "termurah" : `+${formatKeping(r.price - cheapest).replace("Rp ", "")}`}
                   </td>
                   <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px]">

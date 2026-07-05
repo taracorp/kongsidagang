@@ -65,7 +65,7 @@ export default function KongsiKit() {
       </Section>
 
       <Section title="Produk Card">
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4">
           <ProdukCard
             name="Serum Vitamin C 20ml"
             shop="Loji Sari Ayu"
@@ -99,7 +99,7 @@ export default function KongsiKit() {
       </Section>
 
       <Section title="Pintu (Loji) Card">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-4">
           <PintuCard
             name="Loji Sari Ayu"
             category="Kecantikan & Rempah"

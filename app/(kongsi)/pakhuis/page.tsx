@@ -159,7 +159,7 @@ export default async function PakhuisPage() {
             <thead>
               <tr className="bg-kongsi-indigo text-left font-fraunces text-xs text-kongsi-parchment">
                 <th className="p-[11px_13px]">Barang</th>
-                <th className="hidden p-[11px_13px] sm:table-cell">Tebakan</th>
+                <th className="hidden p-[11px_13px]">Tebakan</th>
                 <th className="p-[11px_13px]">Hasil</th>
               </tr>
             </thead>
@@ -169,7 +169,7 @@ export default async function PakhuisPage() {
                   <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px]">
                     {r.barang}
                   </td>
-                  <td className="hidden border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px] sm:table-cell">
+                  <td className="hidden border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px]">
                     {formatKeping(r.tebakan)}
                   </td>
                   <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px]">
