@@ -4,11 +4,14 @@ import { Pill } from "@/components/kongsi/Pill";
 import { ProdukCard } from "@/components/kongsi/ProdukCard";
 import { RowHead } from "@/components/kongsi/RowHead";
 import { LiveAuction } from "@/components/kongsi/LiveAuction";
-import { lelangAktif } from "@/lib/dummy";
-import { getFeatured } from "@/lib/queries";
+import { getFeatured, getActiveAuction } from "@/lib/queries";
 
 export default async function Beranda() {
-  const { etalase, pilihan } = await getFeatured();
+  const [featured, auction] = await Promise.all([
+    getFeatured(),
+    getActiveAuction("reguler"),
+  ]);
+  const { etalase, pilihan } = featured;
   return (
     <>
       <header className="pb-[22px] pt-10 text-center">
@@ -37,7 +40,7 @@ export default async function Beranda() {
             moreHref="/lelang"
             moreLabel="Masuk balai"
           />
-          <LiveAuction data={lelangAktif} />
+          <LiveAuction auction={auction} />
         </div>
       </section>
 
