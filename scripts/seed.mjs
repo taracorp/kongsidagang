@@ -111,6 +111,48 @@ const barter = [
 
 const NERACA_KEY = "Serum Vitamin C 20ml";
 
+const auctions = [
+  {
+    type: "reguler",
+    clue_category: "🏨 Hotel Bintang 4 di Jogjakarta",
+    clue_name_masked: "A•••••••",
+    normal_price: 500000,
+    facilities: [
+      "Kamar Deluxe (2 dewasa)",
+      "Sarapan untuk 2 orang",
+      "Late check-out 14:00",
+      "Free minibar",
+    ],
+    deal_price: 400000,
+    set_price: 470000,
+    status: "tebak",
+    capacity: 10,
+  },
+  {
+    type: "reguler",
+    clue_category: "💆 Spa Mewah di Ubud",
+    clue_name_masked: "A•••••••",
+    normal_price: 450000,
+    facilities: ["Body massage 90 menit", "Flower bath", "Welcome drink"],
+    deal_price: 300000,
+    set_price: 360000,
+    status: "kumpul",
+    capacity: 10,
+  },
+  {
+    type: "vendu",
+    clue_category: "🍽️ Fine Dining untuk 2",
+    clue_name_masked: "K••••",
+    normal_price: 500000,
+    facilities: ["7-course dinner", "Wine pairing", "Meja privat"],
+    deal_price: 320000,
+    set_price: 400000,
+    status: "kumpul",
+    capacity: 8,
+  },
+];
+
+
 async function main() {
   console.log("Seeding merchants…");
   const merchantRows = merchants.map((m) => {
@@ -168,6 +210,42 @@ async function main() {
     });
   } else {
     console.log("  (lewati barter — belum ada user)");
+  }
+
+  console.log("Reset & seed auctions…");
+  await rest("auctions?id=neq.00000000-0000-0000-0000-000000000000", { method: "DELETE" });
+  await rest("auctions", { method: "POST", body: auctions.map((a) => ({ ...a, starts_at: new Date().toISOString() })) });
+
+  console.log("Provision users (profiles/wallets/vouchers)…");
+  for (const u of users?.users ?? []) {
+    const isAdmin = u.email === "admin@kongsidagang.test";
+    const isTester = u.email === "tester@kongsidagang.test";
+    await rest("profiles?on_conflict=id", {
+      method: "POST",
+      prefer: "resolution=merge-duplicates",
+      body: {
+        id: u.id,
+        full_name: u.user_metadata?.full_name ?? "",
+        is_admin: isAdmin,
+        level: isTester ? "tuan_kecil" : "pelanggan_kecil",
+        stamps: isTester ? 7 : 0,
+      },
+    });
+    await rest("wallets?on_conflict=user_id", {
+      method: "POST",
+      prefer: "resolution=merge-duplicates",
+      body: { user_id: u.id, balance: isTester ? 1250000 : 0 },
+    });
+    if (isTester) {
+      await rest(`vouchers?user_id=eq.${u.id}`, { method: "DELETE" });
+      await rest("vouchers", {
+        method: "POST",
+        body: [
+          { user_id: u.id, title: "Hotel Artotel — Deluxe 1 malam", note: "Menang lelang · berlaku s/d 30 Sep 2026", kind: "lelang" },
+          { user_id: u.id, title: "Serum Vitamin C — Loji Sari Ayu", note: "Tebus neraca · berlaku s/d 12 Agu 2026", kind: "neraca" },
+        ],
+      });
+    }
   }
 
   console.log("\n✓ Seed selesai.");

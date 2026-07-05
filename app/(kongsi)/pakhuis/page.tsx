@@ -3,14 +3,17 @@ import { CompassRose, WaxSeal } from "@/components/kongsi/icons";
 import { Pill } from "@/components/kongsi/Pill";
 import { KongsiButton } from "@/components/kongsi/KongsiButton";
 import { LogoutButton } from "@/components/kongsi/LogoutButton";
-import { createClient } from "@/lib/supabase/server";
+import { getPakhuis } from "@/lib/queries";
 import { cn, formatKeping } from "@/lib/utils";
-import {
-  levelTangga,
-  pakhuisDummy,
-  vouchers,
-  riwayatLelang,
-} from "@/lib/data-e";
+import { levelTangga, riwayatLelang } from "@/lib/data-e";
+
+const levelOrder = [
+  "pelanggan_kecil",
+  "pelanggan_besar",
+  "tuan_kecil",
+  "tuan_besar",
+  "juragan",
+];
 
 const hasilPill: Record<string, "gold" | "sage" | "indigo"> = {
   Menang: "gold",
@@ -19,16 +22,13 @@ const hasilPill: Record<string, "gold" | "sage" | "indigo"> = {
 };
 
 export default async function PakhuisPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/masuk");
+  const data = await getPakhuis();
+  if (!data) redirect("/masuk");
 
-  const nama =
-    (user.user_metadata?.full_name as string | undefined) ??
-    user.email?.split("@")[0] ??
-    "Saudagar";
+  const levelIndex = Math.max(0, levelOrder.indexOf(data.level));
+  const capTotal = 10;
+  const capFilled = Math.min(capTotal, data.stamps);
+  const levelProgress = Math.round((capFilled / capTotal) * 100);
 
   return (
     <section className="py-[34px]">
@@ -39,7 +39,7 @@ export default async function PakhuisPage() {
               Pakhuis-ku
             </div>
             <h2 className="mt-1 font-fraunces text-[32px] font-black text-kongsi-indigo">
-              Halo, {nama}
+              Halo, {data.name}
             </h2>
           </div>
           <LogoutButton />
@@ -51,9 +51,9 @@ export default async function PakhuisPage() {
             Pundi · Keping
           </div>
           <div className="mt-[3px] font-fraunces text-[38px] font-black leading-none">
-            {pakhuisDummy.pundi.toLocaleString("id-ID")}{" "}
+            {data.balance.toLocaleString("id-ID")}{" "}
             <small className="text-[15px] opacity-80">
-              keping (= {formatKeping(pakhuisDummy.pundi)})
+              keping (= {formatKeping(data.balance)})
             </small>
           </div>
           <KongsiButton variant="gold" className="mt-[14px]">
@@ -70,16 +70,17 @@ export default async function PakhuisPage() {
           <div className="mb-[6px] flex items-center gap-3">
             <Pill variant="live">Level</Pill>
             <span className="font-fraunces text-2xl font-black text-kongsi-indigo">
-              {levelTangga[pakhuisDummy.levelIndex]}
+              {levelTangga[levelIndex]}
             </span>
           </div>
           <div className="text-[13px] text-kongsi-ink-soft">
-            {pakhuisDummy.nextLevelNote}
+            Naikkan level dengan makin banyak menebus — buka akses Vendu tanpa
+            antre &amp; potongan bea.
           </div>
           <div className="my-[10px] h-3 overflow-hidden rounded-full border-2 border-kongsi-ink bg-kongsi-parchment-2">
             <i
               className="block h-full bg-kongsi-beeswax"
-              style={{ width: `${pakhuisDummy.levelProgress}%` }}
+              style={{ width: `${levelProgress}%` }}
             />
           </div>
           <div className="mt-3 flex flex-wrap gap-[6px]">
@@ -88,11 +89,10 @@ export default async function PakhuisPage() {
                 key={lv}
                 className={cn(
                   "rounded-full border-[1.5px] border-kongsi-ink px-[9px] py-1 text-[11px] font-bold",
-                  i < pakhuisDummy.levelIndex && "bg-kongsi-sage text-kongsi-ink",
-                  i === pakhuisDummy.levelIndex &&
+                  i < levelIndex && "bg-kongsi-sage text-kongsi-ink",
+                  i === levelIndex &&
                     "bg-kongsi-grenadine text-kongsi-parchment",
-                  i > pakhuisDummy.levelIndex &&
-                    "bg-kongsi-parchment-3 text-kongsi-ink-soft",
+                  i > levelIndex && "bg-kongsi-parchment-3 text-kongsi-ink-soft",
                 )}
               >
                 {lv}
@@ -101,20 +101,20 @@ export default async function PakhuisPage() {
           </div>
           <div className="mt-[14px]">
             <span className="text-[10px] font-bold uppercase tracking-[1.5px] text-kongsi-olive">
-              Cap terkumpul ({pakhuisDummy.capTotal} = 1 potongan)
+              Cap terkumpul ({capTotal} = 1 potongan)
             </span>
             <div className="mt-2 flex flex-wrap gap-2">
-              {Array.from({ length: pakhuisDummy.capTotal }).map((_, i) => (
+              {Array.from({ length: capTotal }).map((_, i) => (
                 <span
                   key={i}
                   className={cn(
                     "flex h-9 w-9 items-center justify-center rounded-full border-2 border-kongsi-ink text-[15px]",
-                    i < pakhuisDummy.capFilled
+                    i < capFilled
                       ? "bg-kongsi-beeswax"
                       : "bg-kongsi-parchment-2 opacity-60",
                   )}
                 >
-                  {i < pakhuisDummy.capFilled ? "✓" : "·"}
+                  {i < capFilled ? "✓" : "·"}
                 </span>
               ))}
             </div>
@@ -125,23 +125,30 @@ export default async function PakhuisPage() {
         <h3 className="mb-3 font-fraunces text-xl font-black text-kongsi-indigo">
           Surat Jalan (voucher)
         </h3>
-        {vouchers.map((v) => (
-          <div
-            key={v.title}
-            className="mb-[10px] flex items-center gap-[14px] rounded-[6px] border-2 border-dashed border-kongsi-ink bg-kongsi-parchment-3 p-[14px_16px]"
-          >
-            <span className="flex h-11 w-11 flex-none items-center justify-center rounded-[6px] border-2 border-kongsi-ink bg-kongsi-beeswax">
-              <WaxSeal size={24} />
-            </span>
-            <div className="flex-1">
-              <b className="font-fraunces text-[15px] text-kongsi-indigo">
-                {v.title}
-              </b>
-              <div className="text-[12px] text-kongsi-ink-soft">{v.note}</div>
+        {data.vouchers.length === 0 ? (
+          <p className="mb-4 rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-4 py-6 text-center text-[13px] text-kongsi-ink-soft">
+            Belum ada Surat Jalan. Menang lelang atau tebus neraca untuk
+            mendapatkannya.
+          </p>
+        ) : (
+          data.vouchers.map((v) => (
+            <div
+              key={v.title}
+              className="mb-[10px] flex items-center gap-[14px] rounded-[6px] border-2 border-dashed border-kongsi-ink bg-kongsi-parchment-3 p-[14px_16px]"
+            >
+              <span className="flex h-11 w-11 flex-none items-center justify-center rounded-[6px] border-2 border-kongsi-ink bg-kongsi-beeswax">
+                <WaxSeal size={24} />
+              </span>
+              <div className="flex-1">
+                <b className="font-fraunces text-[15px] text-kongsi-indigo">
+                  {v.title}
+                </b>
+                <div className="text-[12px] text-kongsi-ink-soft">{v.note}</div>
+              </div>
+              <Pill variant="gold">Tebus</Pill>
             </div>
-            <Pill variant="gold">Tebus</Pill>
-          </div>
-        ))}
+          ))
+        )}
 
         {/* Riwayat */}
         <h3 className="mb-3 mt-6 font-fraunces text-xl font-black text-kongsi-indigo">
@@ -177,3 +184,4 @@ export default async function PakhuisPage() {
     </section>
   );
 }
+

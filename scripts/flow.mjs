@@ -49,11 +49,13 @@ check(
 
 await p.goto(`${BASE}/lelang`, { waitUntil: "domcontentloaded" });
 await p.waitForTimeout(500);
-await p.locator('button:has-text("Pemenang")').click();
-await p.waitForTimeout(400);
 check(
-  "lelang fase Pemenang → tombol Bayar Sekarang",
-  (await p.locator("text=Bayar Sekarang").count()) > 0,
+  "lelang tampil auction dari DB (clue kategori)",
+  (await p.locator("text=Hotel Bintang 4").count()) > 0,
+);
+check(
+  "lelang (guest) → ajakan Masuk untuk Ikut",
+  (await p.locator("text=Masuk untuk Ikut Lelang").count()) > 0,
 );
 
 await p.goto(`${BASE}/juru-tunjuk`, { waitUntil: "domcontentloaded" });

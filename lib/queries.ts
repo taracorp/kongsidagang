@@ -209,3 +209,97 @@ export async function getArticle(slug: string): Promise<Artikel | null> {
   const all = await getArticles();
   return all.find((a) => a.slug === slug) ?? null;
 }
+
+export type AuctionPublic = {
+  id: string;
+  type: string;
+  clue_category: string;
+  clue_name_masked: string;
+  normal_price: number;
+  facilities: string[];
+  status: string;
+  capacity: number;
+};
+
+export async function getActiveAuction(
+  type: "reguler" | "vendu" = "reguler",
+): Promise<AuctionPublic | null> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("auction_items_public")
+      .select(
+        "id,type,clue_category,clue_name_masked,normal_price,facilities,status,capacity",
+      )
+      .eq("type", type)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    return (data as AuctionPublic | null) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getMyGuess(auctionId: string): Promise<number | null> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+    const { data } = await supabase
+      .from("auction_guesses")
+      .select("guess")
+      .eq("auction_id", auctionId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return data?.guess ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export type PakhuisData = {
+  name: string;
+  balance: number;
+  level: string;
+  stamps: number;
+  vouchers: { title: string; note: string }[];
+};
+
+export async function getPakhuis(): Promise<PakhuisData | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const [walletRes, profileRes, vouchersRes] = await Promise.all([
+    supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("level,stamps,full_name")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("vouchers")
+      .select("title,note")
+      .eq("user_id", user.id)
+      .eq("status", "aktif")
+      .order("created_at"),
+  ]);
+
+  return {
+    name:
+      profileRes.data?.full_name ||
+      (user.user_metadata?.full_name as string | undefined) ||
+      user.email?.split("@")[0] ||
+      "Saudagar",
+    balance: walletRes.data?.balance ?? 0,
+    level: profileRes.data?.level ?? "pelanggan_kecil",
+    stamps: profileRes.data?.stamps ?? 0,
+    vouchers: vouchersRes.data ?? [],
+  };
+}
