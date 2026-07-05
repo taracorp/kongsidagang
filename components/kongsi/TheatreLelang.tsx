@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Panggung } from "./Panggung";
 import { LelangLive } from "./LelangLive";
 import { Pill, LiveDot } from "./Pill";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 import type { AuctionPublic, AdSettings } from "@/lib/queries";
 
 const SWAP_MS = 1300;
@@ -63,6 +65,7 @@ export function TheatreLelang({
   const [open, setOpen] = useState(false);
   const swapTimer = useRef<number | null>(null);
   const reduce = useRef(false);
+  const router = useRouter();
 
   useEffect(() => {
     reduce.current =
@@ -71,6 +74,31 @@ export function TheatreLelang({
     const t = window.setTimeout(() => setOpen(true), reduce.current ? 0 : 550);
     return () => clearTimeout(t);
   }, []);
+
+  // Realtime: dengar sinyal admin lewat Broadcast → refetch data server.
+  useEffect(() => {
+    const supabase = createClient();
+    const ch = supabase.channel("kongsi-lelang");
+    ch.on("broadcast", { event: "update" }, () => router.refresh()).subscribe();
+    return () => {
+      supabase.removeChannel(ch);
+    };
+  }, [router]);
+
+  // Saat data lelang berubah (mis. admin ubah status), mainkan transisi tirai.
+  const signature = auctions.map((a) => `${a.id}:${a.status}`).join("|");
+  const prevSig = useRef(signature);
+  useEffect(() => {
+    if (prevSig.current === signature) return;
+    prevSig.current = signature;
+    setIndex((i) => (i >= count ? 0 : i));
+    setOpen(false);
+    const t = window.setTimeout(
+      () => setOpen(true),
+      reduce.current ? 0 : SWAP_MS,
+    );
+    return () => clearTimeout(t);
+  }, [signature, count]);
 
   const goTo = useCallback((next: number) => {
     if (swapTimer.current) return;

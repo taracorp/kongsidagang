@@ -30,6 +30,17 @@ export function AuctionStatusSelect({
     setBusy(true);
     const supabase = createClient();
     await supabase.from("auctions").update({ status: next }).eq("id", id);
+
+    // Beri sinyal ke semua penonton /lelang (Realtime Broadcast).
+    const ch = supabase.channel("kongsi-lelang");
+    ch.subscribe((s) => {
+      if (s === "SUBSCRIBED") {
+        ch.send({ type: "broadcast", event: "update", payload: {} }).finally(
+          () => supabase.removeChannel(ch),
+        );
+      }
+    });
+
     setBusy(false);
     router.refresh();
   }
