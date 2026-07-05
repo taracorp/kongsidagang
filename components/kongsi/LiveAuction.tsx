@@ -1,7 +1,7 @@
 import { cn, formatKeping } from "@/lib/utils";
 import { Pill, LiveDot } from "./Pill";
 import { KongsiLinkButton } from "./KongsiButton";
-import type { AuctionPublic } from "@/lib/queries";
+import type { AuctionPublic, AdSettings } from "@/lib/queries";
 
 const desc = (s: string): string => {
   const t: Record<string, string> = {
@@ -60,9 +60,8 @@ function AuctionCard({ auction }: { auction: AuctionPublic }) {
   );
 }
 
-function AdSlot() {
-  const image = process.env.NEXT_PUBLIC_AD_IMAGE_URL;
-  const video = process.env.NEXT_PUBLIC_AD_VIDEO_URL;
+function AdSlot({ ad }: { ad: AdSettings }) {
+  const { image, video } = ad;
 
   return (
     <div className="rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 p-6 text-center text-kongsi-ink-soft">
@@ -108,10 +107,16 @@ function AdSlot() {
   );
 }
 
-export function LiveAuction({ auction }: { auction: AuctionPublic | null }) {
+export function LiveAuction({
+  auction,
+  ad,
+}: {
+  auction: AuctionPublic | null;
+  ad: AdSettings;
+}) {
   return (
     <div>
-      {auction ? <AuctionCard auction={auction} /> : <AdSlot />}
+      {auction ? <AuctionCard auction={auction} /> : <AdSlot ad={ad} />}
       <p className="mt-[10px] text-[12px] text-kongsi-ink-soft">
         ◆ <b>Lelang Reguler</b> terbuka untuk siapa saja (daftar hanya saat mau
         menebus). <b>Vendu</b> (lelang khusus) hanya untuk yang sudah masuk loji.

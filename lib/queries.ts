@@ -232,12 +232,36 @@ export async function getActiveAuction(
         "id,type,clue_category,clue_name_masked,normal_price,facilities,status,capacity",
       )
       .eq("type", type)
+      .neq("status", "selesai")
       .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle();
     return (data as AuctionPublic | null) ?? null;
   } catch {
     return null;
+  }
+}
+
+export type AdSettings = { video?: string; image?: string };
+
+export async function getAdSettings(): Promise<AdSettings> {
+  const envVideo = process.env.NEXT_PUBLIC_AD_VIDEO_URL || undefined;
+  const envImage = process.env.NEXT_PUBLIC_AD_IMAGE_URL || undefined;
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("settings")
+      .select("key,value")
+      .in("key", ["ad_video_url", "ad_image_url"]);
+    const map = Object.fromEntries(
+      (data ?? []).map((r) => [r.key, r.value as string]),
+    );
+    return {
+      video: map["ad_video_url"] || envVideo,
+      image: map["ad_image_url"] || envImage,
+    };
+  } catch {
+    return { video: envVideo, image: envImage };
   }
 }
 

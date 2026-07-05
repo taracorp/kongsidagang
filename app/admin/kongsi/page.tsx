@@ -2,9 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LogoutButton } from "@/components/kongsi/LogoutButton";
 import { ApplicationsAdmin } from "@/components/kongsi/ApplicationsAdmin";
+import { AuctionStatusSelect } from "@/components/kongsi/AuctionStatusSelect";
+import { PariwaraForm } from "@/components/kongsi/PariwaraForm";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
-import { getAdminData } from "@/lib/queries";
+import { getAdminData, getAdSettings } from "@/lib/queries";
 import { formatKeping } from "@/lib/utils";
 
 export default async function KantorKongsiPage() {
@@ -37,6 +39,7 @@ export default async function KantorKongsiPage() {
   }
 
   const { auctions, applications, counts } = await getAdminData();
+  const ad = await getAdSettings();
 
   const stats = [
     { label: "Lelang aktif", value: String(counts.auctionsAktif), accent: "text-kongsi-grenadine" },
@@ -133,19 +136,23 @@ export default async function KantorKongsiPage() {
                       {margin != null ? formatKeping(margin) : "—"}
                     </td>
                     <td className="border-t-[1.5px] border-kongsi-ink/15 p-[9px_12px]">
-                      {a.status === "tebak" || a.status === "kumpul" ? (
-                        <span className="font-bold text-kongsi-grenadine">
-                          ● {a.status}
-                        </span>
-                      ) : (
-                        a.status
-                      )}
+                      <AuctionStatusSelect id={a.id} status={a.status} />
                     </td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
+        </div>
+
+        <h3 className="mb-3 font-fraunces text-xl font-black text-kongsi-indigo">
+          Sekilas Pariwara (iklan Beranda)
+        </h3>
+        <div className="mb-8">
+          <PariwaraForm
+            initialVideo={ad.video ?? ""}
+            initialImage={ad.image ?? ""}
+          />
         </div>
 
         <h3 className="mb-3 font-fraunces text-xl font-black text-kongsi-indigo">

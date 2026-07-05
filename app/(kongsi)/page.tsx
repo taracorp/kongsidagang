@@ -4,12 +4,13 @@ import { Pill } from "@/components/kongsi/Pill";
 import { ProdukCard } from "@/components/kongsi/ProdukCard";
 import { RowHead } from "@/components/kongsi/RowHead";
 import { LiveAuction } from "@/components/kongsi/LiveAuction";
-import { getFeatured, getActiveAuction } from "@/lib/queries";
+import { getFeatured, getActiveAuction, getAdSettings } from "@/lib/queries";
 
 export default async function Beranda() {
-  const [featured, auction] = await Promise.all([
+  const [featured, auction, ad] = await Promise.all([
     getFeatured(),
     getActiveAuction("reguler"),
+    getAdSettings(),
   ]);
   const { etalase, pilihan } = featured;
   return (
@@ -40,7 +41,7 @@ export default async function Beranda() {
             moreHref="/lelang"
             moreLabel="Masuk balai"
           />
-          <LiveAuction auction={auction} />
+          <LiveAuction auction={auction} ad={ad} />
         </div>
       </section>
 
