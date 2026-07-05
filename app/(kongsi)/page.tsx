@@ -47,21 +47,23 @@ export default async function Beranda() {
 
       <section className="pb-[34px]">
         <div className="mx-auto max-w-[1080px] px-5">
-          <div className="flex flex-wrap items-center gap-5 rounded-[6px] border-2 border-kongsi-ink bg-gradient-to-br from-kongsi-beeswax to-kongsi-grenadine px-6 py-[22px] text-kongsi-ink shadow-hard-lg">
+          <div className="flex flex-col items-center gap-3 rounded-[6px] border-2 border-kongsi-ink bg-gradient-to-br from-kongsi-beeswax to-kongsi-grenadine px-6 py-[22px] text-center text-kongsi-ink shadow-hard-lg">
             <div className="flex h-14 w-14 flex-none items-center justify-center rounded-full border-2 border-kongsi-ink bg-kongsi-parchment text-[28px]">
               🧭
             </div>
-            <div className="flex-1">
-              <h3 className="font-fraunces text-[22px] font-black">
-                Bingung cari apa? Panggil Juru Tunjuk.
-              </h3>
-              <p className="max-w-[440px] text-sm">
-                Pelayan Kongsi bakal nanya beberapa hal — mau makanan atau baju,
-                pedas atau manis, kisaran harga — lalu menunjukkan barang yang
-                pas.
-              </p>
-            </div>
-            <KongsiLinkButton href="/juru-tunjuk" variant="primary">
+            <h3 className="font-fraunces text-[22px] font-black leading-tight">
+              Bingung cari apa? Panggil Juru Tunjuk.
+            </h3>
+            <p className="text-sm">
+              Pelayan Kongsi bakal nanya beberapa hal — mau makanan atau baju,
+              pedas atau manis, kisaran harga — lalu menunjukkan barang yang pas.
+            </p>
+            <KongsiLinkButton
+              href="/juru-tunjuk"
+              variant="primary"
+              block
+              className="mt-1"
+            >
               Panggil Juru Tunjuk
             </KongsiLinkButton>
           </div>

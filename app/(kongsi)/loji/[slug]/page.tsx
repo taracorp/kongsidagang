@@ -27,21 +27,25 @@ export default async function LojiDetail({
               background: `linear-gradient(120deg, ${toneVar(loji.coverFrom)}, ${toneVar(loji.coverTo)})`,
             }}
           />
-          <div className="flex flex-wrap items-center gap-4 bg-kongsi-parchment px-[22px] py-[18px]">
-            <div className="-mt-12 flex h-[66px] w-[66px] items-center justify-center rounded-[8px] border-2 border-kongsi-ink bg-kongsi-beeswax text-kongsi-ink">
-              <CompassRose size={36} />
-            </div>
-            <div className="flex-1">
-              <h2 className="flex flex-wrap items-center gap-[9px] font-fraunces text-[25px] font-black text-kongsi-indigo">
-                {loji.name}
-                {loji.sealed ? <SegelBadge label="Saudagar Bersegel" /> : null}
-              </h2>
-              <div className="text-[13px] text-kongsi-ink-soft">
-                {loji.category} · {loji.city} · <Stars rating={loji.rating} /> (
-                {loji.tebusan.toLocaleString("id-ID")} tebusan)
+          <div className="bg-kongsi-parchment px-[22px] py-[18px]">
+            <div className="flex items-start gap-4">
+              <div className="-mt-12 flex h-[66px] w-[66px] flex-none items-center justify-center rounded-[8px] border-2 border-kongsi-ink bg-kongsi-beeswax text-kongsi-ink">
+                <CompassRose size={36} />
+              </div>
+              <div className="flex-1">
+                <h2 className="flex flex-wrap items-center gap-[9px] font-fraunces text-[25px] font-black text-kongsi-indigo">
+                  {loji.name}
+                  {loji.sealed ? <SegelBadge label="Saudagar Bersegel" /> : null}
+                </h2>
+                <div className="text-[13px] text-kongsi-ink-soft">
+                  {loji.category} · {loji.city} · <Stars rating={loji.rating} /> (
+                  {loji.tebusan.toLocaleString("id-ID")} tebusan)
+                </div>
               </div>
             </div>
-            <KongsiButton variant="gold">Ikuti Loji</KongsiButton>
+            <KongsiButton variant="gold" block className="mt-3">
+              Ikuti Loji
+            </KongsiButton>
           </div>
         </div>
 

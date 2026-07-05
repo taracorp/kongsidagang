@@ -20,8 +20,8 @@ export default async function NeracaPage() {
           </h2>
         </div>
 
-        <div className="mb-[18px] flex flex-wrap items-center justify-between gap-[14px]">
-          <div className="flex max-w-[400px] flex-1 overflow-hidden rounded-[3px] border-2 border-kongsi-ink bg-white">
+        <div className="mb-[18px] flex flex-col gap-[10px]">
+          <div className="flex w-full overflow-hidden rounded-[3px] border-2 border-kongsi-ink bg-white">
             <input
               defaultValue={neracaProduk}
               className="w-full px-3 py-[10px] text-sm outline-none"
