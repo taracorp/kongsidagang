@@ -2,7 +2,7 @@ import { CompassRose } from "@/components/kongsi/icons";
 import { KongsiLinkButton, KongsiButton } from "@/components/kongsi/KongsiButton";
 import { RowHead } from "@/components/kongsi/RowHead";
 import { cn, formatKeping } from "@/lib/utils";
-import { barterItems } from "@/lib/data-e";
+import { getBarter } from "@/lib/queries";
 import type { Tone } from "@/components/kongsi/ProdukCard";
 
 const toneBg: Record<Tone, string> = {
@@ -15,7 +15,8 @@ const toneBg: Record<Tone, string> = {
   indigo: "bg-kongsi-indigo",
 };
 
-export default function TukarPage() {
+export default async function TukarPage() {
+  const barterItems = await getBarter();
   return (
     <section className="py-[34px]">
       <div className="mx-auto max-w-[1080px] px-5">

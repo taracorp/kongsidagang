@@ -1,0 +1,211 @@
+import { createClient } from "@/lib/supabase/server";
+import type { Tone } from "@/components/kongsi/ProdukCard";
+import {
+  merchants as dummyMerchants,
+  getMerchant as dummyGetMerchant,
+  etalaseKurasi,
+  pilihanUntukmu,
+  type Merchant,
+  type Produk,
+} from "@/lib/dummy";
+import {
+  neracaRows as dummyNeraca,
+  barterItems as dummyBarter,
+  artikel as dummyArtikel,
+  type NeracaRow,
+  type BarterItem,
+  type Artikel,
+} from "@/lib/data-e";
+
+const asTone = (t: unknown): Tone => (t as Tone) ?? "sage";
+
+export type LojiKartu = {
+  slug: string;
+  name: string;
+  category: string;
+  rating: number;
+  tone: Tone;
+  sealed: boolean;
+  status: "buka" | "obral";
+};
+
+export async function getLojiList(): Promise<LojiKartu[]> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("merchants")
+      .select("slug,name,category,rating,tone,is_sealed,status")
+      .eq("is_active", true)
+      .order("tebusan_count", { ascending: false });
+    if (data?.length) {
+      return data.map((m) => ({
+        slug: m.slug,
+        name: m.name,
+        category: m.category,
+        rating: Number(m.rating),
+        tone: asTone(m.tone),
+        sealed: Boolean(m.is_sealed),
+        status: m.status === "obral" ? "obral" : "buka",
+      }));
+    }
+  } catch {
+    // fallback ke dummy
+  }
+  return dummyMerchants.map((m) => ({
+    slug: m.slug,
+    name: m.name,
+    category: m.category,
+    rating: m.rating,
+    tone: m.tone,
+    sealed: Boolean(m.sealed),
+    status: m.status,
+  }));
+}
+
+export async function getLojiDetail(slug: string): Promise<Merchant | null> {
+  try {
+    const supabase = await createClient();
+    const { data: m } = await supabase
+      .from("merchants")
+      .select("*")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (m) {
+      const { data: products } = await supabase
+        .from("merchant_products")
+        .select("name,price,old_price,tone")
+        .eq("merchant_id", m.id)
+        .eq("is_active", true)
+        .order("created_at");
+      return {
+        slug: m.slug,
+        name: m.name,
+        category: m.category,
+        rating: Number(m.rating),
+        tone: asTone(m.tone),
+        sealed: Boolean(m.is_sealed),
+        status: m.status === "obral" ? "obral" : "buka",
+        city: m.city ?? "",
+        tebusan: m.tebusan_count ?? 0,
+        coverFrom: asTone(m.cover_from ?? m.tone),
+        coverTo: asTone(m.cover_to ?? m.tone),
+        flashSale: m.status === "obral" ? "03:14:22" : undefined,
+        products: (products ?? []).map((p) => ({
+          name: p.name,
+          shop: m.name,
+          price: p.price,
+          oldPrice: p.old_price ?? undefined,
+          tone: asTone(p.tone),
+        })),
+      };
+    }
+  } catch {
+    // fallback
+  }
+  return dummyGetMerchant(slug) ?? null;
+}
+
+export async function getFeatured(): Promise<{ etalase: Produk[]; pilihan: Produk[] }> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("merchant_products")
+      .select("name,price,old_price,tone,merchants(name)")
+      .eq("is_active", true)
+      .limit(20);
+    if (data?.length) {
+      const mapped: Produk[] = data.map((p) => {
+        const rel = p.merchants as { name?: string } | { name?: string }[] | null;
+        const shop = Array.isArray(rel) ? rel[0]?.name : rel?.name;
+        return {
+          name: p.name,
+          shop: shop ?? "",
+          price: p.price,
+          oldPrice: p.old_price ?? undefined,
+          tone: asTone(p.tone),
+        };
+      });
+      return { etalase: mapped.slice(0, 5), pilihan: mapped.slice(5, 9) };
+    }
+  } catch {
+    // fallback
+  }
+  return { etalase: etalaseKurasi, pilihan: pilihanUntukmu };
+}
+
+export async function getNeraca(productKey: string): Promise<NeracaRow[]> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("price_listings")
+      .select("loji_name,is_sealed,rating,price")
+      .eq("product_key", productKey)
+      .order("price", { ascending: true })
+      .limit(10);
+    if (data?.length) {
+      return data.map((r, i) => ({
+        rank: i + 1,
+        loji: r.loji_name,
+        sealed: Boolean(r.is_sealed),
+        rating: Number(r.rating),
+        price: r.price,
+        cheapest: i === 0,
+      }));
+    }
+  } catch {
+    // fallback
+  }
+  return dummyNeraca;
+}
+
+export async function getBarter(): Promise<BarterItem[]> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("barter_items")
+      .select("title,est_value,want_text,city,tone")
+      .eq("status", "aktif")
+      .order("created_at", { ascending: false });
+    if (data?.length) {
+      return data.map((b) => ({
+        title: b.title,
+        owner: "Saudagar",
+        city: b.city ?? "",
+        estValue: b.est_value,
+        want: b.want_text ?? "",
+        tone: asTone(b.tone),
+      }));
+    }
+  } catch {
+    // fallback
+  }
+  return dummyBarter;
+}
+
+export async function getArticles(): Promise<Artikel[]> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("articles")
+      .select("slug,title,tag,excerpt,cover_tone,body")
+      .order("published_at", { ascending: false });
+    if (data?.length) {
+      return data.map((a) => ({
+        slug: a.slug,
+        title: a.title,
+        tag: a.tag,
+        excerpt: a.excerpt ?? "",
+        tone: asTone(a.cover_tone),
+        body: a.body ?? [],
+      }));
+    }
+  } catch {
+    // fallback
+  }
+  return dummyArtikel;
+}
+
+export async function getArticle(slug: string): Promise<Artikel | null> {
+  const all = await getArticles();
+  return all.find((a) => a.slug === slug) ?? null;
+}

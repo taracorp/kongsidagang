@@ -1,8 +1,10 @@
 import { PintuCard } from "@/components/kongsi/PintuCard";
 import { Pill } from "@/components/kongsi/Pill";
-import { merchants } from "@/lib/dummy";
+import { getLojiList } from "@/lib/queries";
 
-export default function LojiPage() {
+export default async function LojiPage() {
+  const merchants = await getLojiList();
+
   return (
     <section className="py-[34px]">
       <div className="mx-auto max-w-[1080px] px-5">

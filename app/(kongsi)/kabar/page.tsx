@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { artikel } from "@/lib/data-e";
+import { getArticles } from "@/lib/queries";
 import type { Tone } from "@/components/kongsi/ProdukCard";
 
 const toneBg: Record<Tone, string> = {
@@ -13,7 +13,8 @@ const toneBg: Record<Tone, string> = {
   indigo: "bg-kongsi-indigo",
 };
 
-export default function KabarPage() {
+export default async function KabarPage() {
+  const artikel = await getArticles();
   const [big, ...rest] = artikel;
 
   return (

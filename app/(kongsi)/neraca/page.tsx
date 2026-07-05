@@ -1,9 +1,11 @@
 import { SegelBadge, Pill } from "@/components/kongsi/Pill";
 import { Stars } from "@/components/kongsi/PintuCard";
 import { formatKeping } from "@/lib/utils";
-import { neracaRows, neracaProduk, neracaLapak } from "@/lib/data-e";
+import { neracaProduk, neracaLapak } from "@/lib/data-e";
+import { getNeraca } from "@/lib/queries";
 
-export default function NeracaPage() {
+export default async function NeracaPage() {
+  const neracaRows = await getNeraca(neracaProduk);
   const cheapest = neracaRows.find((r) => r.cheapest)?.price ?? 0;
 
   return (

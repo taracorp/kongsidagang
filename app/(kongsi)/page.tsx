@@ -4,9 +4,11 @@ import { Pill } from "@/components/kongsi/Pill";
 import { ProdukCard } from "@/components/kongsi/ProdukCard";
 import { RowHead } from "@/components/kongsi/RowHead";
 import { LiveAuction } from "@/components/kongsi/LiveAuction";
-import { etalaseKurasi, pilihanUntukmu, lelangAktif } from "@/lib/dummy";
+import { lelangAktif } from "@/lib/dummy";
+import { getFeatured } from "@/lib/queries";
 
-export default function Beranda() {
+export default async function Beranda() {
+  const { etalase, pilihan } = await getFeatured();
   return (
     <>
       <header className="pb-[22px] pt-10 text-center">
@@ -66,7 +68,7 @@ export default function Beranda() {
         <div className="mx-auto max-w-[1080px] px-5">
           <RowHead title="Etalase — Pilihan Kurator" moreHref="/loji" />
           <div className="flex gap-[14px] overflow-x-auto pb-2">
-            {etalaseKurasi.map((p) => (
+            {etalase.map((p) => (
               <ProdukCard
                 key={p.name}
                 {...p}
@@ -83,7 +85,7 @@ export default function Beranda() {
         <div className="mx-auto max-w-[1080px] px-5">
           <RowHead title="Pilihan Untukmu" note="berdasarkan minatmu" />
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {pilihanUntukmu.map((p) => (
+            {pilihan.map((p) => (
               <ProdukCard key={p.name} {...p} addable />
             ))}
           </div>

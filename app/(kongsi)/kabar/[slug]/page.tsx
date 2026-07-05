@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { getArtikel, artikel } from "@/lib/data-e";
+import { getArticle } from "@/lib/queries";
 import type { Tone } from "@/components/kongsi/ProdukCard";
 
 const toneBg: Record<Tone, string> = {
@@ -14,17 +14,13 @@ const toneBg: Record<Tone, string> = {
   indigo: "bg-kongsi-indigo",
 };
 
-export function generateStaticParams() {
-  return artikel.map((a) => ({ slug: a.slug }));
-}
-
 export default async function KabarDetail({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const a = getArtikel(slug);
+  const a = await getArticle(slug);
   if (!a) notFound();
 
   return (

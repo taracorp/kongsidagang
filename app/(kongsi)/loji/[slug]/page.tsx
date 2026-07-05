@@ -4,11 +4,7 @@ import { SegelBadge, Pill } from "@/components/kongsi/Pill";
 import { Stars } from "@/components/kongsi/PintuCard";
 import { KongsiButton } from "@/components/kongsi/KongsiButton";
 import { ProdukCard, type Tone } from "@/components/kongsi/ProdukCard";
-import { getMerchant, merchants } from "@/lib/dummy";
-
-export function generateStaticParams() {
-  return merchants.map((m) => ({ slug: m.slug }));
-}
+import { getLojiDetail } from "@/lib/queries";
 
 const toneVar = (t: Tone) => `var(--color-kongsi-${t})`;
 
@@ -18,7 +14,7 @@ export default async function LojiDetail({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const loji = getMerchant(slug);
+  const loji = await getLojiDetail(slug);
   if (!loji) notFound();
 
   return (
