@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
 const confettiColors = ["#d0451f", "#e7a24a", "#a9c6ae", "#16495d", "#c9852f"];
@@ -25,28 +25,21 @@ function Confetti() {
 }
 
 export function Panggung({
-  children,
+  open,
   celebrate = false,
-  startClosed = true,
+  children,
 }: {
-  children: ReactNode;
+  open: boolean;
   celebrate?: boolean;
-  startClosed?: boolean;
+  children: ReactNode;
 }) {
-  const [open, setOpen] = useState(!startClosed);
-
-  useEffect(() => {
-    const t = setTimeout(() => setOpen(true), 550);
-    return () => clearTimeout(t);
-  }, []);
-
   return (
     <div className="stage mt-6">
       <div className="stage-spotlight" />
       <div className="stage-floor" />
       <div className="stage-content">{children}</div>
 
-      {celebrate ? <Confetti /> : null}
+      {celebrate && open ? <Confetti /> : null}
 
       <div className={cn("curtain curtain-left", open && "curtain-open")} />
       <div className={cn("curtain curtain-right", open && "curtain-open")} />

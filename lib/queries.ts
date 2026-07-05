@@ -285,6 +285,49 @@ export async function getMyGuess(auctionId: string): Promise<number | null> {
   }
 }
 
+export async function getStageAuctions(
+  type: "reguler" | "vendu" = "reguler",
+): Promise<AuctionPublic[]> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("auction_items_public")
+      .select(
+        "id,type,clue_category,clue_name_masked,normal_price,facilities,status,capacity",
+      )
+      .eq("type", type)
+      .neq("status", "selesai")
+      .order("created_at", { ascending: true });
+    return (data as AuctionPublic[]) ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export async function getMyGuesses(
+  ids: string[],
+): Promise<Record<string, number>> {
+  if (!ids.length) return {};
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return {};
+    const { data } = await supabase
+      .from("auction_guesses")
+      .select("auction_id,guess,created_at")
+      .in("auction_id", ids)
+      .order("created_at", { ascending: true });
+    const map: Record<string, number> = {};
+    for (const g of data ?? [])
+      map[g.auction_id as string] = g.guess as number;
+    return map;
+  } catch {
+    return {};
+  }
+}
+
 export type AdminAuction = {
   id: string;
   clue_category: string;
