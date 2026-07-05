@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Pill } from "./Pill";
+import { Pill, LiveDot } from "./Pill";
 import { KongsiButton, KongsiLinkButton } from "./KongsiButton";
 import { formatKeping } from "@/lib/utils";
 import type { AuctionPublic } from "@/lib/queries";
@@ -78,8 +78,9 @@ export function LelangLive({
   return (
     <div className="mx-auto mt-6 max-w-[500px]">
       <div className="rounded-[4px] border-2 border-kongsi-ink bg-kongsi-parchment p-6 text-center shadow-hard">
-        <Pill variant={open ? "live" : "indigo"}>
-          ◉ {statusLabel[auction.status] ?? auction.status}
+        <Pill variant={open ? "live" : "indigo"} className="inline-flex items-center gap-[6px]">
+          <LiveDot live={open} />
+          {statusLabel[auction.status] ?? auction.status}
         </Pill>
         <div className="mt-[10px] font-fraunces text-[21px] font-black text-kongsi-indigo">
           {auction.clue_category}

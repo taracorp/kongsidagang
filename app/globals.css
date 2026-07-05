@@ -41,6 +41,36 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Indikator lelang berlangsung */
+@keyframes kongsi-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(91, 214, 125, 0.7);
+    opacity: 1;
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(91, 214, 125, 0);
+    opacity: 0.55;
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(91, 214, 125, 0);
+    opacity: 1;
+  }
+}
+.live-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 9999px;
+  background-color: #5bd67d;
+  vertical-align: middle;
+  animation: kongsi-pulse 1.2s ease-in-out infinite;
+}
+.live-dot--static {
+  background-color: #b9c0aa;
+  animation: none;
+  box-shadow: none;
+}
+
 body {
   background-color: var(--color-kongsi-parchment);
   background-image:

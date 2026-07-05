@@ -33,6 +33,15 @@ export function Pill({
   );
 }
 
+export function LiveDot({ live = true }: { live?: boolean }) {
+  return (
+    <span
+      className={cn("live-dot", !live && "live-dot--static")}
+      aria-hidden="true"
+    />
+  );
+}
+
 export function SegelBadge({
   label = "Segel",
   className,

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { cn, formatKeping } from "@/lib/utils";
-import { Pill } from "./Pill";
+import { Pill, LiveDot } from "./Pill";
 import { KongsiLinkButton } from "./KongsiButton";
 import type { LelangAktif } from "@/lib/dummy";
 
@@ -37,8 +37,9 @@ export function LiveAuction({ data }: { data: LelangAktif }) {
       {live ? (
         <div className="grid grid-cols-1 overflow-hidden rounded-[6px] border-2 border-kongsi-ink shadow-hard-lg md:grid-cols-[1.1fr_1fr]">
           <div className="relative flex flex-col justify-center bg-gradient-to-br from-kongsi-indigo to-kongsi-indigo-dark p-[26px] text-kongsi-parchment">
-            <Pill variant="live" className="absolute left-[14px] top-[14px]">
-              ◉ Lelang Reguler · terbuka
+            <Pill variant="live" className="absolute left-[14px] top-[14px] inline-flex items-center gap-[6px]">
+              <LiveDot live />
+              Lelang Reguler · terbuka
             </Pill>
             <div className="mt-[14px] font-fraunces text-2xl font-black">
               {data.kategori}
@@ -77,7 +78,10 @@ export function LiveAuction({ data }: { data: LelangAktif }) {
         </div>
       ) : (
         <div className="rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-6 py-10 text-center text-kongsi-ink-soft">
-          <Pill variant="gold">Slot Iklan / Video</Pill>
+          <Pill variant="indigo" className="inline-flex items-center gap-[6px]">
+            <LiveDot live={false} />
+            Tidak ada lelang
+          </Pill>
           <h3 className="mt-[10px] font-fraunces text-xl font-black text-kongsi-indigo">
             Belum ada lelang berjalan
           </h3>
