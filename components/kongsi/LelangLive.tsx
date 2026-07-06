@@ -32,6 +32,10 @@ export function LelangLive({
   const [error, setError] = useState<string | null>(null);
 
   const open = auction.status === "kumpul" || auction.status === "tebak";
+  const decided = auction.revealed_price != null;
+  const iWon = Boolean(
+    userId && auction.winner_id && auction.winner_id === userId,
+  );
 
   async function join() {
     if (!userId) return;
@@ -117,8 +121,59 @@ export function LelangLive({
             {formatKeping(auction.normal_price)}
           </b>
         </div>
+        <div className="mt-1 text-[12px] font-bold text-kongsi-olive">
+          👥 {auction.peserta_count} peserta
+        </div>
 
-        {!userId ? (
+        {decided ? (
+          <div className="mt-5">
+            <Pill variant="gold">🎉 Pemenang</Pill>
+            <div className="mt-2 font-fraunces text-2xl font-black text-kongsi-grenadine">
+              {auction.winner_name ?? "—"}
+            </div>
+            <div className="my-4 flex justify-center gap-5">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[1px] text-kongsi-olive">
+                  Tebakan
+                </div>
+                <div className="font-fraunces text-lg font-black text-kongsi-indigo">
+                  {auction.winning_guess != null
+                    ? formatKeping(auction.winning_guess)
+                    : "—"}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[1px] text-kongsi-olive">
+                  Harga asli
+                </div>
+                <div className="font-fraunces text-lg font-black text-kongsi-ok">
+                  {formatKeping(auction.revealed_price ?? 0)}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-[1px] text-kongsi-olive">
+                  Selisih
+                </div>
+                <div className="font-fraunces text-lg font-black text-kongsi-indigo">
+                  {auction.winning_guess != null && auction.revealed_price != null
+                    ? formatKeping(
+                        Math.abs(auction.revealed_price - auction.winning_guess),
+                      )
+                    : "—"}
+                </div>
+              </div>
+            </div>
+            {iWon ? (
+              <div className="rounded-[4px] border-2 border-kongsi-ok bg-[#E4EFE5] px-3 py-3 text-[13px] font-bold text-kongsi-ok">
+                🏆 Kamu menang! Surat Jalan sudah terbit —{" "}
+                <a href="/pakhuis" className="underline">
+                  lihat di Pakhuis
+                </a>
+                .
+              </div>
+            ) : null}
+          </div>
+        ) : !userId ? (
           <div className="mt-5">
             <p className="mb-3 text-[13px] text-kongsi-ink-soft">
               Masuk loji dulu untuk ikut menebak.

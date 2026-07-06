@@ -19,7 +19,7 @@ Acuan arah pengembangan. Status per fase ditandai: ✅ selesai · 🚧 jalan · 
 - **Lapak-ku** (`/lapak`): Saudagar kelola loji & **CRUD produk** sendiri.
 - Produk otomatis masuk katalog & Neraca.
 
-### M2 — Mesin Lelang sungguhan ⬜
+### M2 — Mesin Lelang sungguhan ✅
 - Durasi per-fase, **hitung pemenang** (tebakan terdekat ke `set_price`), `winner_id`.
 - Peserta live, kunci tebakan per babak, **terbit Surat Jalan** ke pemenang.
 - Vendu khusus login + level.

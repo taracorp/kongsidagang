@@ -439,7 +439,15 @@ export type AuctionPublic = {
   facilities: string[];
   status: string;
   capacity: number;
+  peserta_count: number;
+  revealed_price: number | null;
+  winning_guess: number | null;
+  winner_id: string | null;
+  winner_name: string | null;
 };
+
+const AUCTION_COLS =
+  "id,type,clue_category,clue_name_masked,normal_price,facilities,status,capacity,peserta_count,revealed_price,winning_guess,winner_id,winner_name";
 
 export async function getActiveAuction(
   type: "reguler" | "vendu" = "reguler",
@@ -448,9 +456,7 @@ export async function getActiveAuction(
     const supabase = await createClient();
     const { data } = await supabase
       .from("auction_items_public")
-      .select(
-        "id,type,clue_category,clue_name_masked,normal_price,facilities,status,capacity",
-      )
+      .select(AUCTION_COLS)
       .eq("type", type)
       .neq("status", "selesai")
       .order("created_at", { ascending: true })
@@ -512,9 +518,7 @@ export async function getStageAuctions(
     const supabase = await createClient();
     const { data } = await supabase
       .from("auction_items_public")
-      .select(
-        "id,type,clue_category,clue_name_masked,normal_price,facilities,status,capacity",
-      )
+      .select(AUCTION_COLS)
       .eq("type", type)
       .neq("status", "selesai")
       .order("created_at", { ascending: true });

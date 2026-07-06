@@ -1,7 +1,5 @@
 
--- ===
--- FILE: supabase/migrations/0001_merchants.sql
--- ===
+-- === supabase/migrations/0001_merchants.sql ===
 -- Kongsi Dagang — Fase C: Katalog & Loji
 -- APPLY MANUAL oleh Tara di Supabase SQL Editor. Agen TIDAK menjalankan.
 -- Prinsip: publik boleh membaca loji & produk tanpa login.
@@ -104,9 +102,7 @@ create policy "merchant_applications_own_read" on public.merchant_applications
 -- CATATAN: kebijakan admin (Kantor Kongsi) ditambah di Fase F bersama role guard.
 
 
--- ===
--- FILE: supabase/migrations/0002_auctions.sql
--- ===
+-- === supabase/migrations/0002_auctions.sql ===
 -- Kongsi Dagang — Fase E1: Balai Lelang (auction)
 -- APPLY MANUAL oleh Tara. Harga rahasia (deal/set) TIDAK boleh bocor ke publik.
 
@@ -173,9 +169,7 @@ grant select on public.auction_items_public to anon, authenticated;
 -- CATATAN: policy admin (kelola auctions + lihat harga rahasia) ditambah di Fase F.
 
 
--- ===
--- FILE: supabase/migrations/0003_price_listings.sql
--- ===
+-- === supabase/migrations/0003_price_listings.sql ===
 -- Kongsi Dagang — Fase E2: Neraca Harga (price_listings)
 -- APPLY MANUAL oleh Tara.
 -- Sumber awal = merchant_products. JANGAN scraping tanpa izin (lihat AGENTS.md Bagian 7).
@@ -206,9 +200,7 @@ create policy "price_listings_public_read" on public.price_listings
 -- Tulis hanya via service role / admin (Fase F) — tidak ada policy write untuk anon.
 
 
--- ===
--- FILE: supabase/migrations/0004_barter.sql
--- ===
+-- === supabase/migrations/0004_barter.sql ===
 -- Kongsi Dagang — Fase E3: Tukar Guling (barter) — versi sederhana (COD + rating)
 -- APPLY MANUAL oleh Tara. JANGAN bikin escrow dulu.
 
@@ -265,9 +257,7 @@ create policy "barter_deals_propose" on public.barter_deals
 -- CATATAN: sengketa (disputed) diadili Syahbandar/admin di Fase F.
 
 
--- ===
--- FILE: supabase/migrations/0005_articles.sql
--- ===
+-- === supabase/migrations/0005_articles.sql ===
 -- Kongsi Dagang — Fase E5: Kabar (articles) — CMS sederhana
 -- APPLY MANUAL oleh Tara.
 
@@ -295,9 +285,7 @@ create policy "articles_public_read" on public.articles
 -- Tulis hanya admin (Fase F).
 
 
--- ===
--- FILE: supabase/migrations/0006_wallet_admin.sql
--- ===
+-- === supabase/migrations/0006_wallet_admin.sql ===
 -- Kongsi Dagang — Fase F: Pakhuis (wallet/level/vouchers) + Profiles + policy admin
 -- APPLY MANUAL oleh Tara. TANPA Gulden — hanya Keping (1 keping = Rp 1).
 
@@ -389,9 +377,7 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 
 
--- ===
--- FILE: supabase/migrations/0007_settings.sql
--- ===
+-- === supabase/migrations/0007_settings.sql ===
 -- Kongsi Dagang — Fase H: Settings (key/value) untuk Sekilas Pariwara & konfigurasi.
 -- APPLY MANUAL oleh Tara di Supabase SQL Editor.
 
@@ -418,9 +404,7 @@ insert into public.settings (key, value) values
 on conflict (key) do nothing;
 
 
--- ===
--- FILE: supabase/migrations/0008_barter_deal_update.sql
--- ===
+-- === supabase/migrations/0008_barter_deal_update.sql ===
 -- Kongsi Dagang — Fase H+: izin update deal barter untuk pihak yang terlibat.
 -- APPLY MANUAL oleh Tara di Supabase SQL Editor.
 
@@ -436,9 +420,7 @@ create policy "barter_deals_involved_update" on public.barter_deals
   );
 
 
--- ===
--- FILE: supabase/migrations/0009_follows.sql
--- ===
+-- === supabase/migrations/0009_follows.sql ===
 -- Kongsi Dagang — Fase H+: Ikuti Loji (follows)
 -- APPLY MANUAL / via Management API.
 
@@ -455,9 +437,7 @@ create policy "follows_self_all" on public.follows
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 
--- ===
--- FILE: supabase/migrations/0010_auto_lelang.sql
--- ===
+-- === supabase/migrations/0010_auto_lelang.sql ===
 -- Kongsi Dagang — Fase H+: Timer lelang otomatis (pg_cron + advance_auctions)
 -- APPLY via Management API. Fase maju tiap menit, lalu broadcast ke penonton.
 
@@ -529,9 +509,7 @@ select cron.schedule(
 );
 
 
--- ===
--- FILE: supabase/migrations/0011_staff_roles.sql
--- ===
+-- === supabase/migrations/0011_staff_roles.sql ===
 -- Kongsi Dagang — Fase I: Peran staf (Pewarta / Admin Kongsi / Ketua Kongsi)
 -- APPLY via Management API.
 
@@ -621,9 +599,7 @@ revoke all on function public.admin_list_users() from anon;
 grant execute on function public.admin_list_users() to authenticated;
 
 
--- ===
--- FILE: supabase/migrations/0012_approve_merchant.sql
--- ===
+-- === supabase/migrations/0012_approve_merchant.sql ===
 -- Kongsi Dagang — Fase I (M1): Approve pengajuan Saudagar -> auto-buat loji + owner + segel
 -- APPLY via Management API.
 
@@ -668,4 +644,106 @@ $$;
 
 revoke all on function public.approve_merchant_application(uuid) from anon;
 grant execute on function public.approve_merchant_application(uuid) to authenticated;
+
+
+-- === supabase/migrations/0013_auction_engine.sql ===
+-- Kongsi Dagang — M2: Mesin lelang sungguhan (pemenang + reveal + Surat Jalan + peserta live)
+-- APPLY via Management API.
+
+alter table public.auctions add column if not exists winning_guess integer;
+
+-- Tentukan pemenang: tebakan (terbaru per user) terdekat ke set_price; terbit voucher.
+create or replace function public.decide_auction(aid uuid)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  sp  integer;
+  cat text;
+  win record;
+begin
+  select set_price, clue_category into sp, cat from public.auctions where id = aid;
+  if sp is null then return; end if;
+
+  with latest as (
+    select distinct on (user_id) user_id, guess
+    from public.auction_guesses
+    where auction_id = aid
+    order by user_id, created_at desc
+  )
+  select user_id, guess into win
+  from latest
+  order by abs(guess - sp) asc, guess asc
+  limit 1;
+
+  if win.user_id is null then return; end if;
+
+  update public.auctions
+    set winner_id = win.user_id, winning_guess = win.guess
+    where id = aid;
+
+  if not exists (
+    select 1 from public.vouchers
+    where user_id = win.user_id and title = cat and kind = 'lelang'
+  ) then
+    insert into public.vouchers (user_id, title, note, kind)
+    values (win.user_id, cat, 'Menang lelang · tebus segera', 'lelang');
+  end if;
+end $$;
+
+-- Advance fase + putuskan pemenang saat masuk 'pemenang' + reset saat ulang 'kumpul'
+create or replace function public.advance_auctions()
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  r record;
+  nextstatus text;
+begin
+  for r in
+    select id, status from public.auctions
+    where phase_ends_at is not null and phase_ends_at < now()
+  loop
+    nextstatus := case r.status
+      when 'kumpul'   then 'tebak'
+      when 'tebak'    then 'jeda'
+      when 'jeda'     then 'final'
+      when 'final'    then 'pemenang'
+      when 'pemenang' then 'bayar'
+      when 'bayar'    then 'selesai'
+      when 'selesai'  then 'kumpul'
+      else 'kumpul'
+    end;
+
+    update public.auctions
+      set status = nextstatus, phase_ends_at = now() + interval '60 seconds'
+      where id = r.id;
+
+    if nextstatus = 'pemenang' then
+      perform public.decide_auction(r.id);
+    elsif nextstatus = 'kumpul' then
+      update public.auctions set winner_id = null, winning_guess = null where id = r.id;
+      delete from public.auction_guesses where auction_id = r.id;
+      delete from public.auction_participants where auction_id = r.id;
+    end if;
+  end loop;
+
+  begin
+    perform realtime.send(jsonb_build_object('at', now()), 'update', 'kongsi-lelang', false);
+  exception when others then null;
+  end;
+end $$;
+
+-- View publik: reveal harga & pemenang HANYA setelah diputus + peserta live
+drop view if exists public.auction_items_public;
+create view public.auction_items_public
+with (security_invoker = false) as
+  select
+    a.id, a.type, a.clue_category, a.clue_name_masked, a.normal_price,
+    a.facilities, a.status, a.capacity, a.starts_at, a.created_at, a.winner_id,
+    case when a.status in ('pemenang','bayar','selesai') then a.set_price end as revealed_price,
+    case when a.status in ('pemenang','bayar','selesai') then a.winning_guess end as winning_guess,
+    (select coalesce(p.full_name, split_part(u.email,'@',1))
+       from auth.users u left join public.profiles p on p.id = u.id
+       where u.id = a.winner_id) as winner_name,
+    (select count(*) from public.auction_participants ap where ap.auction_id = a.id) as peserta_count
+  from public.auctions a;
+
+grant select on public.auction_items_public to anon, authenticated;
 
