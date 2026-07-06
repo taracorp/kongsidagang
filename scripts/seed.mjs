@@ -69,14 +69,36 @@ const parfum = [
   { name: "Dupa Cendana 20pcs", price: 40000, old_price: 55000, tone: "beeswax" },
   { name: "Minyak Nilam 30ml", price: 78000, old_price: 98000, tone: "indigo" },
 ];
+const makanan = [
+  { name: "Sambal Roa Botolan", price: 45000, old_price: 55000, tone: "grenadine", tags: ["makanan", "pedas"] },
+  { name: "Keripik Balado Pedas", price: 32000, old_price: 40000, tone: "beeswax-dark", tags: ["makanan", "pedas"] },
+  { name: "Mie Cabe Level 5", price: 22000, old_price: 30000, tone: "olive", tags: ["makanan", "pedas"] },
+  { name: "Dodol Garut", price: 22000, old_price: 28000, tone: "beeswax", tags: ["makanan", "manis"] },
+  { name: "Wingko Babat 10pcs", price: 24000, old_price: 30000, tone: "sage", tags: ["makanan", "manis"] },
+  { name: "Rempeyek Kacang", price: 18000, old_price: 24000, tone: "olive", tags: ["makanan", "gurih"] },
+  { name: "Abon Sapi Premium", price: 95000, old_price: 120000, tone: "grenadine-dark", tags: ["makanan", "gurih"] },
+];
+const perabot = [
+  { name: "Vas Keramik Tembikar", price: 65000, old_price: 85000, tone: "sage", tags: ["perabot"] },
+  { name: "Piring Rotan Set 4", price: 48000, old_price: 60000, tone: "olive", tags: ["perabot"] },
+  { name: "Lampu Meja Anyaman", price: 120000, old_price: 150000, tone: "beeswax", tags: ["perabot"] },
+  { name: "Toples Kaca 3pcs", price: 24000, old_price: 32000, tone: "indigo", tags: ["perabot"] },
+];
+
+// Tag kategori untuk Juru Tunjuk
+kecantikan.forEach((p) => (p.tags = ["kecantikan"]));
+kopi.forEach((p) => (p.tags = ["kuliner"]));
+batik.forEach((p) => (p.tags = ["baju"]));
+parfum.forEach((p) => (p.tags = ["kecantikan"]));
 
 const merchants = [
   { slug: "loji-sari-ayu", name: "Loji Sari Ayu", category: "Kecantikan & Rempah", rating: 4.9, tone: "grenadine", cover_from: "grenadine", cover_to: "beeswax-dark", city: "Yogyakarta", is_sealed: true, status: "obral", tebusan_count: 1284, products: kecantikan },
   { slug: "loji-glow-nusantara", name: "Loji Glow Nusantara", category: "Skincare", rating: 4.8, tone: "indigo", cover_from: "indigo", cover_to: "sage", city: "Bandung", is_sealed: true, status: "buka", tebusan_count: 872, products: kecantikan.slice(0, 6) },
-  { slug: "loji-rempah-timur", name: "Loji Rempah Timur", category: "Bumbu & Herbal", rating: 4.6, tone: "olive", cover_from: "olive", cover_to: "beeswax", city: "Makassar", is_sealed: false, status: "buka", tebusan_count: 540, products: kopi },
+  { slug: "loji-rempah-timur", name: "Loji Rempah Timur", category: "Kuliner & Oleh-oleh", rating: 4.6, tone: "olive", cover_from: "olive", cover_to: "beeswax", city: "Makassar", is_sealed: false, status: "buka", tebusan_count: 540, products: makanan },
   { slug: "loji-kain-batik", name: "Loji Kain Batik", category: "Wastra & Busana", rating: 4.9, tone: "beeswax-dark", cover_from: "beeswax-dark", cover_to: "grenadine", city: "Solo", is_sealed: true, status: "obral", tebusan_count: 1580, products: batik },
   { slug: "loji-kopi-rakyat", name: "Loji Kopi Rakyat", category: "Kuliner & Minuman", rating: 4.5, tone: "sage", cover_from: "sage", cover_to: "olive", city: "Aceh", is_sealed: false, status: "buka", tebusan_count: 410, products: kopi },
   { slug: "loji-wangi-ratu", name: "Loji Wangi Ratu", category: "Parfum & Aroma", rating: 4.7, tone: "grenadine-dark", cover_from: "grenadine-dark", cover_to: "beeswax", city: "Surabaya", is_sealed: true, status: "buka", tebusan_count: 690, products: parfum },
+  { slug: "loji-rumah-tangga", name: "Loji Rumah Tangga", category: "Perabot & Rumah", rating: 4.4, tone: "indigo", cover_from: "indigo", cover_to: "olive", city: "Jepara", is_sealed: false, status: "buka", tebusan_count: 320, products: perabot },
 ];
 
 const articles = [
