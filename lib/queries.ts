@@ -719,6 +719,7 @@ export type PakhuisData = {
   balance: number;
   level: string;
   stamps: number;
+  totalSpend: number;
   vouchers: { id: string; title: string; note: string | null; status: string }[];
   ledger: { amount: number; kind: string; note: string | null; created_at: string }[];
   isSaudagar: boolean;
@@ -736,7 +737,7 @@ export async function getPakhuis(): Promise<PakhuisData | null> {
       supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
       supabase
         .from("profiles")
-        .select("level,stamps,full_name")
+        .select("level,stamps,full_name,total_spend")
         .eq("id", user.id)
         .maybeSingle(),
       supabase
@@ -765,6 +766,7 @@ export async function getPakhuis(): Promise<PakhuisData | null> {
     balance: walletRes.data?.balance ?? 0,
     level: profileRes.data?.level ?? "pelanggan_kecil",
     stamps: profileRes.data?.stamps ?? 0,
+    totalSpend: profileRes.data?.total_spend ?? 0,
     vouchers: vouchersRes.data ?? [],
     ledger: ledgerRes.data ?? [],
     isSaudagar: (lapakRes.count ?? 0) > 0,

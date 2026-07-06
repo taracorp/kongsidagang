@@ -22,7 +22,25 @@ export default async function PakhuisPage() {
   const levelIndex = Math.max(0, levelOrder.indexOf(data.level));
   const capTotal = 10;
   const capFilled = Math.min(capTotal, data.stamps);
-  const levelProgress = Math.round((capFilled / capTotal) * 100);
+
+  const thresholds = [0, 250000, 1000000, 5000000, 20000000];
+  const curMin = thresholds[levelIndex] ?? 0;
+  const nextMin = thresholds[levelIndex + 1];
+  const isMax = levelIndex >= levelOrder.length - 1;
+  const levelProgress = isMax
+    ? 100
+    : Math.max(
+        0,
+        Math.min(
+          100,
+          Math.round(
+            ((data.totalSpend - curMin) / (nextMin - curMin)) * 100,
+          ),
+        ),
+      );
+  const nextLevelNote = isMax
+    ? "Kamu di puncak — Juragan. Hak penuh: Vendu prioritas & bea gratis."
+    : `Rp ${(nextMin - data.totalSpend).toLocaleString("id-ID")} lagi menuju ${levelTangga[levelIndex + 1]} — buka potongan bea & akses Vendu lebih leluasa.`;
 
   return (
     <section className="py-[34px]">
@@ -77,10 +95,7 @@ export default async function PakhuisPage() {
               {levelTangga[levelIndex]}
             </span>
           </div>
-          <div className="text-[13px] text-kongsi-ink-soft">
-            Naikkan level dengan makin banyak menebus — buka akses Vendu tanpa
-            antre &amp; potongan bea.
-          </div>
+          <div className="text-[13px] text-kongsi-ink-soft">{nextLevelNote}</div>
           <div className="my-[10px] h-3 overflow-hidden rounded-full border-2 border-kongsi-ink bg-kongsi-parchment-2">
             <i
               className="block h-full bg-kongsi-beeswax"

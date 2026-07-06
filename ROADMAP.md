@@ -28,7 +28,7 @@ Acuan arah pengembangan. Status per fase ditandai: ✅ selesai · 🚧 jalan · 
 - **Ledger transaksi** keping, potong saldo saat menebus.
 - Voucher terbit otomatis (menang/tebus) + **redeem** berfungsi.
 
-### M4 — Level & Loyalti ⬜
+### M4 — Level & Loyalti ✅
 - Ambang level Pelanggan Kecil→Juragan (naik otomatis dari akumulasi).
 - Hak per-level (Vendu tanpa antre, potongan bea). Cap didapat & ditukar.
 
