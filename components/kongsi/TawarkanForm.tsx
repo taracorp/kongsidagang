@@ -36,6 +36,21 @@ export function TawarkanForm({ userId }: { userId: string }) {
       return;
     }
     const supabase = createClient();
+
+    let photo_url: string | null = null;
+    const file = f.get("photo");
+    if (file instanceof File && file.size > 0) {
+      const path = `${userId}/${Date.now()}-${file.name.replace(/[^\w.]+/g, "-")}`;
+      const up = await supabase.storage.from("barter").upload(path, file, {
+        upsert: false,
+      });
+      if (up.error) {
+        setStatus({ k: "error", m: up.error.message });
+        return;
+      }
+      photo_url = supabase.storage.from("barter").getPublicUrl(path).data.publicUrl;
+    }
+
     const { error } = await supabase.from("barter_items").insert({
       user_id: userId,
       title,
@@ -43,6 +58,7 @@ export function TawarkanForm({ userId }: { userId: string }) {
       want_text: String(f.get("want_text") ?? "").trim() || null,
       city: String(f.get("city") ?? "").trim() || null,
       tone: String(f.get("tone") ?? "sage"),
+      photo_url,
       status: "aktif",
     });
     if (error) {
@@ -104,6 +120,18 @@ export function TawarkanForm({ userId }: { userId: string }) {
             </option>
           ))}
         </select>
+      </div>
+      <div className="mb-[14px]">
+        <label className={fieldLabel} htmlFor="photo">
+          Foto barang (opsional)
+        </label>
+        <input
+          id="photo"
+          name="photo"
+          type="file"
+          accept="image/*"
+          className="w-full text-sm"
+        />
       </div>
       {status.k === "error" ? (
         <p className="mb-3 rounded-[4px] border-2 border-kongsi-grenadine bg-[#FBE3D5] px-3 py-2 text-[13px] text-kongsi-grenadine-dark">

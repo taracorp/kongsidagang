@@ -33,11 +33,20 @@ function BarterCard({
     <div className="overflow-hidden rounded-[5px] border-2 border-kongsi-ink bg-kongsi-parchment shadow-hard">
       <div
         className={cn(
-          "flex h-24 items-center justify-center border-b-2 border-kongsi-ink text-kongsi-indigo",
+          "flex h-24 items-center justify-center overflow-hidden border-b-2 border-kongsi-ink text-kongsi-indigo",
           toneBg[item.tone],
         )}
       >
-        <CompassRose size={30} />
+        {item.photo_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={item.photo_url}
+            alt={item.title}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <CompassRose size={30} />
+        )}
       </div>
       <div className="px-[14px] py-3">
         <div className="text-sm font-bold">{item.title}</div>
@@ -159,6 +168,7 @@ export default async function TukarPage() {
                       id={d.id}
                       status={d.status}
                       iAmRecipient={d.iAmRecipient}
+                      ratedByMe={d.ratedByMe}
                     />
                   </div>
                 </div>

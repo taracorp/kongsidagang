@@ -138,14 +138,17 @@ export function DealActions({
   id,
   status,
   iAmRecipient,
+  ratedByMe,
 }: {
   id: string;
   status: string;
   iAmRecipient: boolean;
+  ratedByMe: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [rating, setRating] = useState(0);
 
   async function setStatus(next: string) {
     setBusy(true);
@@ -163,41 +166,78 @@ export function DealActions({
     router.refresh();
   }
 
+  async function submitRating(stars: number) {
+    setBusy(true);
+    setMsg(null);
+    setRating(stars);
+    const supabase = createClient();
+    const { error } = await supabase.rpc("rate_deal", {
+      p_deal: id,
+      p_stars: stars,
+    });
+    setBusy(false);
+    if (error) {
+      setMsg(error.message);
+      return;
+    }
+    router.refresh();
+  }
+
   const btn =
     "cursor-pointer rounded-[3px] border-2 border-kongsi-ink px-2 py-1 text-[12px] font-bold disabled:opacity-60";
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      {status === "proposed" && iAmRecipient ? (
-        <>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setStatus("agreed")}
-            className={cn(btn, "bg-kongsi-sage")}
-          >
-            Terima
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {status === "proposed" && iAmRecipient ? (
+          <>
+            <button type="button" disabled={busy} onClick={() => setStatus("agreed")} className={cn(btn, "bg-kongsi-sage")}>
+              Terima
+            </button>
+            <button type="button" disabled={busy} onClick={() => setStatus("ditolak")} className={cn(btn, "bg-kongsi-parchment-3 text-kongsi-bad")}>
+              Tolak
+            </button>
+          </>
+        ) : null}
+        {status === "agreed" ? (
+          <button type="button" disabled={busy} onClick={() => setStatus("done")} className={cn(btn, "bg-kongsi-beeswax")}>
+            Tandai selesai
           </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setStatus("ditolak")}
-            className={cn(btn, "bg-kongsi-parchment-3 text-kongsi-bad")}
-          >
-            Tolak
+        ) : null}
+        {status === "agreed" || status === "done" ? (
+          <button type="button" disabled={busy} onClick={() => setStatus("disputed")} className={cn(btn, "bg-kongsi-parchment-3 text-kongsi-bad")}>
+            Ajukan Sengketa
           </button>
-        </>
+        ) : null}
+        {status === "disputed" ? (
+          <span className="text-[12px] font-bold text-kongsi-bad">
+            ⚖️ Menunggu Syahbandar
+          </span>
+        ) : null}
+      </div>
+
+      {status === "done" ? (
+        ratedByMe ? (
+          <div className="text-[12px] font-bold text-kongsi-ok">✓ Sudah dinilai</div>
+        ) : (
+          <div className="flex items-center gap-1">
+            <span className="text-[12px] text-kongsi-ink-soft">Beri nilai:</span>
+            {[1, 2, 3, 4, 5].map((s) => (
+              <button
+                key={s}
+                type="button"
+                disabled={busy}
+                onClick={() => submitRating(s)}
+                className="cursor-pointer text-[16px] leading-none text-kongsi-beeswax-dark disabled:opacity-60"
+                aria-label={`${s} bintang`}
+              >
+                {s <= rating ? "★" : "☆"}
+              </button>
+            ))}
+          </div>
+        )
       ) : null}
-      {status === "agreed" ? (
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => setStatus("done")}
-          className={cn(btn, "bg-kongsi-beeswax")}
-        >
-          Tandai selesai
-        </button>
-      ) : null}
+
       {msg ? <span className="text-[11px] text-kongsi-bad">{msg}</span> : null}
     </div>
   );

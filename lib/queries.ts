@@ -312,6 +312,7 @@ export type BarterRow = {
   want_text: string | null;
   city: string | null;
   tone: Tone;
+  photo_url: string | null;
 };
 
 export async function getBarterRows(): Promise<BarterRow[]> {
@@ -319,7 +320,7 @@ export async function getBarterRows(): Promise<BarterRow[]> {
     const supabase = await createClient();
     const { data } = await supabase
       .from("barter_items")
-      .select("id,user_id,title,est_value,want_text,city,tone")
+      .select("id,user_id,title,est_value,want_text,city,tone,photo_url")
       .eq("status", "aktif")
       .order("created_at", { ascending: false });
     return (
@@ -331,6 +332,7 @@ export async function getBarterRows(): Promise<BarterRow[]> {
         want_text: (b.want_text as string) ?? null,
         city: (b.city as string) ?? null,
         tone: asTone(b.tone),
+        photo_url: (b.photo_url as string) ?? null,
       })) ?? []
     );
   } catch {
@@ -345,6 +347,8 @@ export type BarterDeal = {
   myItem: string;
   theirItem: string;
   iAmRecipient: boolean;
+  counterpartyId: string | null;
+  ratedByMe: boolean;
 };
 
 export async function getMyBarter(userId: string): Promise<{
@@ -353,10 +357,10 @@ export async function getMyBarter(userId: string): Promise<{
 }> {
   try {
     const supabase = await createClient();
-    const [mineRes, dealsRes] = await Promise.all([
+    const [mineRes, dealsRes, ratingsRes] = await Promise.all([
       supabase
         .from("barter_items")
-        .select("id,user_id,title,est_value,want_text,city,tone")
+        .select("id,user_id,title,est_value,want_text,city,tone,photo_url")
         .eq("user_id", userId)
         .eq("status", "aktif")
         .order("created_at", { ascending: false }),
@@ -366,7 +370,12 @@ export async function getMyBarter(userId: string): Promise<{
           "id,topup_keping,status,a:barter_items!barter_deals_item_a_fkey(title,user_id),b:barter_items!barter_deals_item_b_fkey(title,user_id)",
         )
         .order("created_at", { ascending: false }),
+      supabase.from("barter_ratings").select("deal_id").eq("rater_id", userId),
     ]);
+
+    const ratedSet = new Set(
+      (ratingsRes.data ?? []).map((r) => r.deal_id as string),
+    );
 
     const mine: BarterRow[] = (mineRes.data ?? []).map((b) => ({
       id: b.id as string,
@@ -376,6 +385,7 @@ export async function getMyBarter(userId: string): Promise<{
       want_text: (b.want_text as string) ?? null,
       city: (b.city as string) ?? null,
       tone: asTone(b.tone),
+      photo_url: (b.photo_url as string) ?? null,
     }));
 
     const deals: BarterDeal[] = (dealsRes.data ?? []).map((d) => {
@@ -393,12 +403,46 @@ export async function getMyBarter(userId: string): Promise<{
         myItem: iAmRecipient ? (b?.title ?? "-") : (a?.title ?? "-"),
         theirItem: iAmRecipient ? (a?.title ?? "-") : (b?.title ?? "-"),
         iAmRecipient,
+        counterpartyId: (iAmRecipient ? a?.user_id : b?.user_id) ?? null,
+        ratedByMe: ratedSet.has(d.id as string),
       };
     });
 
     return { mine, deals };
   } catch {
     return { mine: [], deals: [] };
+  }
+}
+
+export type DisputeDeal = {
+  id: string;
+  topup: number;
+  itemA: string;
+  itemB: string;
+};
+
+export async function getDisputedDeals(): Promise<DisputeDeal[]> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("barter_deals")
+      .select(
+        "id,topup_keping,a:barter_items!barter_deals_item_a_fkey(title),b:barter_items!barter_deals_item_b_fkey(title)",
+      )
+      .eq("status", "disputed")
+      .order("created_at", { ascending: false });
+    return (data ?? []).map((d) => {
+      const a = (Array.isArray(d.a) ? d.a[0] : d.a) as { title?: string } | undefined;
+      const b = (Array.isArray(d.b) ? d.b[0] : d.b) as { title?: string } | undefined;
+      return {
+        id: d.id as string,
+        topup: (d.topup_keping as number) ?? 0,
+        itemA: a?.title ?? "-",
+        itemB: b?.title ?? "-",
+      };
+    });
+  } catch {
+    return [];
   }
 }
 

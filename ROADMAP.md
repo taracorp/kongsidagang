@@ -32,7 +32,7 @@ Acuan arah pengembangan. Status per fase ditandai: ✅ selesai · 🚧 jalan · 
 - Ambang level Pelanggan Kecil→Juragan (naik otomatis dari akumulasi).
 - Hak per-level (Vendu tanpa antre, potongan bea). Cap didapat & ditukar.
 
-### M5 — Tukar Guling matang ⬜
+### M5 — Tukar Guling matang ✅
 - Foto barang (Storage), rating antar pihak, **sengketa → Syahbandar** (UI admin).
 
 ---
