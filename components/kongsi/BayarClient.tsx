@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { KongsiButton, KongsiLinkButton } from "@/components/kongsi/KongsiButton";
 import { useCart } from "@/components/kongsi/cart";
+import { GoogleButton } from "@/components/kongsi/GoogleButton";
 import { cn, formatKeping } from "@/lib/utils";
 
 const BEA = 2000;
@@ -127,6 +128,12 @@ function GateForm() {
               ? "Daftar & Lanjut Bayar"
               : "Masuk & Lanjut Bayar"}
         </KongsiButton>
+        <div className="my-3 flex items-center gap-3 text-[11px] font-bold uppercase tracking-[1px] text-kongsi-olive">
+          <span className="h-px flex-1 bg-kongsi-ink/20" />
+          atau
+          <span className="h-px flex-1 bg-kongsi-ink/20" />
+        </div>
+        <GoogleButton next="/bayar" />
       </form>
     </div>
   );

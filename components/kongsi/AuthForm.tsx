@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { KongsiButton } from "./KongsiButton";
+import { GoogleButton } from "./GoogleButton";
 
 const fieldLabel = "mb-[5px] block text-[13px] font-bold";
 const fieldInput =
@@ -150,6 +151,12 @@ export function AuthForm({ redirectTo = "/pakhuis" }: { redirectTo?: string }) {
           Keliling &amp; isi keranjang tak perlu akun. Masuk hanya untuk
           menebus, ikut Vendu, &amp; menyimpan Surat Jalan.
         </p>
+        <div className="my-4 flex items-center gap-3 text-[11px] font-bold uppercase tracking-[1px] text-kongsi-olive">
+          <span className="h-px flex-1 bg-kongsi-ink/20" />
+          atau
+          <span className="h-px flex-1 bg-kongsi-ink/20" />
+        </div>
+        <GoogleButton next={redirectTo} />
       </form>
     </div>
   );
