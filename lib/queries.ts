@@ -719,7 +719,8 @@ export type PakhuisData = {
   balance: number;
   level: string;
   stamps: number;
-  vouchers: { title: string; note: string }[];
+  vouchers: { id: string; title: string; note: string | null; status: string }[];
+  ledger: { amount: number; kind: string; note: string | null; created_at: string }[];
   isSaudagar: boolean;
 };
 
@@ -730,24 +731,30 @@ export async function getPakhuis(): Promise<PakhuisData | null> {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const [walletRes, profileRes, vouchersRes, lapakRes] = await Promise.all([
-    supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
-    supabase
-      .from("profiles")
-      .select("level,stamps,full_name")
-      .eq("id", user.id)
-      .maybeSingle(),
-    supabase
-      .from("vouchers")
-      .select("title,note")
-      .eq("user_id", user.id)
-      .eq("status", "aktif")
-      .order("created_at"),
-    supabase
-      .from("merchants")
-      .select("id", { count: "exact", head: true })
-      .eq("owner_id", user.id),
-  ]);
+  const [walletRes, profileRes, vouchersRes, lapakRes, ledgerRes] =
+    await Promise.all([
+      supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+      supabase
+        .from("profiles")
+        .select("level,stamps,full_name")
+        .eq("id", user.id)
+        .maybeSingle(),
+      supabase
+        .from("vouchers")
+        .select("id,title,note,status")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("merchants")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", user.id),
+      supabase
+        .from("wallet_transactions")
+        .select("amount,kind,note,created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(10),
+    ]);
 
   return {
     name:
@@ -759,6 +766,7 @@ export async function getPakhuis(): Promise<PakhuisData | null> {
     level: profileRes.data?.level ?? "pelanggan_kecil",
     stamps: profileRes.data?.stamps ?? 0,
     vouchers: vouchersRes.data ?? [],
+    ledger: ledgerRes.data ?? [],
     isSaudagar: (lapakRes.count ?? 0) > 0,
   };
 }

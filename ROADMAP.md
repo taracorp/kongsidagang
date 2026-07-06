@@ -24,7 +24,7 @@ Acuan arah pengembangan. Status per fase ditandai: ✅ selesai · 🚧 jalan · 
 - Peserta live, kunci tebakan per babak, **terbit Surat Jalan** ke pemenang.
 - Vendu khusus login + level.
 
-### M3 — Pundi & Surat Jalan ⬜
+### M3 — Pundi & Surat Jalan ✅
 - **Ledger transaksi** keping, potong saldo saat menebus.
 - Voucher terbit otomatis (menang/tebus) + **redeem** berfungsi.
 

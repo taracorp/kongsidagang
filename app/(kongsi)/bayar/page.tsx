@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { KongsiButton } from "@/components/kongsi/KongsiButton";
@@ -176,8 +176,37 @@ function GateForm() {
 }
 
 export default function BayarPage() {
-  const { items, subtotal } = useCart();
+  const { items, subtotal, clear } = useCart();
   const total = subtotal + BEA + ONGKIR;
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => setLoggedIn(Boolean(data.user)));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) =>
+      setLoggedIn(Boolean(session?.user)),
+    );
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const [pay, setPay] = useState<
+    { k: "idle" } | { k: "paying" } | { k: "ok" } | { k: "error"; m: string }
+  >({ k: "idle" });
+
+  async function bayarPundi() {
+    setPay({ k: "paying" });
+    const supabase = createClient();
+    const { error } = await supabase.rpc("spend_keping", {
+      amt: total,
+      note: "Belanja Kongsi",
+    });
+    if (error) {
+      setPay({ k: "error", m: error.message });
+      return;
+    }
+    clear();
+    setPay({ k: "ok" });
+  }
 
   return (
     <section className="py-[34px]">
@@ -191,7 +220,19 @@ export default function BayarPage() {
           </h2>
         </div>
 
-        {items.length === 0 ? (
+        {pay.k === "ok" ? (
+          <div className="mx-auto max-w-md rounded-[6px] border-2 border-kongsi-ok bg-[#E4EFE5] px-6 py-12 text-center">
+            <div className="font-fraunces text-xl font-black text-kongsi-ok">
+              ✓ Pembayaran berhasil
+            </div>
+            <p className="mt-2 text-sm text-kongsi-ink-soft">
+              Keping terpotong. Surat Jalan &amp; riwayat ada di Pakhuis.
+            </p>
+            <KongsiLinkButton href="/pakhuis" variant="primary" className="mt-4">
+              Ke Pakhuis
+            </KongsiLinkButton>
+          </div>
+        ) : items.length === 0 ? (
           <div className="mx-auto max-w-md rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-6 py-12 text-center">
             <p className="text-kongsi-ink-soft">Belum ada yang ditebus.</p>
             <KongsiLinkButton href="/loji" variant="gold" className="mt-4">
@@ -200,7 +241,38 @@ export default function BayarPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 items-start gap-6">
-            <GateForm />
+            {loggedIn ? (
+              <div className="overflow-hidden rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment shadow-hard">
+                <div className="border-b-2 border-kongsi-ink bg-kongsi-sage/30 px-[18px] py-3 text-[13px]">
+                  🔑 Kamu sudah masuk loji — tebus pakai <b>Pundi (Keping)</b>.
+                </div>
+                <div className="p-[22px]">
+                  <KongsiButton
+                    variant="primary"
+                    block
+                    onClick={bayarPundi}
+                    disabled={pay.k === "paying"}
+                  >
+                    {pay.k === "paying"
+                      ? "Memproses…"
+                      : `Bayar ${formatKeping(total)} dengan Keping`}
+                  </KongsiButton>
+                  {pay.k === "error" ? (
+                    <p className="mt-3 rounded-[4px] border-2 border-kongsi-grenadine bg-[#FBE3D5] px-3 py-2 text-[13px] text-kongsi-grenadine-dark">
+                      {pay.m}{" "}
+                      <a href="/pakhuis" className="font-bold underline">
+                        Isi Pundi
+                      </a>
+                    </p>
+                  ) : null}
+                  <p className="mt-[10px] text-center text-[11px] text-kongsi-ink-soft">
+                    Pembayaran via DOKU (kartu/VA) segera hadir.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <GateForm />
+            )}
             <div className="rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-5 shadow-hard">
               <h3 className="mb-[14px] font-fraunces text-[19px] font-black text-kongsi-indigo">
                 Yang ditebus

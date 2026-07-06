@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import { CompassRose, WaxSeal } from "@/components/kongsi/icons";
 import { Pill } from "@/components/kongsi/Pill";
-import { KongsiButton } from "@/components/kongsi/KongsiButton";
 import { LogoutButton } from "@/components/kongsi/LogoutButton";
+import { IsiPundiButton, VoucherRedeem } from "@/components/kongsi/PundiActions";
 import { getPakhuis } from "@/lib/queries";
 import { cn, formatKeping } from "@/lib/utils";
-import { levelTangga, riwayatLelang } from "@/lib/data-e";
+import { levelTangga } from "@/lib/data-e";
 
 const levelOrder = [
   "pelanggan_kecil",
@@ -14,12 +14,6 @@ const levelOrder = [
   "tuan_besar",
   "juragan",
 ];
-
-const hasilPill: Record<string, "gold" | "sage" | "indigo"> = {
-  Menang: "gold",
-  "Top 3": "sage",
-  "Belum beruntung": "indigo",
-};
 
 export default async function PakhuisPage() {
   const data = await getPakhuis();
@@ -68,9 +62,7 @@ export default async function PakhuisPage() {
               keping (= {formatKeping(data.balance)})
             </small>
           </div>
-          <KongsiButton variant="gold" className="mt-[14px]">
-            Isi Pundi
-          </KongsiButton>
+          <IsiPundiButton />
           <CompassRose
             size={90}
             className="absolute -bottom-2 -right-2 text-kongsi-parchment opacity-15"
@@ -145,7 +137,7 @@ export default async function PakhuisPage() {
         ) : (
           data.vouchers.map((v) => (
             <div
-              key={v.title}
+              key={v.id}
               className="mb-[10px] flex items-center gap-[14px] rounded-[6px] border-2 border-dashed border-kongsi-ink bg-kongsi-parchment-3 p-[14px_16px]"
             >
               <span className="flex h-11 w-11 flex-none items-center justify-center rounded-[6px] border-2 border-kongsi-ink bg-kongsi-beeswax">
@@ -157,41 +149,54 @@ export default async function PakhuisPage() {
                 </b>
                 <div className="text-[12px] text-kongsi-ink-soft">{v.note}</div>
               </div>
-              <Pill variant="gold">Tebus</Pill>
+              {v.status === "aktif" ? (
+                <VoucherRedeem id={v.id} />
+              ) : (
+                <Pill variant="sage">terpakai</Pill>
+              )}
             </div>
           ))
         )}
 
-        {/* Riwayat */}
+        {/* Riwayat Pundi */}
         <h3 className="mb-3 mt-6 font-fraunces text-xl font-black text-kongsi-indigo">
-          Riwayat lelang
+          Riwayat Pundi
         </h3>
-        <div className="overflow-x-auto">
-          <table className="w-full border-separate border-spacing-0 overflow-hidden rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment">
-            <thead>
-              <tr className="bg-kongsi-indigo text-left font-fraunces text-xs text-kongsi-parchment">
-                <th className="p-[11px_13px]">Barang</th>
-                <th className="hidden p-[11px_13px]">Tebakan</th>
-                <th className="p-[11px_13px]">Hasil</th>
-              </tr>
-            </thead>
-            <tbody>
-              {riwayatLelang.map((r) => (
-                <tr key={r.barang} className="text-[13px] even:bg-kongsi-sage/15">
-                  <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px]">
-                    {r.barang}
-                  </td>
-                  <td className="hidden border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px]">
-                    {formatKeping(r.tebakan)}
-                  </td>
-                  <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px]">
-                    <Pill variant={hasilPill[r.hasil]}>{r.hasil}</Pill>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {data.ledger.length === 0 ? (
+          <p className="rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-4 py-6 text-center text-[13px] text-kongsi-ink-soft">
+            Belum ada transaksi keping.
+          </p>
+        ) : (
+          <div className="overflow-hidden rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment">
+            {data.ledger.map((t, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between gap-3 border-b-[1.5px] border-kongsi-ink/10 px-4 py-[10px] text-[13px] last:border-b-0"
+              >
+                <div>
+                  <div className="font-semibold">{t.note ?? t.kind}</div>
+                  <div className="text-[11px] text-kongsi-ink-soft">
+                    {new Date(t.created_at).toLocaleDateString("id-ID", {
+                      day: "numeric",
+                      month: "short",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </div>
+                </div>
+                <div
+                  className={cn(
+                    "font-fraunces font-black",
+                    t.amount < 0 ? "text-kongsi-bad" : "text-kongsi-ok",
+                  )}
+                >
+                  {t.amount < 0 ? "−" : "+"}
+                  {formatKeping(Math.abs(t.amount))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
