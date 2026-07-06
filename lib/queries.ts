@@ -509,6 +509,88 @@ export type AdminApplication = {
   created_at: string;
 };
 
+export type AdminOverview = {
+  cards: { label: string; value: string; accent?: string }[];
+  produkPerLoji: { label: string; value: number }[];
+  lelangPerStatus: { label: string; value: number }[];
+};
+
+export async function getAdminOverview(): Promise<AdminOverview> {
+  const supabase = await createClient();
+  const [aktif, pengajuan, loji, artikel, pelanggan, merchantsRes, auctionsRes] =
+    await Promise.all([
+      supabase
+        .from("auctions")
+        .select("id", { count: "exact", head: true })
+        .in("status", ["kumpul", "tebak", "jeda", "final"]),
+      supabase
+        .from("merchant_applications")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending"),
+      supabase.from("merchants").select("id", { count: "exact", head: true }),
+      supabase.from("articles").select("id", { count: "exact", head: true }),
+      supabase.from("profiles").select("id", { count: "exact", head: true }),
+      supabase
+        .from("merchants")
+        .select("name,merchant_products(count)")
+        .eq("is_active", true),
+      supabase.from("auctions").select("status"),
+    ]);
+
+  const produkPerLoji = (merchantsRes.data ?? []).map((m) => {
+    const rel = m.merchant_products as { count?: number }[] | null;
+    return {
+      label: (m.name as string).replace(/^Loji /, ""),
+      value: rel?.[0]?.count ?? 0,
+    };
+  });
+
+  const statusOrder = [
+    "kumpul",
+    "tebak",
+    "jeda",
+    "final",
+    "pemenang",
+    "bayar",
+    "selesai",
+  ];
+  const counts: Record<string, number> = {};
+  for (const a of auctionsRes.data ?? [])
+    counts[a.status as string] = (counts[a.status as string] ?? 0) + 1;
+  const lelangPerStatus = statusOrder
+    .filter((s) => counts[s])
+    .map((s) => ({ label: s, value: counts[s] }));
+
+  return {
+    cards: [
+      { label: "Lelang aktif", value: String(aktif.count ?? 0), accent: "text-kongsi-grenadine" },
+      { label: "Pengajuan Saudagar", value: String(pengajuan.count ?? 0) },
+      { label: "Loji terdaftar", value: String(loji.count ?? 0), accent: "text-kongsi-ok" },
+      { label: "Artikel", value: String(artikel.count ?? 0) },
+      { label: "Pelanggan", value: String(pelanggan.count ?? 0) },
+    ],
+    produkPerLoji,
+    lelangPerStatus,
+  };
+}
+
+export type StaffUser = {
+  user_id: string;
+  email: string;
+  full_name: string;
+  role: "pewarta" | "admin" | "ketua" | null;
+};
+
+export async function getAllUsersWithRoles(): Promise<StaffUser[]> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase.rpc("admin_list_users");
+    return (data as StaffUser[]) ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export async function getAdminData(): Promise<{
   auctions: AdminAuction[];
   applications: AdminApplication[];
