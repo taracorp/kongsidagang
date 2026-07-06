@@ -4,9 +4,10 @@ import { LogoutButton } from "@/components/kongsi/LogoutButton";
 import { ApplicationsAdmin } from "@/components/kongsi/ApplicationsAdmin";
 import { AuctionStatusSelect } from "@/components/kongsi/AuctionStatusSelect";
 import { PariwaraForm } from "@/components/kongsi/PariwaraForm";
+import { KabarForm, KabarAdmin } from "@/components/kongsi/KabarAdmin";
 import { createClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/auth";
-import { getAdminData, getAdSettings } from "@/lib/queries";
+import { getAdminData, getAdSettings, getAdminArticles } from "@/lib/queries";
 import { formatKeping } from "@/lib/utils";
 
 export default async function KantorKongsiPage() {
@@ -40,6 +41,7 @@ export default async function KantorKongsiPage() {
 
   const { auctions, applications, counts } = await getAdminData();
   const ad = await getAdSettings();
+  const articles = await getAdminArticles();
 
   const stats = [
     { label: "Lelang aktif", value: String(counts.auctionsAktif), accent: "text-kongsi-grenadine" },
@@ -159,6 +161,12 @@ export default async function KantorKongsiPage() {
           Pengajuan Saudagar
         </h3>
         <ApplicationsAdmin items={applications} />
+
+        <h3 className="mb-3 mt-8 font-fraunces text-xl font-black text-kongsi-indigo">
+          Kabar (Artikel)
+        </h3>
+        <KabarForm />
+        <KabarAdmin items={articles} />
 
         <p className="mt-4 text-[12px] text-kongsi-ink-soft">
           ◆ Kantor Kongsi juga mengelola sengketa Tukar Guling (Syahbandar)

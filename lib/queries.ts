@@ -549,6 +549,26 @@ export async function getAdminData(): Promise<{
   };
 }
 
+export type AdminArticle = {
+  slug: string;
+  title: string;
+  tag: string;
+  published_at: string | null;
+};
+
+export async function getAdminArticles(): Promise<AdminArticle[]> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("articles")
+      .select("slug,title,tag,published_at")
+      .order("created_at", { ascending: false });
+    return (data as AdminArticle[]) ?? [];
+  } catch {
+    return [];
+  }
+}
+
 export type PakhuisData = {
   name: string;
   balance: number;
