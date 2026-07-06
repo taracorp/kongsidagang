@@ -19,7 +19,14 @@ export function ApplicationsAdmin({ items }: { items: AdminApplication[] }) {
   async function setStatus(id: string, status: "approved" | "rejected") {
     setBusy(id);
     const supabase = createClient();
-    await supabase.from("merchant_applications").update({ status }).eq("id", id);
+    if (status === "approved") {
+      await supabase.rpc("approve_merchant_application", { app_id: id });
+    } else {
+      await supabase
+        .from("merchant_applications")
+        .update({ status })
+        .eq("id", id);
+    }
     setBusy(null);
     router.refresh();
   }

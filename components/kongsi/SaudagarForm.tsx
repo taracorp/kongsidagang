@@ -37,9 +37,12 @@ export function SaudagarForm() {
     }
 
     const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     const { error } = await supabase
       .from("merchant_applications")
-      .insert(payload);
+      .insert({ ...payload, applicant_id: user?.id ?? null });
 
     if (error) {
       setState({ kind: "error", message: error.message });

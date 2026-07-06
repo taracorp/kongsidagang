@@ -1,7 +1,7 @@
 
--- ============================================================
+-- ===
 -- FILE: supabase/migrations/0001_merchants.sql
--- ============================================================
+-- ===
 -- Kongsi Dagang — Fase C: Katalog & Loji
 -- APPLY MANUAL oleh Tara di Supabase SQL Editor. Agen TIDAK menjalankan.
 -- Prinsip: publik boleh membaca loji & produk tanpa login.
@@ -104,9 +104,9 @@ create policy "merchant_applications_own_read" on public.merchant_applications
 -- CATATAN: kebijakan admin (Kantor Kongsi) ditambah di Fase F bersama role guard.
 
 
--- ============================================================
+-- ===
 -- FILE: supabase/migrations/0002_auctions.sql
--- ============================================================
+-- ===
 -- Kongsi Dagang — Fase E1: Balai Lelang (auction)
 -- APPLY MANUAL oleh Tara. Harga rahasia (deal/set) TIDAK boleh bocor ke publik.
 
@@ -173,9 +173,9 @@ grant select on public.auction_items_public to anon, authenticated;
 -- CATATAN: policy admin (kelola auctions + lihat harga rahasia) ditambah di Fase F.
 
 
--- ============================================================
+-- ===
 -- FILE: supabase/migrations/0003_price_listings.sql
--- ============================================================
+-- ===
 -- Kongsi Dagang — Fase E2: Neraca Harga (price_listings)
 -- APPLY MANUAL oleh Tara.
 -- Sumber awal = merchant_products. JANGAN scraping tanpa izin (lihat AGENTS.md Bagian 7).
@@ -206,9 +206,9 @@ create policy "price_listings_public_read" on public.price_listings
 -- Tulis hanya via service role / admin (Fase F) — tidak ada policy write untuk anon.
 
 
--- ============================================================
+-- ===
 -- FILE: supabase/migrations/0004_barter.sql
--- ============================================================
+-- ===
 -- Kongsi Dagang — Fase E3: Tukar Guling (barter) — versi sederhana (COD + rating)
 -- APPLY MANUAL oleh Tara. JANGAN bikin escrow dulu.
 
@@ -265,9 +265,9 @@ create policy "barter_deals_propose" on public.barter_deals
 -- CATATAN: sengketa (disputed) diadili Syahbandar/admin di Fase F.
 
 
--- ============================================================
+-- ===
 -- FILE: supabase/migrations/0005_articles.sql
--- ============================================================
+-- ===
 -- Kongsi Dagang — Fase E5: Kabar (articles) — CMS sederhana
 -- APPLY MANUAL oleh Tara.
 
@@ -295,9 +295,9 @@ create policy "articles_public_read" on public.articles
 -- Tulis hanya admin (Fase F).
 
 
--- ============================================================
+-- ===
 -- FILE: supabase/migrations/0006_wallet_admin.sql
--- ============================================================
+-- ===
 -- Kongsi Dagang — Fase F: Pakhuis (wallet/level/vouchers) + Profiles + policy admin
 -- APPLY MANUAL oleh Tara. TANPA Gulden — hanya Keping (1 keping = Rp 1).
 
@@ -389,9 +389,9 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 
 
--- ============================================================
+-- ===
 -- FILE: supabase/migrations/0007_settings.sql
--- ============================================================
+-- ===
 -- Kongsi Dagang — Fase H: Settings (key/value) untuk Sekilas Pariwara & konfigurasi.
 -- APPLY MANUAL oleh Tara di Supabase SQL Editor.
 
@@ -418,9 +418,9 @@ insert into public.settings (key, value) values
 on conflict (key) do nothing;
 
 
--- ============================================================
+-- ===
 -- FILE: supabase/migrations/0008_barter_deal_update.sql
--- ============================================================
+-- ===
 -- Kongsi Dagang — Fase H+: izin update deal barter untuk pihak yang terlibat.
 -- APPLY MANUAL oleh Tara di Supabase SQL Editor.
 
@@ -436,9 +436,9 @@ create policy "barter_deals_involved_update" on public.barter_deals
   );
 
 
--- ============================================================
+-- ===
 -- FILE: supabase/migrations/0009_follows.sql
--- ============================================================
+-- ===
 -- Kongsi Dagang — Fase H+: Ikuti Loji (follows)
 -- APPLY MANUAL / via Management API.
 
@@ -455,9 +455,9 @@ create policy "follows_self_all" on public.follows
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 
--- ============================================================
+-- ===
 -- FILE: supabase/migrations/0010_auto_lelang.sql
--- ============================================================
+-- ===
 -- Kongsi Dagang — Fase H+: Timer lelang otomatis (pg_cron + advance_auctions)
 -- APPLY via Management API. Fase maju tiap menit, lalu broadcast ke penonton.
 
@@ -529,9 +529,9 @@ select cron.schedule(
 );
 
 
--- ============================================================
+-- ===
 -- FILE: supabase/migrations/0011_staff_roles.sql
--- ============================================================
+-- ===
 -- Kongsi Dagang — Fase I: Peran staf (Pewarta / Admin Kongsi / Ketua Kongsi)
 -- APPLY via Management API.
 
@@ -619,4 +619,53 @@ $$;
 
 revoke all on function public.admin_list_users() from anon;
 grant execute on function public.admin_list_users() to authenticated;
+
+
+-- ===
+-- FILE: supabase/migrations/0012_approve_merchant.sql
+-- ===
+-- Kongsi Dagang — Fase I (M1): Approve pengajuan Saudagar -> auto-buat loji + owner + segel
+-- APPLY via Management API.
+
+create or replace function public.approve_merchant_application(app_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  app        record;
+  base_slug  text;
+  new_slug   text;
+  n          int := 0;
+  mid        uuid;
+begin
+  if not public.is_admin_up() then
+    raise exception 'Hanya pengurus yang boleh menyetujui';
+  end if;
+
+  select * into app from public.merchant_applications where id = app_id;
+  if app is null then
+    raise exception 'Pengajuan tidak ditemukan';
+  end if;
+
+  base_slug := trim(both '-' from regexp_replace(lower(app.loji_name), '[^a-z0-9]+', '-', 'g'));
+  if base_slug = '' then base_slug := 'loji'; end if;
+  new_slug := base_slug;
+  while exists (select 1 from public.merchants where slug = new_slug) loop
+    n := n + 1;
+    new_slug := base_slug || '-' || n;
+  end loop;
+
+  insert into public.merchants (slug, name, category, owner_id, is_sealed, status, tone, cover_from, cover_to, city)
+  values (new_slug, app.loji_name, app.category, app.applicant_id, true, 'buka', 'indigo', 'indigo', 'beeswax', null)
+  returning id into mid;
+
+  update public.merchant_applications set status = 'approved' where id = app_id;
+  return mid;
+end;
+$$;
+
+revoke all on function public.approve_merchant_application(uuid) from anon;
+grant execute on function public.approve_merchant_application(uuid) to authenticated;
 

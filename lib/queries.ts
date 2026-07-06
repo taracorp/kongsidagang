@@ -106,6 +106,65 @@ export async function getLojiDetail(slug: string): Promise<Merchant | null> {
   return dummyGetMerchant(slug) ?? null;
 }
 
+export type LapakProduct = {
+  id: string;
+  name: string;
+  price: number;
+  old_price: number | null;
+  tone: Tone;
+  is_active: boolean;
+};
+export type LapakMerchant = {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  is_sealed: boolean;
+  status: string;
+  products: LapakProduct[];
+};
+
+export async function getMyMerchants(userId: string): Promise<LapakMerchant[]> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("merchants")
+      .select(
+        "id,slug,name,category,is_sealed,status,merchant_products(id,name,price,old_price,tone,is_active)",
+      )
+      .eq("owner_id", userId)
+      .order("created_at", { ascending: true });
+    return (data ?? []).map((m) => ({
+      id: m.id as string,
+      slug: m.slug as string,
+      name: m.name as string,
+      category: m.category as string,
+      is_sealed: Boolean(m.is_sealed),
+      status: m.status as string,
+      products: ((m.merchant_products as unknown[]) ?? []).map((p) => {
+        const x = p as {
+          id: string;
+          name: string;
+          price: number;
+          old_price: number | null;
+          tone: string;
+          is_active: boolean;
+        };
+        return {
+          id: x.id,
+          name: x.name,
+          price: x.price,
+          old_price: x.old_price ?? null,
+          tone: asTone(x.tone),
+          is_active: x.is_active,
+        };
+      }),
+    }));
+  } catch {
+    return [];
+  }
+}
+
 export async function getIsFollowing(merchantId: string): Promise<{
   loggedIn: boolean;
   following: boolean;
@@ -657,6 +716,7 @@ export type PakhuisData = {
   level: string;
   stamps: number;
   vouchers: { title: string; note: string }[];
+  isSaudagar: boolean;
 };
 
 export async function getPakhuis(): Promise<PakhuisData | null> {
@@ -666,7 +726,7 @@ export async function getPakhuis(): Promise<PakhuisData | null> {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const [walletRes, profileRes, vouchersRes] = await Promise.all([
+  const [walletRes, profileRes, vouchersRes, lapakRes] = await Promise.all([
     supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
     supabase
       .from("profiles")
@@ -679,6 +739,10 @@ export async function getPakhuis(): Promise<PakhuisData | null> {
       .eq("user_id", user.id)
       .eq("status", "aktif")
       .order("created_at"),
+    supabase
+      .from("merchants")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", user.id),
   ]);
 
   return {
@@ -691,5 +755,6 @@ export async function getPakhuis(): Promise<PakhuisData | null> {
     level: profileRes.data?.level ?? "pelanggan_kecil",
     stamps: profileRes.data?.stamps ?? 0,
     vouchers: vouchersRes.data ?? [],
+    isSaudagar: (lapakRes.count ?? 0) > 0,
   };
 }

@@ -45,6 +45,18 @@ export default async function PakhuisPage() {
           <LogoutButton />
         </div>
 
+        {data.isSaudagar ? (
+          <a
+            href="/lapak"
+            className="mb-[22px] flex items-center justify-between rounded-[6px] border-2 border-kongsi-ink bg-kongsi-beeswax px-4 py-3 shadow-hard-sm"
+          >
+            <span className="font-fraunces font-black text-kongsi-ink">
+              🏪 Kelola Lapak-ku
+            </span>
+            <span className="text-[13px] font-bold text-kongsi-ink">→</span>
+          </a>
+        ) : null}
+
         {/* Pundi */}
         <div className="relative mb-[22px] overflow-hidden rounded-[8px] border-2 border-kongsi-ink bg-kongsi-grenadine p-[22px_24px] text-kongsi-parchment shadow-hard">
           <div className="text-[11px] font-bold uppercase tracking-[2px] opacity-85">
