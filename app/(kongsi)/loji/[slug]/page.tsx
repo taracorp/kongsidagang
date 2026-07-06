@@ -2,9 +2,9 @@ import { notFound } from "next/navigation";
 import { CompassRose } from "@/components/kongsi/icons";
 import { SegelBadge, Pill } from "@/components/kongsi/Pill";
 import { Stars } from "@/components/kongsi/PintuCard";
-import { KongsiButton } from "@/components/kongsi/KongsiButton";
+import { FollowButton } from "@/components/kongsi/FollowButton";
 import { ProdukCard, type Tone } from "@/components/kongsi/ProdukCard";
-import { getLojiDetail } from "@/lib/queries";
+import { getLojiDetail, getIsFollowing } from "@/lib/queries";
 
 const toneVar = (t: Tone) => `var(--color-kongsi-${t})`;
 
@@ -16,6 +16,10 @@ export default async function LojiDetail({
   const { slug } = await params;
   const loji = await getLojiDetail(slug);
   if (!loji) notFound();
+
+  const follow = loji.id
+    ? await getIsFollowing(loji.id)
+    : { loggedIn: false, following: false };
 
   return (
     <section className="py-[34px]">
@@ -43,9 +47,13 @@ export default async function LojiDetail({
                 </div>
               </div>
             </div>
-            <KongsiButton variant="gold" block className="mt-3">
-              Ikuti Loji
-            </KongsiButton>
+            <div className="mt-3">
+              <FollowButton
+                merchantId={loji.id ?? ""}
+                loggedIn={follow.loggedIn}
+                initialFollowing={follow.following}
+              />
+            </div>
           </div>
         </div>
 

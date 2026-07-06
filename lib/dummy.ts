@@ -54,6 +54,7 @@ export const pilihanUntukmu: Produk[] = [
 ];
 
 export type Merchant = {
+  id?: string;
   slug: string;
   name: string;
   category: string;

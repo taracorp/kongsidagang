@@ -1,11 +1,16 @@
 import { SegelBadge, Pill } from "@/components/kongsi/Pill";
 import { Stars } from "@/components/kongsi/PintuCard";
 import { formatKeping } from "@/lib/utils";
-import { neracaProduk, neracaLapak } from "@/lib/data-e";
-import { getNeraca } from "@/lib/queries";
+import { getNeracaByName } from "@/lib/queries";
 
-export default async function NeracaPage() {
-  const neracaRows = await getNeraca(neracaProduk);
+export default async function NeracaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const { q } = await searchParams;
+  const query = (q ?? "Serum Vitamin C").trim();
+  const { rows: neracaRows, matched } = await getNeracaByName(query);
   const cheapest = neracaRows.find((r) => r.cheapest)?.price ?? 0;
 
   return (
@@ -16,28 +21,45 @@ export default async function NeracaPage() {
             Neraca Harga · Dacin Kongsi
           </div>
           <h2 className="mt-1 font-fraunces text-[32px] font-black text-kongsi-indigo">
-            Timbang 10 barang terbaik
+            Timbang harga terbaik
           </h2>
         </div>
 
-        <div className="mb-[18px] flex flex-col gap-[10px]">
+        <form method="get" className="mb-[18px] flex flex-col gap-[10px]">
           <div className="flex w-full overflow-hidden rounded-[3px] border-2 border-kongsi-ink bg-white">
             <input
-              defaultValue={neracaProduk}
+              name="q"
+              defaultValue={query}
+              placeholder="cari barang… cth. Kopi, Serum, Batik"
               className="w-full px-3 py-[10px] text-sm outline-none"
               aria-label="Barang untuk ditimbang"
             />
-            <button className="cursor-pointer bg-kongsi-indigo px-4 font-bold text-kongsi-parchment">
+            <button
+              type="submit"
+              className="cursor-pointer bg-kongsi-indigo px-4 font-bold text-kongsi-parchment"
+            >
               Timbang
             </button>
           </div>
           <div className="text-[13px] text-kongsi-ink-soft">
-            Ditimbang dari{" "}
-            <b className="text-kongsi-grenadine">{neracaLapak} lapak</b> ·
-            diperbarui 2 jam lalu
+            {matched ? (
+              <>
+                Menimbang{" "}
+                <b className="text-kongsi-grenadine">{matched}</b> dari{" "}
+                <b className="text-kongsi-grenadine">{neracaRows.length} lapak</b>
+              </>
+            ) : (
+              <>Tidak ada barang cocok untuk “{query}”.</>
+            )}
           </div>
-        </div>
+        </form>
 
+        {neracaRows.length === 0 ? (
+          <p className="rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-4 py-8 text-center text-[13px] text-kongsi-ink-soft">
+            Coba kata lain — mis. <b>Kopi</b>, <b>Serum</b>, <b>Batik</b>,{" "}
+            <b>Parfum</b>.
+          </p>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full border-separate border-spacing-0 overflow-hidden rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment">
             <thead>
@@ -95,6 +117,7 @@ export default async function NeracaPage() {
             </tbody>
           </table>
         </div>
+        )}
         <p className="mt-3 text-[12px] text-kongsi-ink-soft">
           ◆ Harga dari lapak mitra &amp; feed resmi. Loji <b>bersegel</b> memberi
           harga langsung — paling tepercaya (bertera).

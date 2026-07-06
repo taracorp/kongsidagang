@@ -97,6 +97,7 @@ export async function getLojiDetail(slug: string): Promise<Merchant | null> {
           oldPrice: p.old_price ?? undefined,
           tone: asTone(p.tone),
         })),
+        id: m.id as string,
       };
     }
   } catch {
@@ -105,7 +106,32 @@ export async function getLojiDetail(slug: string): Promise<Merchant | null> {
   return dummyGetMerchant(slug) ?? null;
 }
 
-export async function getFeatured(): Promise<{ etalase: Produk[]; pilihan: Produk[] }> {
+export async function getIsFollowing(merchantId: string): Promise<{
+  loggedIn: boolean;
+  following: boolean;
+}> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { loggedIn: false, following: false };
+    const { data } = await supabase
+      .from("follows")
+      .select("merchant_id")
+      .eq("user_id", user.id)
+      .eq("merchant_id", merchantId)
+      .maybeSingle();
+    return { loggedIn: true, following: Boolean(data) };
+  } catch {
+    return { loggedIn: false, following: false };
+  }
+}
+
+export async function getFeatured(): Promise<{
+  etalase: Produk[];
+  pilihan: Produk[];
+}> {
   try {
     const supabase = await createClient();
     const { data } = await supabase
@@ -156,6 +182,43 @@ export async function getNeraca(productKey: string): Promise<NeracaRow[]> {
     // fallback
   }
   return dummyNeraca;
+}
+
+export async function getNeracaByName(query: string): Promise<{
+  rows: NeracaRow[];
+  matched: string | null;
+}> {
+  try {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("merchant_products")
+      .select("name,price,merchants(name,is_sealed,rating)")
+      .ilike("name", `%${query}%`)
+      .eq("is_active", true)
+      .order("price", { ascending: true })
+      .limit(12);
+    if (data?.length) {
+      const rows: NeracaRow[] = data.map((p, i) => {
+        const rel = p.merchants as
+          | { name?: string; is_sealed?: boolean; rating?: number }
+          | { name?: string; is_sealed?: boolean; rating?: number }[]
+          | null;
+        const m = Array.isArray(rel) ? rel[0] : rel;
+        return {
+          rank: i + 1,
+          loji: m?.name ?? "Loji",
+          sealed: Boolean(m?.is_sealed),
+          rating: Number(m?.rating ?? 0),
+          price: p.price,
+          cheapest: i === 0,
+        };
+      });
+      return { rows, matched: data[0].name as string };
+    }
+  } catch {
+    // fallback
+  }
+  return { rows: [], matched: null };
 }
 
 export async function getBarter(): Promise<BarterItem[]> {
