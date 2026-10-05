@@ -46,7 +46,7 @@ export async function tutupBarang(itemId: string) {
 export async function ajukanTukar(myItemId: string, targetId: string, topup: number) {
   return run(async () => {
     const user = await requireUser();
-    if (!Number.isInteger(topup) || topup < 0) throw new Error("Tambahan keping tidak valid.");
+    if (!Number.isInteger(topup) || topup < 0) throw new Error("Tambahan Keteng tidak valid.");
     const [mine, target] = await Promise.all([
       prisma.barterItem.findUnique({ where: { id: myItemId }, select: { user_id: true, status: true } }),
       prisma.barterItem.findUnique({ where: { id: targetId }, select: { user_id: true, status: true } }),

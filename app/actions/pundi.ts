@@ -3,10 +3,10 @@
 import { topupDemo, redeemVoucher, checkoutKeping } from "@/lib/domain/pundi";
 import { run, requireUser } from "./_util";
 
-export async function isiPundiDemo() {
+export async function isiPundiDemo(packageId: string) {
   return run(async () => {
     const user = await requireUser();
-    return topupDemo(user.id, 100_000);
+    return topupDemo(user.id, String(packageId));
   });
 }
 

@@ -106,7 +106,7 @@ export default async function TukarPage() {
           </h3>
           <p className="text-[13px] text-kongsi-ink-soft">
             Unggah barangmu + taksiran nilainya. Kalau ada yang cocok, kalian
-            sepakati tukar. Boleh <b>tambah keping</b> biar seimbang. Versi awal:
+            sepakati tukar. Boleh <b>tambah Keteng</b> biar seimbang. Versi awal:
             ketemuan / COD, saling kasih penilaian. Sengketa diadili{" "}
             <b>Syahbandar</b>.
           </p>

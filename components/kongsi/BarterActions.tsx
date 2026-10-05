@@ -87,7 +87,7 @@ export function AjukanTukar({
           <input
             name="topup"
             inputMode="numeric"
-            placeholder="+ keping (opsional)"
+            placeholder="+ Keteng (opsional)"
             className="mb-2 w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-2 py-1 text-[12px]"
           />
           <button

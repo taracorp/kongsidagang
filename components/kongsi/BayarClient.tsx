@@ -181,7 +181,7 @@ export function BayarClient({
               ✓ Pembayaran berhasil
             </div>
             <p className="mt-2 text-sm text-kongsi-ink-soft">
-              Keping terpotong. Surat Jalan &amp; riwayat ada di Pakhuis.
+              Keteng terpotong. Surat Jalan &amp; riwayat ada di Pakhuis.
             </p>
             <KongsiLinkButton href="/pakhuis" variant="primary" className="mt-4">
               Ke Pakhuis
@@ -199,13 +199,13 @@ export function BayarClient({
             {loggedIn ? (
               <div className="overflow-hidden rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment shadow-hard">
                 <div className="border-b-2 border-kongsi-ink bg-kongsi-sage/30 px-[18px] py-3 text-[13px]">
-                  🔑 Kamu sudah masuk loji — tebus pakai <b>Pundi (Keping)</b>.
+                  🔑 Kamu sudah masuk loji — tebus pakai <b>Pundi (Keteng)</b>.
                 </div>
                 <div className="p-[22px]">
                   <KongsiButton variant="primary" block onClick={bayarPundi} disabled={pay.k === "paying"}>
                     {pay.k === "paying"
                       ? "Memproses…"
-                      : `Bayar ${formatKeping(total)} dengan Keping`}
+                      : `Bayar ${formatKeping(total)} dengan Keteng`}
                   </KongsiButton>
                   {pay.k === "error" ? (
                     <p className="mt-3 rounded-[4px] border-2 border-kongsi-grenadine bg-[#FBE3D5] px-3 py-2 text-[13px] text-kongsi-grenadine-dark">

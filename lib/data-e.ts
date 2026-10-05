@@ -37,7 +37,7 @@ export type BarterItem = {
 export const barterItems: BarterItem[] = [
   { title: "Sepatu Lari (jarang dipakai)", owner: "Rani", city: "Sleman", estValue: 250000, want: "tas ransel / jam tangan", tone: "sage" },
   { title: "Buku Novel (10 judul)", owner: "Dimas", city: "Jogja", estValue: 180000, want: "skincare / parfum", tone: "beeswax" },
-  { title: "Kamera Analog Jadul", owner: "Sasa", city: "Bantul", estValue: 400000, want: "headphone + tambahan keping", tone: "grenadine" },
+  { title: "Kamera Analog Jadul", owner: "Sasa", city: "Bantul", estValue: 400000, want: "headphone + tambahan Keteng", tone: "grenadine" },
   { title: "Tanaman Monstera", owner: "Bagus", city: "Sleman", estValue: 120000, want: "pot keramik / bibit", tone: "olive" },
   { title: "Jam Tangan Kulit", owner: "Tia", city: "Jogja", estValue: 300000, want: "sepatu / tas", tone: "indigo" },
   { title: "Gitar Akustik", owner: "Fajar", city: "Kulon Progo", estValue: 550000, want: "keyboard / mixer", tone: "grenadine-dark" },
@@ -96,7 +96,7 @@ export const artikel: Artikel[] = [
     excerpt: "Panduan menaksir nilai & menghindari sengketa.",
     body: [
       "Taksir nilai barang dengan jujur, dan foto kondisi apa adanya.",
-      "Bila nilai timpang, seimbangkan dengan tambahan keping.",
+      "Bila nilai timpang, seimbangkan dengan tambahan Keteng.",
     ],
   },
   {

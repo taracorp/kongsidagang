@@ -40,6 +40,7 @@ model User {
   ratingsReceived     BarterRating[]         @relation("RatingRatee")
   vouchers            Voucher[]
   walletTransactions  WalletTransaction[]
+  walletHolds         WalletHold[]
   follows             Follow[]
 
   @@map("user")
@@ -357,12 +358,30 @@ model WalletTransaction {
   user_id    String
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   amount     Int // +isi / -belanja
-  kind       String // isi | belanja | tebus | hadiah
+  kind       String // isi | bonus | belanja | tebus | hadiah | tahan | lepas | bea_tukar | terima_tukar
   note       String?
   created_at DateTime @default(now())
 
   @@index([user_id, created_at(sort: Desc)])
   @@map("wallet_transactions")
+}
+
+// Keteng yang ditahan (rekber) — sudah dipotong dari Wallet.balance saat ditahan.
+// Selesai: diambil (bea → platform), dilepas (ke pihak lain), dikembalikan (ke pemilik).
+model WalletHold {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  deal_id    String?
+  amount     Int
+  kind       String // bea | tambah | deposit | ongkir
+  status     String   @default("ditahan") // ditahan | diambil | dilepas | dikembalikan
+  created_at DateTime @default(now())
+  settled_at DateTime?
+
+  @@index([user_id, status])
+  @@index([deal_id])
+  @@map("wallet_holds")
 }
 
 model Voucher {

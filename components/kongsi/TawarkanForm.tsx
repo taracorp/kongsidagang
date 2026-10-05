@@ -57,7 +57,7 @@ export function TawarkanForm() {
       </div>
       <div className="mb-[14px]">
         <label className={fieldLabel} htmlFor="est_value">
-          Taksiran nilai (keping = Rp)
+          Taksiran nilai (Keteng = Rp)
         </label>
         <input
           id="est_value"

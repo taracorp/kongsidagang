@@ -81,8 +81,8 @@ Teks UI pakai kolom "Tampil ke user". Nama variabel/route/tabel pakai "Nama kode
 
 | Tampil | Arti | Nama kode |
 |---|---|---|
-| Keping / Keteng | saldo dompet, **1 keping = Rp 1** | `balance` (integer rupiah) |
-| Pundi | dompet (tempat keping) | `wallet` |
+| Keteng | saldo dompet, **1 Keteng = Rp 1**, tidak dapat diuangkan | `balance` (integer rupiah) |
+| Pundi | dompet (tempat Keteng) | `wallet` |
 | Isi Pundi | top up | `topup` |
 | Cap | stempel loyalti (10 = 1 potongan) — opsional | `stamps` |
 | Surat Jalan | voucher / hak tebus | `voucher` |
@@ -96,7 +96,8 @@ Teks UI pakai kolom "Tampil ke user". Nama variabel/route/tabel pakai "Nama kode
 | Pekan Raya | event obral akbar | `mega_sale_event` |
 
 **Panjar / Persekot:** dicadangkan versi mendatang. JANGAN implement sekarang.
-**Gulden:** DIBUANG. Hanya ada Keping. Jangan bikin mata uang kedua.
+**Gulden:** DIBUANG. Hanya ada Keteng (dulu ditulis "Keping" — sejak Oktober 2026 UI memakai "Keteng";
+nama kode tetap `balance`/`formatKeping`). Jangan bikin mata uang kedua.
 
 ---
 
@@ -196,13 +197,15 @@ Enum `user_level`. Ambang (rupiah akumulasi) ditentukan Tara — tanya dulu sebe
 
 ## BAGIAN 6: FITUR — SPEK RINGKAS
 
-### 6.1 Tukar Guling (barter) — versi sederhana
-- User unggah barang + taksiran nilai (keping). Lihat tawaran orang lain.
-- Ajukan tukar; boleh **tambah keping** untuk menyeimbangkan nilai.
-- **Versi awal: COD/ketemuan + saling beri rating.** JANGAN bikin escrow dulu.
-- Sengketa → diadili **Syahbandar** (admin) di Kantor Kongsi.
-- Skema minimal: `barter_items(user_id, title, est_value, want_text, photo, status)`,
-  `barter_deals(item_a, item_b, topup_keping, status: proposed|agreed|done|disputed)`.
+### 6.1 Tukar Guling (barter) — v2 (disetujui Tara, 5 Okt 2026)
+- Nilai barang **ditaksir sistem** (`lib/domain/taksiran.ts`), bukan angka bebas user.
+- Ajukan tukar; selisih nilai ditutup dengan **tambah Keteng** dari pihak bernilai lebih rendah.
+- **Bea Tukar** = 10% taksiran barang sendiri, maks 10.000 Keteng, ditanggung **kedua pihak**.
+- **Rekber diizinkan**: bea, tambah Keteng, deposit, ongkir ditahan di `wallet_holds` saat deal disepakati.
+- Mode **COD** (QR handshake, Titik Aman, batal di tempat) atau **Kirim** (Biteship, penahanan silang).
+- Deposit (mode Kirim) & KYC (Kirim / nilai > 1jt) — lihat rencana di Buku Kongsi Ch 8.12.
+- Sengketa → diadili **Syahbandar** (admin) di Kantor Kongsi; Keteng dipindah lewat helper `lib/domain/pundi.ts`.
+- Belum: barter segitiga, bundling, scraper harga pasar, DOKU asli.
 
 ### 6.2 Juru Tunjuk (concierge) — kuis tap-tap
 - 3 langkah, jawaban chip (bukan ketik) — enak di HP.

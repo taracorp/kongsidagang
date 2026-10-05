@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { CompassRose, WaxSeal } from "@/components/kongsi/icons";
 import { Pill } from "@/components/kongsi/Pill";
 import { LogoutButton } from "@/components/kongsi/LogoutButton";
-import { IsiPundiButton, VoucherRedeem } from "@/components/kongsi/PundiActions";
+import { IsiPundiPaket, VoucherRedeem } from "@/components/kongsi/PundiActions";
 import { getPakhuis } from "@/lib/queries";
 import { cn, formatKeping } from "@/lib/utils";
 import { levelTangga } from "@/lib/data-e";
@@ -72,15 +72,15 @@ export default async function PakhuisPage() {
         {/* Pundi */}
         <div className="relative mb-[22px] overflow-hidden rounded-[8px] border-2 border-kongsi-ink bg-kongsi-grenadine p-[22px_24px] text-kongsi-parchment shadow-hard">
           <div className="text-[11px] font-bold uppercase tracking-[2px] opacity-85">
-            Pundi · Keping
+            Pundi · Keteng
           </div>
           <div className="mt-[3px] font-fraunces text-[38px] font-black leading-none">
             {data.balance.toLocaleString("id-ID")}{" "}
             <small className="text-[15px] opacity-80">
-              keping (= {formatKeping(data.balance)})
+              Keteng (= {formatKeping(data.balance)})
             </small>
           </div>
-          <IsiPundiButton />
+          <IsiPundiPaket />
           <CompassRose
             size={90}
             className="absolute -bottom-2 -right-2 text-kongsi-parchment opacity-15"
@@ -179,7 +179,7 @@ export default async function PakhuisPage() {
         </h3>
         {data.ledger.length === 0 ? (
           <p className="rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-4 py-6 text-center text-[13px] text-kongsi-ink-soft">
-            Belum ada transaksi keping.
+            Belum ada transaksi Keteng.
           </p>
         ) : (
           <div className="overflow-hidden rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment">

@@ -138,7 +138,7 @@ export default function KeranjangPage() {
                 Lanjut Menebus
               </KongsiLinkButton>
               <p className="mt-2 text-center text-[11px] text-kongsi-ink-soft">
-                Dibayar dengan Keping (isi Pundi) atau langsung via DOKU.
+                Dibayar dengan Keteng (isi Pundi) atau langsung via DOKU.
               </p>
             </div>
           </div>

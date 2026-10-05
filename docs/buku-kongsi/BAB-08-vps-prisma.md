@@ -120,3 +120,38 @@ Traefik yang sudah ada di VPS, cukup atur port.
   Akun email yang sama (mis. Ketua) otomatis tersambung karena Google mengirim `email_verified`.
 - **Catatan:** pastikan Audience/consent screen berstatus *In production*, bukan *Testing*, agar semua orang bisa login.
 - **Rollback:** kosongkan dua variabel itu lalu `pm2 restart kongsidagang --update-env` (login Google mati, email tetap jalan).
+
+### Ch 8.12 — Tukar Guling v2, M1: Keteng, rekber Pundi, paket Isi Pundi
+2026-10-05
+- **Rencana besar (disetujui Tara):** Tukar Guling v2 dalam 5 milestone.
+  - M1: Keteng + ledger.
+  - M2: mesin taksiran.
+  - M3: state machine, bea, COD QR.
+  - M4: kirim via Biteship.
+  - M5: sengketa, deposit, KYC, reputasi.
+- **Keputusan:**
+  - Bea Tukar = 10% taksiran barang sendiri, maks 10.000 Keteng, **kedua pihak** bayar.
+  - Rekber diizinkan (AGENTS.md §6.1 diperbarui).
+  - Deposit 10% (min 5rb, maks 200rb) hanya untuk mode Kirim.
+  - KYC hanya untuk mode Kirim atau nilai > 1jt.
+  - DOKU masih demo.
+  - Kurir: Biteship.
+  - Di luar lingkup: barter segitiga, bundling, iklan, scraper, Hub.
+- **Istilah:** UI memakai **"Keteng"** di semua tempat (sebelumnya "Keping"). Nama kode `balance`/`formatKeping` tetap. Kamus di AGENTS.md diperbarui.
+- **Perubahan:**
+  - `lib/domain/pundi.ts`: helper ledger `credit`, `debit`, `hold`, `captureHold`, `releaseHold`, `refundHold`.
+    Semua mengunci baris Pundi dengan `FOR UPDATE`. `checkoutKeping` dan `topupDemo` kini memakai helper ini.
+  - Model `WalletHold` (`wallet_holds`): Keteng rekber yang sudah dipotong dari saldo, dengan status
+    `ditahan|diambil|dilepas|dikembalikan`. Penyelesaian ganda ditolak.
+  - Paket Isi Pundi (`lib/pundi-paket.ts`): Eceran 10rb, Pemula 25,5rb, Pedagang 52rb, Saudagar 106rb, Juragan 270rb.
+    Bonus dicatat sebagai transaksi `bonus`.
+  - UI pilih paket ada di Pakhuis (`IsiPundiPaket`, menggantikan `IsiPundiButton`).
+- **SQL:** migrasi `20261005131206_wallet_holds` (tabel + CHECK `amount>0`, kind, status).
+  Sudah di-apply ke `kongsi_dev`. **Produksi: belum**, menunggu persetujuan Tara.
+- **Verifikasi:**
+  - `npx tsc --noEmit` lolos.
+  - `npx tsx --conditions=react-server scripts/uji/pundi.ts` lulus 10/10, termasuk balapan 5 hold bersamaan
+    (3 lolos, saldo tak negatif) dan Σ transaksi = saldo.
+  - Uji browser: paket Pemula → ledger +25.000 dan bonus +500.
+- **Rollback:** `git revert kd-tukar-m1`. Tabel `wallet_holds` boleh dibiarkan; untuk benar-benar menghapus,
+  buat migrasi baru `DROP TABLE "wallet_holds"`.
