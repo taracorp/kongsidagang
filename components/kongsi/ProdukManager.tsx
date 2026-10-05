@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { tambahProduk, ubahProduk, aturProdukAktif, hapusProduk } from "@/app/actions/loji";
 import { cn, formatKeping } from "@/lib/utils";
 import type { LapakProduct } from "@/lib/queries";
 
@@ -44,16 +44,9 @@ export function ProdukManager({
     }
     setBusy(true);
     setMsg(null);
-    const supabase = createClient();
-    const { error } = await supabase.from("merchant_products").insert({
-      merchant_id: merchantId,
-      name,
-      price,
-      old_price: num(f.get("old_price")) || null,
-      tone: String(f.get("tone") ?? "sage"),
-    });
+    const { error } = await tambahProduk(merchantId, f);
     setBusy(false);
-    if (error) return setMsg(error.message);
+    if (error) return setMsg(error);
     (e.target as HTMLFormElement).reset();
     router.refresh();
   }
@@ -62,15 +55,7 @@ export function ProdukManager({
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     setBusy(true);
-    const supabase = createClient();
-    await supabase
-      .from("merchant_products")
-      .update({
-        name: String(f.get("name") ?? "").trim(),
-        price: num(f.get("price")),
-        old_price: num(f.get("old_price")) || null,
-      })
-      .eq("id", id);
+    await ubahProduk(id, f);
     setBusy(false);
     setEditing(null);
     router.refresh();
@@ -78,19 +63,14 @@ export function ProdukManager({
 
   async function toggle(p: LapakProduct) {
     setBusy(true);
-    const supabase = createClient();
-    await supabase
-      .from("merchant_products")
-      .update({ is_active: !p.is_active })
-      .eq("id", p.id);
+    await aturProdukAktif(p.id, !p.is_active);
     setBusy(false);
     router.refresh();
   }
 
   async function remove(id: string) {
     setBusy(true);
-    const supabase = createClient();
-    await supabase.from("merchant_products").delete().eq("id", id);
+    await hapusProduk(id);
     setBusy(false);
     router.refresh();
   }

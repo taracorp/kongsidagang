@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { authClient } from "@/lib/auth-client";
+import { bayarDenganKeping } from "@/app/actions/pundi";
 import { KongsiButton, KongsiLinkButton } from "@/components/kongsi/KongsiButton";
 import { useCart } from "@/components/kongsi/cart";
 import { GoogleButton } from "@/components/kongsi/GoogleButton";
@@ -39,22 +40,18 @@ function GateForm() {
       setStatus({ kind: "error", message: "Isi surel & kata sandi." });
       return;
     }
-    const supabase = createClient();
     if (tab === "daftar") {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await authClient.signUp.email({
         email,
         password,
-        options: { data: { full_name: name } },
+        name: name || email.split("@")[0],
       });
-      if (error) return setStatus({ kind: "error", message: error.message });
-      if (!data.session)
-        return setStatus({
-          kind: "notice",
-          message: "Cek surel untuk konfirmasi akun, lalu masuk untuk menebus.",
-        });
+      if (error)
+        return setStatus({ kind: "error", message: error.message ?? "Gagal mendaftar." });
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) return setStatus({ kind: "error", message: error.message });
+      const { error } = await authClient.signIn.email({ email, password });
+      if (error)
+        return setStatus({ kind: "error", message: error.message ?? "Gagal masuk." });
     }
     router.refresh();
   }
@@ -160,12 +157,8 @@ export function BayarClient({
 
   async function bayarPundi() {
     setPay({ k: "paying" });
-    const supabase = createClient();
-    const { error } = await supabase.rpc("checkout_keping", {
-      p_subtotal: subtotal,
-      p_ongkir: ONGKIR,
-    });
-    if (error) return setPay({ k: "error", m: error.message });
+    const { error } = await bayarDenganKeping(subtotal, ONGKIR);
+    if (error) return setPay({ k: "error", m: error });
     clear();
     setPay({ k: "ok" });
   }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { isiPundiDemo, tebusSuratJalan } from "@/app/actions/pundi";
 
 export function IsiPundiButton() {
   const router = useRouter();
@@ -10,8 +10,7 @@ export function IsiPundiButton() {
 
   async function onClick() {
     setBusy(true);
-    const supabase = createClient();
-    await supabase.rpc("topup_demo", { amt: 100000 });
+    await isiPundiDemo();
     setBusy(false);
     router.refresh();
   }
@@ -36,11 +35,10 @@ export function VoucherRedeem({ id }: { id: string }) {
   async function onClick() {
     setBusy(true);
     setErr(null);
-    const supabase = createClient();
-    const { error } = await supabase.rpc("redeem_voucher", { vid: id });
+    const { error } = await tebusSuratJalan(id);
     setBusy(false);
     if (error) {
-      setErr(error.message);
+      setErr(error);
       return;
     }
     router.refresh();

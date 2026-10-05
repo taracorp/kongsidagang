@@ -5,14 +5,11 @@ import { CompassRose } from "@/components/kongsi/icons";
 import { SegelBadge, Pill } from "@/components/kongsi/Pill";
 import { KongsiLinkButton } from "@/components/kongsi/KongsiButton";
 import { ProdukManager } from "@/components/kongsi/ProdukManager";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/auth";
 import { getMyMerchants } from "@/lib/queries";
 
 export default async function LapakPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/masuk");
 
   const merchants = await getMyMerchants(user.id);

@@ -1,0 +1,399 @@
+// Kongsi Dagang — skema database (Prisma, Postgres 16 di VPS).
+// Diturunkan dari supabase/migrations 0001–0016 (arsip: docs/arsip-supabase/).
+// Nama kolom sengaja snake_case = sama dengan skema lama, supaya lapisan data mudah dibaca.
+// Tabel Better Auth (user/session/account/verification) memakai camelCase sesuai kebutuhan Better Auth.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// Better Auth (pengganti auth.users Supabase)
+// ============================================================
+model User {
+  id            String    @id
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  profile             Profile?
+  wallet              Wallet?
+  staffRole           StaffRole?             @relation("StaffRoleUser")
+  grantedRoles        StaffRole[]            @relation("StaffRoleGrantedBy")
+  merchants           Merchant[]
+  applications        MerchantApplication[]
+  auctionsWon         Auction[]
+  auctionParticipants AuctionParticipant[]
+  auctionGuesses      AuctionGuess[]
+  barterItems         BarterItem[]
+  ratingsGiven        BarterRating[]         @relation("RatingRater")
+  ratingsReceived     BarterRating[]         @relation("RatingRatee")
+  vouchers            Voucher[]
+  walletTransactions  WalletTransaction[]
+  follows             Follow[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ============================================================
+// Enum
+// ============================================================
+enum UserLevel {
+  pelanggan_kecil
+  pelanggan_besar
+  tuan_kecil
+  tuan_besar
+  juragan
+
+  @@map("user_level")
+}
+
+enum StaffRoleKind {
+  pewarta
+  admin
+  ketua
+
+  @@map("staff_role")
+}
+
+// ============================================================
+// Loji / Saudagar
+// ============================================================
+model Merchant {
+  id                 String    @id @default(uuid())
+  slug               String    @unique
+  name               String
+  category           String
+  rating             Decimal   @default(0) @db.Decimal(2, 1)
+  tebusan_count      Int       @default(0)
+  tone               String    @default("indigo")
+  cover_from         String?
+  cover_to           String?
+  city               String?
+  is_sealed          Boolean   @default(false)
+  status             String    @default("buka") // buka | obral | tutup
+  flash_sale_ends_at DateTime?
+  owner_id           String?
+  owner              User?     @relation(fields: [owner_id], references: [id], onDelete: SetNull)
+  is_active          Boolean   @default(true)
+  created_at         DateTime  @default(now())
+
+  products      MerchantProduct[]
+  priceListings PriceListing[]
+  follows       Follow[]
+
+  @@map("merchants")
+}
+
+model MerchantProduct {
+  id          String   @id @default(uuid())
+  merchant_id String
+  merchant    Merchant @relation(fields: [merchant_id], references: [id], onDelete: Cascade)
+  name        String
+  price       Int // Keping (1 keping = Rp 1)
+  old_price   Int?
+  tone        String   @default("sage")
+  tags        String[] @default([])
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+
+  @@index([merchant_id])
+  @@map("merchant_products")
+}
+
+model MerchantApplication {
+  id              String   @id @default(uuid())
+  loji_name       String
+  category        String
+  owner_name      String
+  whatsapp        String
+  join_flash_sale Boolean  @default(false)
+  status          String   @default("pending") // pending | approved | rejected
+  applicant_id    String?
+  applicant       User?    @relation(fields: [applicant_id], references: [id], onDelete: SetNull)
+  created_at      DateTime @default(now())
+
+  @@map("merchant_applications")
+}
+
+model Follow {
+  user_id     String
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  merchant_id String
+  merchant    Merchant @relation(fields: [merchant_id], references: [id], onDelete: Cascade)
+  created_at  DateTime @default(now())
+
+  @@id([user_id, merchant_id])
+  @@map("follows")
+}
+
+// ============================================================
+// Balai Lelang — deal_price & set_price RAHASIA (jangan pernah di-select untuk publik)
+// ============================================================
+model Auction {
+  id               String    @id @default(uuid())
+  type             String    @default("reguler") // reguler | vendu
+  clue_category    String
+  clue_name_masked String
+  normal_price     Int
+  facilities       String[]  @default([])
+  deal_price       Int? // RAHASIA
+  set_price        Int? // RAHASIA (harga yang ditebak)
+  status           String    @default("kumpul") // kumpul|tebak|jeda|final|pemenang|bayar|selesai
+  capacity         Int       @default(10)
+  starts_at        DateTime?
+  phase_ends_at    DateTime?
+  winner_id        String?
+  winner           User?     @relation(fields: [winner_id], references: [id], onDelete: SetNull)
+  winning_guess    Int?
+  created_at       DateTime  @default(now())
+
+  participants AuctionParticipant[]
+  guesses      AuctionGuess[]
+
+  @@map("auctions")
+}
+
+model AuctionParticipant {
+  auction_id String
+  auction    Auction  @relation(fields: [auction_id], references: [id], onDelete: Cascade)
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  joined_at  DateTime @default(now())
+
+  @@id([auction_id, user_id])
+  @@map("auction_participants")
+}
+
+model AuctionGuess {
+  id         String   @id @default(uuid())
+  auction_id String
+  auction    Auction  @relation(fields: [auction_id], references: [id], onDelete: Cascade)
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  round      Int      @default(1)
+  guess      Int
+  created_at DateTime @default(now())
+
+  @@index([auction_id, user_id])
+  @@map("auction_guesses")
+}
+
+// ============================================================
+// Neraca Harga
+// ============================================================
+model PriceListing {
+  id                String    @id @default(uuid())
+  product_key       String
+  merchant_id       String?
+  merchant          Merchant? @relation(fields: [merchant_id], references: [id], onDelete: SetNull)
+  source_type       String    @default("merchant") // merchant | feed | scrape
+  loji_name         String
+  is_sealed         Boolean   @default(false)
+  rating            Decimal   @default(0) @db.Decimal(2, 1)
+  price             Int
+  is_verified_price Boolean   @default(false)
+  updated_at        DateTime  @default(now())
+
+  @@index([product_key, price])
+  @@map("price_listings")
+}
+
+// ============================================================
+// Tukar Guling
+// ============================================================
+model BarterItem {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  title      String
+  est_value  Int
+  want_text  String?
+  city       String?
+  tone       String   @default("sage")
+  photo_url  String?
+  status     String   @default("aktif") // aktif | ditutup | ditukar
+  created_at DateTime @default(now())
+
+  dealsAsA BarterDeal[] @relation("DealItemA")
+  dealsAsB BarterDeal[] @relation("DealItemB")
+
+  @@index([status])
+  @@map("barter_items")
+}
+
+model BarterDeal {
+  id           String     @id @default(uuid())
+  item_a       String
+  itemA        BarterItem @relation("DealItemA", fields: [item_a], references: [id], onDelete: Cascade)
+  item_b       String
+  itemB        BarterItem @relation("DealItemB", fields: [item_b], references: [id], onDelete: Cascade)
+  topup_keping Int        @default(0)
+  status       String     @default("proposed") // proposed | agreed | done | disputed | rejected
+  created_at   DateTime   @default(now())
+
+  ratings BarterRating[]
+
+  @@map("barter_deals")
+}
+
+model BarterRating {
+  id         String     @id @default(uuid())
+  deal_id    String
+  deal       BarterDeal @relation(fields: [deal_id], references: [id], onDelete: Cascade)
+  rater_id   String
+  rater      User       @relation("RatingRater", fields: [rater_id], references: [id], onDelete: Cascade)
+  ratee_id   String
+  ratee      User       @relation("RatingRatee", fields: [ratee_id], references: [id], onDelete: Cascade)
+  stars      Int // 1–5 (divalidasi di lib/domain/tukar.ts)
+  comment    String?
+  created_at DateTime   @default(now())
+
+  @@unique([deal_id, rater_id])
+  @@map("barter_ratings")
+}
+
+// ============================================================
+// Kabar
+// ============================================================
+model Article {
+  id           String    @id @default(uuid())
+  slug         String    @unique
+  title        String
+  tag          String
+  excerpt      String?
+  cover_tone   String    @default("indigo")
+  body         String[]  @default([])
+  published_at DateTime?
+  created_at   DateTime  @default(now())
+
+  @@index([published_at(sort: Desc)])
+  @@map("articles")
+}
+
+// ============================================================
+// Akun: profil, Pundi, Surat Jalan, peran staf, pengaturan
+// ============================================================
+model Profile {
+  id          String    @id
+  user        User      @relation(fields: [id], references: [id], onDelete: Cascade)
+  full_name   String?
+  level       UserLevel @default(pelanggan_kecil)
+  stamps      Int       @default(0) // Cap loyalti
+  total_spend Int       @default(0)
+  created_at  DateTime  @default(now())
+
+  @@map("profiles")
+}
+
+model Wallet {
+  user_id    String   @id
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  balance    Int      @default(0) // Keping (Rp)
+  updated_at DateTime @default(now())
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  amount     Int // +isi / -belanja
+  kind       String // isi | belanja | tebus | hadiah
+  note       String?
+  created_at DateTime @default(now())
+
+  @@index([user_id, created_at(sort: Desc)])
+  @@map("wallet_transactions")
+}
+
+model Voucher {
+  id         String    @id @default(uuid())
+  user_id    String
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  title      String
+  note       String?
+  kind       String    @default("lelang") // lelang | neraca | hadiah
+  status     String    @default("aktif") // aktif | terpakai | kadaluarsa
+  expires_at DateTime?
+  created_at DateTime  @default(now())
+
+  @@map("vouchers")
+}
+
+model StaffRole {
+  user_id    String        @id
+  user       User          @relation("StaffRoleUser", fields: [user_id], references: [id], onDelete: Cascade)
+  role       StaffRoleKind
+  granted_by String?
+  granter    User?         @relation("StaffRoleGrantedBy", fields: [granted_by], references: [id], onDelete: SetNull)
+  created_at DateTime      @default(now())
+
+  @@map("staff_roles")
+}
+
+model Setting {
+  key        String   @id
+  value      String?
+  updated_at DateTime @default(now())
+
+  @@map("settings")
+}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { ubahStatusLelang } from "@/app/actions/lelang";
 
 const options = [
   "kumpul",
@@ -28,18 +28,8 @@ export function AuctionStatusSelect({
   async function onChange(next: string) {
     setValue(next);
     setBusy(true);
-    const supabase = createClient();
-    await supabase.from("auctions").update({ status: next }).eq("id", id);
-
-    // Beri sinyal ke semua penonton /lelang (Realtime Broadcast).
-    const ch = supabase.channel("kongsi-lelang");
-    ch.subscribe((s) => {
-      if (s === "SUBSCRIBED") {
-        ch.send({ type: "broadcast", event: "update", payload: {} }).finally(
-          () => supabase.removeChannel(ch),
-        );
-      }
-    });
+    // Server ikut menyiarkan sinyal ke semua penonton /lelang (SSE).
+    await ubahStatusLelang(id, next);
 
     setBusy(false);
     router.refresh();

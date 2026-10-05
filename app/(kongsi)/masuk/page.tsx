@@ -1,12 +1,9 @@
 import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/kongsi/AuthForm";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/auth";
 
 export default async function MasukPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (user) redirect("/pakhuis");
 
   return (

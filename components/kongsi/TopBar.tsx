@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { CompassRose, IconCart, IconBell } from "./icons";
 import { useCart } from "./cart";
-import { createClient } from "@/lib/supabase/client";
+import { authClient } from "@/lib/auth-client";
 
 function IconButton({
   children,
@@ -40,16 +39,8 @@ function IconButton({
 
 export function TopBar({ notifCount = 0 }: { notifCount?: number }) {
   const { count: cartCount } = useCart();
-  const [loggedIn, setLoggedIn] = useState(false);
-
-  useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => setLoggedIn(Boolean(data.user)));
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setLoggedIn(Boolean(session?.user));
-    });
-    return () => sub.subscription.unsubscribe();
-  }, []);
+  const { data: session } = authClient.useSession();
+  const loggedIn = Boolean(session?.user);
 
   return (
     <div className="sticky top-0 z-50 border-b-2 border-kongsi-ink bg-kongsi-parchment">

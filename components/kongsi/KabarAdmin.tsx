@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { buatArtikel, aturTerbitArtikel, hapusArtikel } from "@/app/actions/admin";
 import { KongsiButton } from "./KongsiButton";
 import { Pill } from "./Pill";
 import type { AdminArticle } from "@/lib/queries";
@@ -19,13 +19,6 @@ const tags = [
   "Pekan Raya",
 ];
 const tones = ["indigo", "grenadine", "beeswax", "sage", "olive"];
-
-function slugify(s: string) {
-  return s
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-}
 
 export function KabarForm() {
   const router = useRouter();
@@ -47,18 +40,16 @@ export function KabarForm() {
       .map((s) => s.trim())
       .filter(Boolean);
     const publish = f.get("publish") === "on";
-    const supabase = createClient();
-    const { error } = await supabase.from("articles").insert({
-      slug: slugify(title) || `artikel-${Date.now()}`,
+    const { error } = await buatArtikel({
       title,
       tag: String(f.get("tag") ?? tags[0]),
-      excerpt: String(f.get("excerpt") ?? "").trim() || null,
+      excerpt: String(f.get("excerpt") ?? ""),
       cover_tone: String(f.get("cover_tone") ?? "indigo"),
       body,
-      published_at: publish ? new Date().toISOString() : null,
+      publish,
     });
     if (error) {
-      setStatus({ k: "error", m: error.message });
+      setStatus({ k: "error", m: error });
       return;
     }
     (e.target as HTMLFormElement).reset();
@@ -141,21 +132,14 @@ export function KabarAdmin({ items }: { items: AdminArticle[] }) {
 
   async function togglePublish(a: AdminArticle) {
     setBusy(a.slug);
-    const supabase = createClient();
-    await supabase
-      .from("articles")
-      .update({
-        published_at: a.published_at ? null : new Date().toISOString(),
-      })
-      .eq("slug", a.slug);
+    await aturTerbitArtikel(a.slug, !a.published_at);
     setBusy(null);
     router.refresh();
   }
 
   async function remove(slug: string) {
     setBusy(slug);
-    const supabase = createClient();
-    await supabase.from("articles").delete().eq("slug", slug);
+    await hapusArtikel(slug);
     setBusy(null);
     router.refresh();
   }

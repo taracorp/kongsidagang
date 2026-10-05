@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ProdukCard, type Tone } from "@/components/kongsi/ProdukCard";
 import { KongsiButton } from "@/components/kongsi/KongsiButton";
-import { createClient } from "@/lib/supabase/client";
+import { cariJuruTunjuk } from "@/app/actions/loji";
 import { cn } from "@/lib/utils";
 
 type Step = {
@@ -79,27 +79,14 @@ export default function JuruTunjukPage() {
       const taste = tasteMap[answers[1]];
       const [min, max] = priceMap[answers[2]] ?? [0, 100000000];
       const tags = cat === "makanan" && taste ? [cat, taste] : [cat];
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("merchant_products")
-        .select("name,price,tone,merchants(name)")
-        .eq("is_active", true)
-        .contains("tags", tags)
-        .gte("price", min)
-        .lte("price", max)
-        .order("price", { ascending: true })
-        .limit(6);
+      const { data } = await cariJuruTunjuk(tags, min, max);
       if (!active) return;
-      const mapped: Hasil[] = (data ?? []).map((p) => {
-        const rel = p.merchants as { name?: string } | { name?: string }[] | null;
-        const shop = Array.isArray(rel) ? rel[0]?.name : rel?.name;
-        return {
-          name: p.name as string,
-          price: p.price as number,
-          tone: (p.tone as Tone) ?? "sage",
-          shop: shop ?? "",
-        };
-      });
+      const mapped: Hasil[] = (data ?? []).map((p) => ({
+        name: p.name,
+        price: p.price,
+        tone: (p.tone as Tone) ?? "sage",
+        shop: p.shop,
+      }));
       setResults(mapped);
       setLoading(false);
     })();

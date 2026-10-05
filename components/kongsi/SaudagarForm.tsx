@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { ajukanSaudagar } from "@/app/actions/loji";
 import { KongsiButton } from "./KongsiButton";
 import { kategoriDagangan } from "@/lib/dummy";
 
@@ -36,16 +36,10 @@ export function SaudagarForm() {
       return;
     }
 
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    const { error } = await supabase
-      .from("merchant_applications")
-      .insert({ ...payload, applicant_id: user?.id ?? null });
+    const { error } = await ajukanSaudagar(payload);
 
     if (error) {
-      setState({ kind: "error", message: error.message });
+      setState({ kind: "error", message: error });
       return;
     }
     setState({ kind: "ok" });

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import { KongsiButton } from "./KongsiButton";
 import { GoogleButton } from "./GoogleButton";
@@ -36,27 +36,18 @@ export function AuthForm({ redirectTo = "/pakhuis" }: { redirectTo?: string }) {
       return;
     }
 
-    const supabase = createClient();
-
     if (tab === "daftar") {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await authClient.signUp.email({
         email,
         password,
-        options: { data: { full_name: name } },
+        name: name || email.split("@")[0],
       });
-      if (error) return setStatus({ kind: "error", message: error.message });
-      if (!data.session) {
-        return setStatus({
-          kind: "notice",
-          message: "Cek surel untuk konfirmasi akun, lalu masuk.",
-        });
-      }
+      if (error)
+        return setStatus({ kind: "error", message: error.message ?? "Gagal mendaftar." });
     } else {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) return setStatus({ kind: "error", message: error.message });
+      const { error } = await authClient.signIn.email({ email, password });
+      if (error)
+        return setStatus({ kind: "error", message: error.message ?? "Gagal masuk." });
     }
 
     router.push(redirectTo);

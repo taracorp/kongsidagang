@@ -4,7 +4,7 @@
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` before writing any code. Heed deprecation notices.
 
 Catatan Next.js 16 penting untuk project ini:
-- `middleware.ts` diganti `proxy.ts` (fungsi bernama `proxy`). Sudah dipakai di root untuk refresh sesi Supabase.
+- `middleware.ts` diganti `proxy.ts` (fungsi bernama `proxy`). Saat ini TIDAK dipakai (Better Auth tak perlu refresh sesi di proxy).
 - `cookies()` dari `next/headers` bersifat **async** (`await cookies()`).
 <!-- END:nextjs-agent-rules -->
 
@@ -17,7 +17,10 @@ Referensi visual: `reference/kongsi-dagang-mockup-v2.html`. Bangun sesuai mockup
 > Adaptasi standalone: project ini repo tersendiri (`taracorp/kongsidagang`),
 > **bukan** monorepo `beautifio`. Maka:
 > - Struktur pakai `app/` langsung (App Router, tanpa `apps/web/src`).
-> - Supabase project: `dilwxkgmjdrjkruajxli` (lihat `.env.local`). Bukan Supabase beautifio.
+> - **Database: Postgres 16 di VPS 31.97.49.146 (container `kongsi-db`, 127.0.0.1:5434) lewat Prisma 7.**
+>   Auth: Better Auth (email+sandi & Google). Supabase TIDAK dipakai lagi sejak Oktober 2026
+>   (SQL lama diarsip di `docs/arsip-supabase/`; versi Supabase terakhir = tag `kd-pre-vps`).
+> - Dev lokal: tunnel `ssh -N -L 5434:127.0.0.1:5434 root@31.97.49.146` → DB `kongsi_dev`.
 > - Auction dibangun **fresh** di repo ini (tidak ada "AuctionLive lama"). Tidak ada fitur
 >   Tebak Aku / Bisik / Care di sini.
 > - Tailwind v4: token via `@theme` di `app/globals.css` (bukan `tailwind.config.ts` v3).
@@ -39,9 +42,11 @@ Tamu bebas masuk dan menjelajah **tanpa login**. Keranjang jalan tanpa akun.
 
 ## ATURAN KERJA
 
-1. SQL hanya di-apply manual oleh Tara di Supabase SQL Editor. Agen menulis, tidak menjalankan.
-2. Edge function deploy hanya Tara.
-3. Deploy Vercel: dari root repo ini (`npx vercel --prod`) setelah project di-link.
+1. Skema DB hanya di `prisma/schema.prisma` + migrasi `prisma/migrations/`. Agen boleh `prisma migrate dev`
+   ke `kongsi_dev`; `migrate deploy` ke **produksi** (`kongsi`) hanya setelah Tara setuju.
+2. Semua tulis data lewat Server Actions (`app/actions/*`) dengan cek sesi/peran/pemilik — pengganti RLS.
+   Komponen client TIDAK boleh mengakses DB langsung.
+3. Deploy: VPS 31.97.49.146 via `scripts/deploy.sh` (pm2 `kongsidagang`, port 3020, Traefik Coolify).
 4. Jangan klaim selesai tanpa bukti (grep, `npx tsc --noEmit`, query, screenshot).
 5. File besar: tulis ulang komponen UTUH, jangan string-replace bertumpuk.
 6. Credentials (DOKU, dll) dari env — JANGAN hardcode.
@@ -141,8 +146,11 @@ app/
     saudagar/daftar/page.tsx
   admin/kongsi/page.tsx
 components/kongsi/   → komponen UI reusable
-lib/supabase/        → client (browser & server) + helper sesi
-proxy.ts             → refresh sesi Supabase
+app/actions/         → Server Actions (tulis data, pengganti RLS)
+app/api/             → auth (Better Auth), lelang/stream (SSE), cron/advance-auctions
+lib/db.ts            → PrismaClient · lib/auth.ts → Better Auth · lib/queries.ts → baca data
+lib/domain/          → logika bisnis (lelang, pundi, saudagar) — port dari plpgsql
+prisma/              → schema.prisma, migrations/, seed.ts
 ```
 
 **Chrome (rangka tetap):**

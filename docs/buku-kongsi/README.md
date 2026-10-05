@@ -14,13 +14,14 @@ Catatan resmi perjalanan pembangunan **Kongsi Dagang**, disusun seperti buku: **
 | [BAB 04](BAB-04-milestone.md) | Milestone M1–M5 + Login Google | 6 Jul 2026 | `kd-m1` … `kd-m5`, `kd-auth-google` |
 | [BAB 05](BAB-05-arsitektur.md) | Peta Arsitektur (dari Graphify) | snapshot `1163dc0` | — |
 | [BAB 06](BAB-06-laporan-2026-10-05.md) | Laporan Terkini 5 Okt 2026 | — | — |
-| [BAB 07](BAB-07-log-perubahan.md) | **Log Perubahan (Bab aktif)** | 5 Okt 2026 → | `kd-buku-kongsi` … |
+| [BAB 07](BAB-07-log-perubahan.md) | Log Perubahan — Buku Kongsi | 5 Okt 2026 | `kd-buku-kongsi` |
+| [BAB 08](BAB-08-vps-prisma.md) | **Pindah ke VPS & Prisma (Bab aktif)** | 5 Okt 2026 → | `kd-pre-vps`, `kd-prisma`, `kd-vps-live` |
 | [Lampiran](LAMPIRAN-rollback.md) | Rollback — tag ↔ commit ↔ SQL + prosedur | — | semua |
 
 ## Aturan pencatatan (wajib)
 
 1. **Setiap perubahan** (kode, SQL, config, konten) → tambah satu **Chapter** di Bab aktif
-   (sekarang: [BAB 07](BAB-07-log-perubahan.md)), di commit yang **sama** dengan perubahannya.
+   (sekarang: [BAB 08](BAB-08-vps-prisma.md)), di commit yang **sama** dengan perubahannya.
 2. **Selesai satu fase/milestone** → buat tag `kd-<nama>` (annotated) + tambah baris di
    [LAMPIRAN-rollback](LAMPIRAN-rollback.md). Fase besar baru boleh membuka Bab baru; update Daftar Isi.
 3. Ada **SQL baru** → catat nomor migrasi, status apply (Tara apply manual), dan cara membatalkannya.

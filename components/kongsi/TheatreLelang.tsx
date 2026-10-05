@@ -6,7 +6,6 @@ import { Panggung } from "./Panggung";
 import { LelangLive } from "./LelangLive";
 import { Pill, LiveDot } from "./Pill";
 import { cn } from "@/lib/utils";
-import { createClient } from "@/lib/supabase/client";
 import type { AuctionPublic, AdSettings } from "@/lib/queries";
 
 const SWAP_MS = 1300;
@@ -75,14 +74,11 @@ export function TheatreLelang({
     return () => clearTimeout(t);
   }, []);
 
-  // Realtime: dengar sinyal admin lewat Broadcast → refetch data server.
+  // Realtime: dengar sinyal server lewat SSE (/api/lelang/stream) → refetch data server.
   useEffect(() => {
-    const supabase = createClient();
-    const ch = supabase.channel("kongsi-lelang");
-    ch.on("broadcast", { event: "update" }, () => router.refresh()).subscribe();
-    return () => {
-      supabase.removeChannel(ch);
-    };
+    const es = new EventSource("/api/lelang/stream");
+    es.addEventListener("update", () => router.refresh());
+    return () => es.close();
   }, [router]);
 
   // Saat data lelang berubah (mis. admin ubah status), mainkan transisi tirai.

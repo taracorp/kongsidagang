@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { tawarkanBarang } from "@/app/actions/tukar";
 import { KongsiButton } from "./KongsiButton";
 
 const fieldLabel = "mb-[5px] block text-[13px] font-bold";
@@ -19,7 +19,7 @@ const tones = [
   "indigo",
 ];
 
-export function TawarkanForm({ userId }: { userId: string }) {
+export function TawarkanForm() {
   const router = useRouter();
   const [status, setStatus] = useState<
     { k: "idle" } | { k: "saving" } | { k: "error"; m: string }
@@ -35,38 +35,13 @@ export function TawarkanForm({ userId }: { userId: string }) {
       setStatus({ k: "error", m: "Isi nama barang & taksiran nilai." });
       return;
     }
-    const supabase = createClient();
-
-    let photo_url: string | null = null;
-    const file = f.get("photo");
-    if (file instanceof File && file.size > 0) {
-      const path = `${userId}/${Date.now()}-${file.name.replace(/[^\w.]+/g, "-")}`;
-      const up = await supabase.storage.from("barter").upload(path, file, {
-        upsert: false,
-      });
-      if (up.error) {
-        setStatus({ k: "error", m: up.error.message });
-        return;
-      }
-      photo_url = supabase.storage.from("barter").getPublicUrl(path).data.publicUrl;
-    }
-
-    const { error } = await supabase.from("barter_items").insert({
-      user_id: userId,
-      title,
-      est_value: est,
-      want_text: String(f.get("want_text") ?? "").trim() || null,
-      city: String(f.get("city") ?? "").trim() || null,
-      tone: String(f.get("tone") ?? "sage"),
-      photo_url,
-      status: "aktif",
-    });
+    const { error } = await tawarkanBarang(f);
     if (error) {
-      setStatus({ k: "error", m: error.message });
+      setStatus({ k: "error", m: error });
       return;
     }
+    // /tukar dirender dinamis, jadi push saja sudah menampilkan data terbaru.
     router.push("/tukar");
-    router.refresh();
   }
 
   return (

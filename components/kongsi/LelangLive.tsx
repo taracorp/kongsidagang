@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { ikutLelang, tebakLelang } from "@/app/actions/lelang";
 import { Pill, LiveDot } from "./Pill";
 import { KongsiButton, KongsiLinkButton } from "./KongsiButton";
 import { formatKeping } from "@/lib/utils";
@@ -41,12 +41,9 @@ export function LelangLive({
     if (!userId) return;
     setBusy(true);
     setError(null);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("auction_participants")
-      .upsert({ auction_id: auction.id, user_id: userId });
+    const { error } = await ikutLelang(auction.id);
     setBusy(false);
-    if (error) setError(error.message);
+    if (error) setError(error);
     else setJoined(true);
   }
 
@@ -64,15 +61,9 @@ export function LelangLive({
     }
     setBusy(true);
     setError(null);
-    const supabase = createClient();
-    await supabase
-      .from("auction_participants")
-      .upsert({ auction_id: auction.id, user_id: userId });
-    const { error } = await supabase
-      .from("auction_guesses")
-      .insert({ auction_id: auction.id, user_id: userId, round: 1, guess: val });
+    const { error } = await tebakLelang(auction.id, val);
     setBusy(false);
-    if (error) setError(error.message);
+    if (error) setError(error);
     else {
       setGuess(val);
       setJoined(true);

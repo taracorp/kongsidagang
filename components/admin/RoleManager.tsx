@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { aturPeran } from "@/app/actions/admin";
 import { cn } from "@/lib/utils";
 import type { StaffUser } from "@/lib/queries";
 
@@ -44,21 +44,10 @@ export function RoleManager({
   async function setRole(u: StaffUser, next: string) {
     setBusy(u.user_id);
     setMsg(null);
-    const supabase = createClient();
-    let error;
-    if (next === "") {
-      ({ error } = await supabase
-        .from("staff_roles")
-        .delete()
-        .eq("user_id", u.user_id));
-    } else {
-      ({ error } = await supabase
-        .from("staff_roles")
-        .upsert({ user_id: u.user_id, role: next, granted_by: meId }));
-    }
+    const { error } = await aturPeran(u.user_id, next as "" | "pewarta" | "admin" | "ketua");
     setBusy(null);
     if (error) {
-      setMsg(error.message);
+      setMsg(error);
       return;
     }
     router.refresh();

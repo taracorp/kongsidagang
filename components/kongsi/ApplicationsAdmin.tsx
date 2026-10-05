@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { putuskanPengajuan } from "@/app/actions/admin";
 import { Pill } from "./Pill";
 import type { AdminApplication } from "@/lib/queries";
 
@@ -18,15 +18,7 @@ export function ApplicationsAdmin({ items }: { items: AdminApplication[] }) {
 
   async function setStatus(id: string, status: "approved" | "rejected") {
     setBusy(id);
-    const supabase = createClient();
-    if (status === "approved") {
-      await supabase.rpc("approve_merchant_application", { app_id: id });
-    } else {
-      await supabase
-        .from("merchant_applications")
-        .update({ status })
-        .eq("id", id);
-    }
+    await putuskanPengajuan(id, status);
     setBusy(null);
     router.refresh();
   }

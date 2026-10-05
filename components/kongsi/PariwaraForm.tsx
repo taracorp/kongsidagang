@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { simpanPariwara } from "@/app/actions/admin";
 import { KongsiButton } from "./KongsiButton";
 
 const fieldLabel = "mb-[5px] block text-[13px] font-bold";
@@ -25,12 +25,11 @@ export function PariwaraForm({
     e.preventDefault();
     setStatus({ kind: "saving" });
     const form = new FormData(e.currentTarget);
-    const supabase = createClient();
-    const { error } = await supabase.from("settings").upsert([
-      { key: "ad_video_url", value: String(form.get("video") ?? "").trim() },
-      { key: "ad_image_url", value: String(form.get("image") ?? "").trim() },
-    ]);
-    if (error) return setStatus({ kind: "error", msg: error.message });
+    const { error } = await simpanPariwara(
+      String(form.get("video") ?? ""),
+      String(form.get("image") ?? ""),
+    );
+    if (error) return setStatus({ kind: "error", msg: error });
     setStatus({ kind: "ok" });
     router.refresh();
   }

@@ -23,6 +23,8 @@ Titik rollback = **git tag annotated** `kd-*`. Lihat semua: `git tag -l 'kd-*' -
 | `kd-m5` | 3935c53 | 2026-07-06 | Tukar Guling matang | 0001–0016 |
 | `kd-auth-google` | 1163dc0 | 2026-07-06 | Login Google | 0001–0016 |
 | `kd-buku-kongsi` | 3b31848 | 2026-10-05 | Buku Kongsi + tag rollback | 0001–0016 |
+| `kd-pre-vps` | 47d4119 | 2026-10-05 | **Versi Supabase terakhir** (sebelum VPS/Prisma) | 0001–0016 (Supabase) |
+| `kd-prisma` | (lihat BAB 08 Ch 8.8) | 2026-10-05 | Prisma + Better Auth, lulus tes lokal | Prisma: init, checks |
 
 ## Prosedur
 
@@ -42,6 +44,11 @@ Membuat commit pembalik untuk semua perubahan setelah `kd-m3`. Bisa dibatalkan l
 `git reset --hard <tag>` — commit sesudahnya hilang dari cabang (masih bisa dicari via `git reflog` beberapa waktu).
 
 ## ⚠️ Database tidak ikut ter-rollback
+
+Sejak `kd-pre-vps`, ada **dua dunia DB**: tag ≤ `kd-pre-vps` memakai Supabase cloud (masih hidup);
+tag ≥ `kd-prisma` memakai Postgres VPS (`prisma/migrations`). Kembali ke tag Supabase cukup dengan kode
++ `.env.local` lama (kunci `NEXT_PUBLIC_SUPABASE_*`). Untuk migrasi Prisma, batalkan dengan migrasi baru (jangan edit migrasi yang sudah diterapkan).
+
 Rollback kode **tidak** membatalkan migrasi yang sudah di-apply di Supabase. Bila kembali ke tag yang
 memakai migrasi lebih sedikit (lihat kolom terakhir), tabel/fungsi baru tetap ada di DB — biasanya
 aman (kode lama mengabaikannya). Bila perlu dibatalkan, agen menulis SQL `down` khusus per migrasi,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { authClient } from "@/lib/auth-client";
 
 function GoogleG({ size = 18 }: { size?: number }) {
   return (
@@ -31,12 +31,9 @@ export function GoogleButton({ next = "/pakhuis" }: { next?: string }) {
 
   async function onClick() {
     setBusy(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await authClient.signIn.social({
       provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
-      },
+      callbackURL: next,
     });
     if (error) setBusy(false);
   }

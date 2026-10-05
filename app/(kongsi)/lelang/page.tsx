@@ -1,6 +1,6 @@
 import { KongsiLinkButton } from "@/components/kongsi/KongsiButton";
 import { TheatreLelang } from "@/components/kongsi/TheatreLelang";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/auth";
 import { getStageAuctions, getMyGuesses, getAdSettings } from "@/lib/queries";
 
 export default async function LelangPage({
@@ -11,10 +11,7 @@ export default async function LelangPage({
   const { jenis } = await searchParams;
   const isVendu = jenis === "vendu";
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
 
   const auctions = await getStageAuctions(isVendu ? "vendu" : "reguler");
   const [guesses, ad] = await Promise.all([

@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 
 export type StaffRole = "pewarta" | "admin" | "ketua";
 
@@ -10,29 +11,28 @@ export type StaffSession = {
 };
 
 export async function getStaffSession(): Promise<StaffSession> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user)
-    return { userId: null, email: null, name: "", role: null };
+  const user = await getSessionUser();
+  if (!user) return { userId: null, email: null, name: "", role: null };
 
-  const { data } = await supabase
-    .from("staff_roles")
-    .select("role")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const [staff, profile] = await Promise.all([
+    prisma.staffRole.findUnique({
+      where: { user_id: user.id },
+      select: { role: true },
+    }),
+    prisma.profile.findUnique({
+      where: { id: user.id },
+      select: { full_name: true },
+    }),
+  ]);
 
   const name =
-    (user.user_metadata?.full_name as string | undefined) ||
-    user.email?.split("@")[0] ||
-    "Pengurus";
+    profile?.full_name || user.name || user.email.split("@")[0] || "Pengurus";
 
   return {
     userId: user.id,
-    email: user.email ?? null,
+    email: user.email,
     name,
-    role: (data?.role as StaffRole | undefined) ?? null,
+    role: (staff?.role as StaffRole | undefined) ?? null,
   };
 }
 

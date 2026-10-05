@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { ajukanTukar, tutupBarang, ubahStatusTukar, nilaiTukar } from "@/app/actions/tukar";
 import { cn } from "@/lib/utils";
 
 type MyItem = { id: string; title: string };
@@ -50,16 +50,10 @@ export function AjukanTukar({
     const f = new FormData(e.currentTarget);
     const myItem = String(f.get("myItem") ?? "");
     const topup = Number(String(f.get("topup") ?? "").replace(/\D/g, "")) || 0;
-    const supabase = createClient();
-    const { error } = await supabase.from("barter_deals").insert({
-      item_a: myItem,
-      item_b: targetId,
-      topup_keping: topup,
-      status: "proposed",
-    });
+    const { error } = await ajukanTukar(myItem, targetId, topup);
     setBusy(false);
     if (error) {
-      setMsg(error.message);
+      setMsg(error);
       return;
     }
     setOpen(false);
@@ -117,8 +111,7 @@ export function TutupBarang({ id }: { id: string }) {
   const [busy, setBusy] = useState(false);
   async function onClick() {
     setBusy(true);
-    const supabase = createClient();
-    await supabase.from("barter_items").update({ status: "ditutup" }).eq("id", id);
+    await tutupBarang(id);
     setBusy(false);
     router.refresh();
   }
@@ -153,14 +146,10 @@ export function DealActions({
   async function setStatus(next: string) {
     setBusy(true);
     setMsg(null);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("barter_deals")
-      .update({ status: next })
-      .eq("id", id);
+    const { error } = await ubahStatusTukar(id, next);
     setBusy(false);
     if (error) {
-      setMsg(error.message);
+      setMsg(error);
       return;
     }
     router.refresh();
@@ -170,14 +159,10 @@ export function DealActions({
     setBusy(true);
     setMsg(null);
     setRating(stars);
-    const supabase = createClient();
-    const { error } = await supabase.rpc("rate_deal", {
-      p_deal: id,
-      p_stars: stars,
-    });
+    const { error } = await nilaiTukar(id, stars);
     setBusy(false);
     if (error) {
-      setMsg(error.message);
+      setMsg(error);
       return;
     }
     router.refresh();

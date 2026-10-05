@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { ikutiLoji } from "@/app/actions/loji";
 import { KongsiButton, KongsiLinkButton } from "./KongsiButton";
 
 export function FollowButton({
@@ -26,27 +26,8 @@ export function FollowButton({
 
   async function toggle() {
     setBusy(true);
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setBusy(false);
-      return;
-    }
-    if (following) {
-      await supabase
-        .from("follows")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("merchant_id", merchantId);
-      setFollowing(false);
-    } else {
-      await supabase
-        .from("follows")
-        .upsert({ user_id: user.id, merchant_id: merchantId });
-      setFollowing(true);
-    }
+    const { error } = await ikutiLoji(merchantId, !following);
+    if (!error) setFollowing(!following);
     setBusy(false);
   }
 

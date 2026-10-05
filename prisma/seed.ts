@@ -1,47 +1,23 @@
-// Seed data awal Kongsi Dagang ke Supabase (via REST + secret key).
-// Baca kredensial dari .env.local. Jalankan sekali: npm run seed
-import { readFileSync } from "node:fs";
+// Seed data awal Kongsi Dagang ke Postgres via Prisma. Jalankan: npm run seed
+// (dipanggil juga oleh `prisma migrate reset`). Data katalog sama dengan seed Supabase lama.
+// Akun awal dari env: SEED_ADMIN_EMAIL + SEED_ADMIN_PASSWORD (jadi Ketua Kongsi),
+// opsional SEED_TESTER_EMAIL + SEED_TESTER_PASSWORD (saldo & voucher contoh, untuk uji).
+import { config } from "dotenv";
+import { randomUUID } from "node:crypto";
+import { hashPassword } from "better-auth/crypto";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient, type UserLevel } from "../lib/generated/prisma/client";
 
-function loadEnv() {
-  const env = {};
-  try {
-    const raw = readFileSync(new URL("../.env.local", import.meta.url), "utf8");
-    for (const line of raw.split("\n")) {
-      const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-      if (m) env[m[1]] = m[2].replace(/^["']|["']$/g, "");
-    }
-  } catch {
-    // ignore
-  }
-  return env;
-}
+config({ path: ".env.local" });
+config();
 
-const env = loadEnv();
-const URL_BASE = process.env.NEXT_PUBLIC_SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL;
-const SECRET = process.env.SUPABASE_SECRET_KEY ?? env.SUPABASE_SECRET_KEY;
-if (!URL_BASE || !SECRET) {
-  console.error("Butuh NEXT_PUBLIC_SUPABASE_URL & SUPABASE_SECRET_KEY di .env.local");
-  process.exit(1);
-}
+const prisma = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }),
+});
 
-const H = {
-  apikey: SECRET,
-  Authorization: `Bearer ${SECRET}`,
-  "Content-Type": "application/json",
-};
+type P = { name: string; price: number; old_price: number; tone: string; tags?: string[] };
 
-async function rest(path, { method = "GET", body, prefer } = {}) {
-  const res = await fetch(`${URL_BASE}/rest/v1/${path}`, {
-    method,
-    headers: prefer ? { ...H, Prefer: prefer } : H,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`${method} ${path} → ${res.status}: ${text}`);
-  return text ? JSON.parse(text) : null;
-}
-
-const kecantikan = [
+const kecantikan: P[] = [
   { name: "Serum Vitamin C 20ml", price: 89000, old_price: 120000, tone: "sage" },
   { name: "Toner Beras 100ml", price: 65000, old_price: 85000, tone: "beeswax" },
   { name: "Masker Kunyit 5pcs", price: 45000, old_price: 60000, tone: "grenadine" },
@@ -51,25 +27,25 @@ const kecantikan = [
   { name: "Body Butter Kelapa", price: 72000, old_price: 95000, tone: "beeswax-dark" },
   { name: "Face Mist Mawar", price: 55000, old_price: 75000, tone: "grenadine-dark" },
 ];
-const kopi = [
+const kopi: P[] = [
   { name: "Kopi Gayo 200g", price: 62000, old_price: 80000, tone: "grenadine" },
   { name: "Kopi Toraja 200g", price: 68000, old_price: 88000, tone: "olive" },
   { name: "Kopi Kintamani 200g", price: 60000, old_price: 78000, tone: "beeswax" },
   { name: "Drip Bag 10pcs", price: 45000, old_price: 55000, tone: "sage" },
 ];
-const batik = [
+const batik: P[] = [
   { name: "Batik Tulis Sogan", price: 245000, old_price: 320000, tone: "beeswax" },
   { name: "Kemeja Batik Pria", price: 185000, old_price: 240000, tone: "indigo" },
   { name: "Selendang Lurik", price: 95000, old_price: 130000, tone: "sage" },
   { name: "Kain Jarik 2m", price: 120000, old_price: 160000, tone: "grenadine" },
 ];
-const parfum = [
+const parfum: P[] = [
   { name: "Parfum Melati Ratu", price: 135000, old_price: 175000, tone: "olive" },
   { name: "Face Mist Mawar", price: 55000, old_price: 75000, tone: "grenadine" },
   { name: "Dupa Cendana 20pcs", price: 40000, old_price: 55000, tone: "beeswax" },
   { name: "Minyak Nilam 30ml", price: 78000, old_price: 98000, tone: "indigo" },
 ];
-const makanan = [
+const makanan: P[] = [
   { name: "Sambal Roa Botolan", price: 45000, old_price: 55000, tone: "grenadine", tags: ["makanan", "pedas"] },
   { name: "Keripik Balado Pedas", price: 32000, old_price: 40000, tone: "beeswax-dark", tags: ["makanan", "pedas"] },
   { name: "Mie Cabe Level 5", price: 22000, old_price: 30000, tone: "olive", tags: ["makanan", "pedas"] },
@@ -78,7 +54,7 @@ const makanan = [
   { name: "Rempeyek Kacang", price: 18000, old_price: 24000, tone: "olive", tags: ["makanan", "gurih"] },
   { name: "Abon Sapi Premium", price: 95000, old_price: 120000, tone: "grenadine-dark", tags: ["makanan", "gurih"] },
 ];
-const perabot = [
+const perabot: P[] = [
   { name: "Vas Keramik Tembikar", price: 65000, old_price: 85000, tone: "sage", tags: ["perabot"] },
   { name: "Piring Rotan Set 4", price: 48000, old_price: 60000, tone: "olive", tags: ["perabot"] },
   { name: "Lampu Meja Anyaman", price: 120000, old_price: 150000, tone: "beeswax", tags: ["perabot"] },
@@ -175,40 +151,107 @@ const auctions = [
 ];
 
 
+/** Buat akun email+sandi bila belum ada (format Better Auth: user + account "credential"). */
+async function ensureUser(email: string, password: string, name: string) {
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) return existing.id;
+  const id = randomUUID();
+  await prisma.user.create({
+    data: {
+      id,
+      email,
+      name,
+      emailVerified: true,
+      accounts: {
+        create: {
+          id: randomUUID(),
+          accountId: id,
+          providerId: "credential",
+          password: await hashPassword(password),
+        },
+      },
+    },
+  });
+  return id;
+}
+
+async function provision(
+  userId: string,
+  name: string,
+  opts: { level?: UserLevel; stamps?: number; balance?: number; total_spend?: number } = {},
+) {
+  await prisma.profile.upsert({
+    where: { id: userId },
+    create: { id: userId, full_name: name, level: opts.level, stamps: opts.stamps, total_spend: opts.total_spend },
+    update: { level: opts.level, stamps: opts.stamps, total_spend: opts.total_spend },
+  });
+  await prisma.wallet.upsert({
+    where: { user_id: userId },
+    create: { user_id: userId, balance: opts.balance ?? 0 },
+    update: opts.balance != null ? { balance: opts.balance } : {},
+  });
+}
+
 async function main() {
-  console.log("Seeding merchants…");
-  const merchantRows = merchants.map((m) => {
-    const row = { ...m };
-    delete row.products;
-    return row;
-  });
-  const upserted = await rest("merchants?on_conflict=slug", {
-    method: "POST",
-    body: merchantRows,
-    prefer: "resolution=merge-duplicates,return=representation",
-  });
-  const idBySlug = Object.fromEntries(upserted.map((m) => [m.slug, m.id]));
-  const ids = Object.values(idBySlug);
+  console.log("Akun awal…");
+  let adminId: string | null = null;
+  const { SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_TESTER_EMAIL, SEED_TESTER_PASSWORD } =
+    process.env;
+  if (SEED_ADMIN_EMAIL && SEED_ADMIN_PASSWORD) {
+    adminId = await ensureUser(SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, "Ketua Kongsi");
+    await provision(adminId, "Ketua Kongsi");
+    await prisma.staffRole.upsert({
+      where: { user_id: adminId },
+      create: { user_id: adminId, role: "ketua" },
+      update: { role: "ketua" },
+    });
+    console.log(`  Ketua: ${SEED_ADMIN_EMAIL}`);
+  } else {
+    console.log("  (lewati admin — SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD belum diisi)");
+  }
 
-  console.log("Reset & seed merchant_products…");
-  await rest(`merchant_products?merchant_id=in.(${ids.join(",")})`, { method: "DELETE" });
-  const products = merchants.flatMap((m) =>
-    m.products.map((p) => ({ ...p, merchant_id: idBySlug[m.slug] })),
-  );
-  await rest("merchant_products", { method: "POST", body: products });
+  let testerId: string | null = null;
+  if (SEED_TESTER_EMAIL && SEED_TESTER_PASSWORD) {
+    testerId = await ensureUser(SEED_TESTER_EMAIL, SEED_TESTER_PASSWORD, "Penguji");
+    await provision(testerId, "Penguji", { level: "tuan_kecil", stamps: 7, balance: 1_250_000, total_spend: 1_000_000 });
+    await prisma.voucher.deleteMany({ where: { user_id: testerId } });
+    await prisma.voucher.createMany({
+      data: [
+        { user_id: testerId, title: "Hotel Artotel — Deluxe 1 malam", note: "Menang lelang · contoh", kind: "lelang" },
+        { user_id: testerId, title: "Serum Vitamin C — Loji Sari Ayu", note: "Tebus neraca · contoh", kind: "neraca" },
+      ],
+    });
+    console.log(`  Penguji: ${SEED_TESTER_EMAIL}`);
+  }
 
-  console.log("Seeding articles…");
-  await rest("articles?on_conflict=slug", {
-    method: "POST",
-    body: articles.map((a) => ({ ...a, published_at: new Date().toISOString() })),
-    prefer: "resolution=merge-duplicates",
-  });
+  console.log("Loji & produk…");
+  const idBySlug: Record<string, string> = {};
+  for (const { products, ...m } of merchants) {
+    const row = await prisma.merchant.upsert({
+      where: { slug: m.slug },
+      create: m,
+      update: m,
+    });
+    idBySlug[m.slug] = row.id;
+    await prisma.merchantProduct.deleteMany({ where: { merchant_id: row.id } });
+    await prisma.merchantProduct.createMany({
+      data: products.map((p) => ({ ...p, tags: p.tags ?? [], merchant_id: row.id })),
+    });
+  }
 
-  console.log("Reset & seed price_listings…");
-  await rest(`price_listings?product_key=eq.${encodeURIComponent(NERACA_KEY)}`, { method: "DELETE" });
-  await rest("price_listings", {
-    method: "POST",
-    body: neraca.map((n) => ({
+  console.log("Kabar…");
+  for (const a of articles) {
+    await prisma.article.upsert({
+      where: { slug: a.slug },
+      create: { ...a, published_at: new Date() },
+      update: a,
+    });
+  }
+
+  console.log("Neraca…");
+  await prisma.priceListing.deleteMany({ where: { product_key: NERACA_KEY } });
+  await prisma.priceListing.createMany({
+    data: neraca.map((n) => ({
       product_key: NERACA_KEY,
       source_type: "merchant",
       loji_name: n.loji,
@@ -220,60 +263,34 @@ async function main() {
     })),
   });
 
-  console.log("Seeding barter_items…");
-  const users = await fetch(`${URL_BASE}/auth/v1/admin/users`, { headers: H }).then((r) => r.json());
-  const uid = users?.users?.[0]?.id;
-  if (uid) {
-    const titles = barter.map((b) => `"${b.title}"`).join(",");
-    await rest(`barter_items?title=in.(${encodeURIComponent(titles)})`, { method: "DELETE" });
-    await rest("barter_items", {
-      method: "POST",
-      body: barter.map((b) => ({ ...b, user_id: uid, status: "aktif" })),
+  console.log("Tukar Guling…");
+  const owner = testerId ?? adminId;
+  if (owner) {
+    await prisma.barterItem.deleteMany({ where: { title: { in: barter.map((b) => b.title) } } });
+    await prisma.barterItem.createMany({
+      data: barter.map((b) => ({ ...b, user_id: owner, status: "aktif" })),
     });
   } else {
-    console.log("  (lewati barter — belum ada user)");
+    console.log("  (lewati barter — belum ada akun)");
   }
 
-  console.log("Reset & seed auctions…");
-  await rest("auctions?id=neq.00000000-0000-0000-0000-000000000000", { method: "DELETE" });
-  await rest("auctions", { method: "POST", body: auctions.map((a) => ({ ...a, starts_at: new Date().toISOString() })) });
-
-  console.log("Provision users (profiles/wallets/vouchers)…");
-  for (const u of users?.users ?? []) {
-    const isAdmin = u.email === "admin@kongsidagang.test";
-    const isTester = u.email === "tester@kongsidagang.test";
-    await rest("profiles?on_conflict=id", {
-      method: "POST",
-      prefer: "resolution=merge-duplicates",
-      body: {
-        id: u.id,
-        full_name: u.user_metadata?.full_name ?? "",
-        is_admin: isAdmin,
-        level: isTester ? "tuan_kecil" : "pelanggan_kecil",
-        stamps: isTester ? 7 : 0,
-      },
-    });
-    await rest("wallets?on_conflict=user_id", {
-      method: "POST",
-      prefer: "resolution=merge-duplicates",
-      body: { user_id: u.id, balance: isTester ? 1250000 : 0 },
-    });
-    if (isTester) {
-      await rest(`vouchers?user_id=eq.${u.id}`, { method: "DELETE" });
-      await rest("vouchers", {
-        method: "POST",
-        body: [
-          { user_id: u.id, title: "Hotel Artotel — Deluxe 1 malam", note: "Menang lelang · berlaku s/d 30 Sep 2026", kind: "lelang" },
-          { user_id: u.id, title: "Serum Vitamin C — Loji Sari Ayu", note: "Tebus neraca · berlaku s/d 12 Agu 2026", kind: "neraca" },
-        ],
-      });
-    }
-  }
+  console.log("Lelang…");
+  await prisma.auction.deleteMany();
+  const now = Date.now();
+  await prisma.auction.createMany({
+    data: auctions.map((a) => ({
+      ...a,
+      starts_at: new Date(now),
+      phase_ends_at: new Date(now + 60_000),
+    })),
+  });
 
   console.log("\n✓ Seed selesai.");
 }
 
-main().catch((e) => {
-  console.error("\n✗ Seed gagal:", e.message);
-  process.exit(1);
-});
+main()
+  .catch((e) => {
+    console.error("\n✗ Seed gagal:", e instanceof Error ? e.message : e);
+    process.exit(1);
+  })
+  .finally(() => prisma.$disconnect());

@@ -1,13 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TawarkanForm } from "@/components/kongsi/TawarkanForm";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/auth";
 
 export default async function TawarkanPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
   if (!user) redirect("/masuk");
 
   return (
@@ -21,7 +18,7 @@ export default async function TawarkanPage() {
             Tawarkan barangmu
           </h2>
         </div>
-        <TawarkanForm userId={user.id} />
+        <TawarkanForm />
         <p className="mt-4 text-center text-[12px] text-kongsi-ink-soft">
           <Link href="/tukar" className="font-bold text-kongsi-grenadine">
             ← Kembali ke Tukar Guling

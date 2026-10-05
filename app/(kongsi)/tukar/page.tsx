@@ -7,7 +7,7 @@ import {
   TutupBarang,
   DealActions,
 } from "@/components/kongsi/BarterActions";
-import { createClient } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/auth";
 import { getBarterRows, getMyBarter, type BarterRow } from "@/lib/queries";
 import { cn, formatKeping } from "@/lib/utils";
 import type { Tone } from "@/components/kongsi/ProdukCard";
@@ -75,10 +75,7 @@ const dealStatusPill: Record<string, "gold" | "sage" | "indigo"> = {
 };
 
 export default async function TukarPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getSessionUser();
 
   const rows = await getBarterRows();
   const { mine, deals } = user

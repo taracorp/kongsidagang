@@ -2,17 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { putusSengketa } from "@/app/actions/tukar";
 import { cn } from "@/lib/utils";
 
 export function DisputeResolve({ id }: { id: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
-  async function resolve(next: string) {
+  async function resolve(next: "done" | "dibatalkan") {
     setBusy(true);
-    const supabase = createClient();
-    await supabase.from("barter_deals").update({ status: next }).eq("id", id);
+    await putusSengketa(id, next);
     setBusy(false);
     router.refresh();
   }
