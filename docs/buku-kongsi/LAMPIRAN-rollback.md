@@ -22,7 +22,7 @@ Titik rollback = **git tag annotated** `kd-*`. Lihat semua: `git tag -l 'kd-*' -
 | `kd-m4` | da10602 | 2026-07-06 | Level & Loyalti | 0001–0015 |
 | `kd-m5` | 3935c53 | 2026-07-06 | Tukar Guling matang | 0001–0016 |
 | `kd-auth-google` | 1163dc0 | 2026-07-06 | Login Google | 0001–0016 |
-| `kd-buku-kongsi` | (lihat BAB 07) | 2026-10-05 | Buku Kongsi + tag rollback | 0001–0016 |
+| `kd-buku-kongsi` | 3b31848 | 2026-10-05 | Buku Kongsi + tag rollback | 0001–0016 |
 
 ## Prosedur
 

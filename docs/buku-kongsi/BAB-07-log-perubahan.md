@@ -3,7 +3,7 @@
 Setiap perubahan baru dicatat di sini sebagai Chapter berurutan (lihat format di [README](README.md)).
 
 ### Ch 7.1 — Buku Kongsi, titik rollback, laporan terkini
-`tag kd-buku-kongsi` · 2026-10-05
+`commit 3b31848` · `tag kd-buku-kongsi` · 2026-10-05
 
 - **Tujuan:** catatan perubahan berbentuk buku, kemampuan rollback per fase, laporan status.
 - **Perubahan:**
