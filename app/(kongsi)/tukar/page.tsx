@@ -2,13 +2,11 @@ import { CompassRose } from "@/components/kongsi/icons";
 import { KongsiLinkButton } from "@/components/kongsi/KongsiButton";
 import { Pill } from "@/components/kongsi/Pill";
 import { RowHead } from "@/components/kongsi/RowHead";
-import {
-  AjukanTukar,
-  TutupBarang,
-  DealActions,
-} from "@/components/kongsi/BarterActions";
+import Link from "next/link";
+import { AjukanTukar, TutupBarang } from "@/components/kongsi/BarterActions";
 import { getSessionUser } from "@/lib/auth";
-import { getBarterRows, getMyBarter, type BarterRow } from "@/lib/queries";
+import { getBarterRows, getMyBarter, getWalletBalance, type BarterRow } from "@/lib/queries";
+import { labelStatus, STATUS_AKHIR } from "@/lib/domain/tukar-aturan";
 import { cn, formatKeping } from "@/lib/utils";
 import type { Tone } from "@/components/kongsi/ProdukCard";
 
@@ -73,23 +71,28 @@ function BarterCard({
   );
 }
 
-const dealStatusPill: Record<string, "gold" | "sage" | "indigo"> = {
+const dealStatusPill: Record<string, "gold" | "sage" | "indigo" | "live"> = {
   proposed: "gold",
-  agreed: "sage",
-  done: "indigo",
-  ditolak: "indigo",
+  agreed: "live",
+  disputed: "live",
+  done: "sage",
+  resolved: "sage",
 };
 
 export default async function TukarPage() {
   const user = await getSessionUser();
 
   const rows = await getBarterRows();
-  const { mine, deals } = user
-    ? await getMyBarter(user.id)
-    : { mine: [], deals: [] };
+  const [{ mine, deals }, balance] = user
+    ? await Promise.all([getMyBarter(user.id), getWalletBalance(user.id)])
+    : [{ mine: [], deals: [] }, 0];
+  // Tawaran aktif di atas, yang sudah tutup di bawah.
+  const sortedDeals = [...deals].sort(
+    (x, y) => Number(STATUS_AKHIR.includes(x.status as never)) - Number(STATUS_AKHIR.includes(y.status as never)),
+  );
 
   const others = user ? rows.filter((r) => r.user_id !== user.id) : rows;
-  const myItemOptions = mine.map((m) => ({ id: m.id, title: m.title }));
+  const myItemOptions = mine.map((m) => ({ id: m.id, title: m.title, value: m.est_value }));
 
   return (
     <section className="py-[34px]">
@@ -111,10 +114,10 @@ export default async function TukarPage() {
             Punya barang nganggur? Tukar, bukan jual.
           </h3>
           <p className="text-[13px] text-kongsi-ink-soft">
-            Unggah barangmu + taksiran nilainya. Kalau ada yang cocok, kalian
-            sepakati tukar. Boleh <b>tambah Keteng</b> biar seimbang. Versi awal:
-            ketemuan / COD, saling kasih penilaian. Sengketa diadili{" "}
-            <b>Syahbandar</b>.
+            Unggah barangmu — Kongsi menaksir nilainya. Kalau timpang, yang lebih
+            rendah <b>tambah Keteng</b>. Bea Tukar cuma 10% (maks Rp 10.000) per
+            pihak, ditahan sampai kalian saling pindai kode di Titik Aman.
+            Sengketa diadili <b>Syahbandar</b>.
           </p>
           <KongsiLinkButton
             href={user ? "/tukar/tawarkan" : "/masuk"}
@@ -143,38 +146,25 @@ export default async function TukarPage() {
           <>
             <RowHead title="Tawaran Tukar" note={`${deals.length}`} />
             <div className="mb-6 space-y-2">
-              {deals.map((d) => (
-                <div
+              {sortedDeals.map((d) => (
+                <Link
                   key={d.id}
-                  className="rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-3 shadow-hard-sm"
+                  href={`/tukar/deal/${d.id}`}
+                  className="block rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-3 shadow-hard-sm transition-transform hover:translate-x-[2px] hover:translate-y-[2px]"
                 >
                   <div className="flex items-center justify-between gap-2 text-[13px]">
-                    <span className="font-bold">
-                      {d.iAmRecipient ? "Masuk" : "Keluar"}
-                    </span>
-                    <Pill variant={dealStatusPill[d.status] ?? "indigo"}>
-                      {d.status}
-                    </Pill>
+                    <span className="font-bold">{d.iAmRecipient ? "Masuk" : "Keluar"}</span>
+                    <Pill variant={dealStatusPill[d.status] ?? "indigo"}>{labelStatus(d.status)}</Pill>
                   </div>
                   <div className="mt-1 text-[13px]">
                     <b className="text-kongsi-indigo">{d.theirItem}</b> ⇄{" "}
                     <b className="text-kongsi-indigo">{d.myItem}</b>
                     {d.topup > 0 ? (
-                      <span className="text-kongsi-ink-soft">
-                        {" "}
-                        (+{formatKeping(d.topup)})
-                      </span>
+                      <span className="text-kongsi-ink-soft"> (+{formatKeping(d.topup)})</span>
                     ) : null}
                   </div>
-                  <div className="mt-2">
-                    <DealActions
-                      id={d.id}
-                      status={d.status}
-                      iAmRecipient={d.iAmRecipient}
-                      ratedByMe={d.ratedByMe}
-                    />
-                  </div>
-                </div>
+                  <div className="mt-1 text-[12px] font-bold text-kongsi-grenadine">Buka →</div>
+                </Link>
               ))}
             </div>
           </>
@@ -194,8 +184,10 @@ export default async function TukarPage() {
               <BarterCard key={it.id} item={it}>
                 <AjukanTukar
                   targetId={it.id}
+                  targetValue={it.est_value}
                   myItems={myItemOptions}
                   loggedIn={Boolean(user)}
+                  balance={balance}
                 />
               </BarterCard>
             ))}

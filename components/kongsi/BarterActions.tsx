@@ -1,107 +1,194 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ajukanTukar, tutupBarang, ubahStatusTukar, nilaiTukar } from "@/app/actions/tukar";
-import { cn } from "@/lib/utils";
+import { ajukanTukar, tutupBarang } from "@/app/actions/tukar";
+import { beaTukar, hitungSelisih } from "@/lib/domain/tukar-aturan";
+import { cn, formatKeping } from "@/lib/utils";
 
-type MyItem = { id: string; title: string };
+type MyItem = { id: string; title: string; value: number };
+
+const small = "rounded-[3px] border-2 border-kongsi-ink px-2 py-[6px] text-center text-[12px] font-bold";
 
 export function AjukanTukar({
   targetId,
+  targetValue,
   myItems,
   loggedIn,
+  balance,
 }: {
   targetId: string;
+  targetValue: number;
   myItems: MyItem[];
   loggedIn: boolean;
+  balance: number;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [myId, setMyId] = useState(myItems[0]?.id ?? "");
+  const mine = myItems.find((m) => m.id === myId) ?? myItems[0];
+  const sel = mine ? hitungSelisih(mine.value, targetValue) : null;
+  const [topupRaw, setTopupRaw] = useState<string | null>(null); // null = pakai default (selisih)
 
   if (!loggedIn) {
     return (
-      <a
-        href="/masuk"
-        className="mt-2 block cursor-pointer rounded-[3px] border-2 border-kongsi-ink bg-kongsi-beeswax px-2 py-[6px] text-center text-[12px] font-bold"
-      >
+      <a href="/masuk" className={cn(small, "mt-2 block cursor-pointer bg-kongsi-beeswax")}>
         Masuk untuk tukar
       </a>
     );
   }
-
-  if (myItems.length === 0) {
+  if (!mine || !sel) {
     return (
-      <a
-        href="/tukar/tawarkan"
-        className="mt-2 block cursor-pointer rounded-[3px] border-2 border-kongsi-ink bg-kongsi-parchment-3 px-2 py-[6px] text-center text-[12px] font-bold"
-      >
+      <a href="/tukar/tawarkan" className={cn(small, "mt-2 block cursor-pointer bg-kongsi-parchment-3")}>
         Unggah barang dulu
       </a>
     );
   }
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  const topup = topupRaw === null ? sel.diff : Number(topupRaw.replace(/\D/g, "")) || 0;
+  const feeMine = beaTukar(mine.value);
+  const feeTheirs = beaTukar(targetValue);
+  const ditahan = feeMine + (sel.from === "a" ? topup : 0);
+  const kurang = ditahan > balance;
+
+  async function kirim() {
     setBusy(true);
     setMsg(null);
-    const f = new FormData(e.currentTarget);
-    const myItem = String(f.get("myItem") ?? "");
-    const topup = Number(String(f.get("topup") ?? "").replace(/\D/g, "")) || 0;
-    const { error } = await ajukanTukar(myItem, targetId, topup);
+    const { error, data } = await ajukanTukar(mine.id, targetId, sel!.from ? topup : 0);
     setBusy(false);
     if (error) {
       setMsg(error);
       return;
     }
-    setOpen(false);
-    router.refresh();
+    router.push(`/tukar/deal/${data}`);
   }
 
+  const row = "flex justify-between gap-2";
   return (
     <div className="mt-2">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-full cursor-pointer rounded-[3px] border-2 border-kongsi-ink bg-kongsi-beeswax px-2 py-[6px] text-[12px] font-bold hover:bg-kongsi-beeswax-dark"
+        className={cn(small, "w-full cursor-pointer bg-kongsi-beeswax hover:bg-kongsi-beeswax-dark")}
       >
-        {open ? "Batal" : "Ajukan Tukar"}
+        Ajukan Tukar
       </button>
-      {open ? (
-        <form
-          onSubmit={onSubmit}
-          className="mt-2 rounded-[3px] border-2 border-dashed border-kongsi-ink bg-kongsi-parchment-3 p-2"
-        >
-          <select
-            name="myItem"
-            className="mb-2 w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-2 py-1 text-[12px]"
-          >
-            {myItems.map((it) => (
-              <option key={it.id} value={it.id}>
-                {it.title}
-              </option>
-            ))}
-          </select>
-          <input
-            name="topup"
-            inputMode="numeric"
-            placeholder="+ Keteng (opsional)"
-            className="mb-2 w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-2 py-1 text-[12px]"
-          />
-          <button
-            type="submit"
-            disabled={busy}
-            className="w-full cursor-pointer rounded-[3px] border-2 border-kongsi-ink bg-kongsi-grenadine px-2 py-[6px] text-[12px] font-bold text-kongsi-parchment"
-          >
-            {busy ? "Mengirim…" : "Kirim tawaran"}
-          </button>
-          {msg ? (
-            <p className="mt-1 text-[11px] text-kongsi-bad">{msg}</p>
-          ) : null}
-        </form>
-      ) : null}
+      {open
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[60] flex items-end justify-center bg-kongsi-ink/50 sm:items-center"
+              onClick={(e) => e.target === e.currentTarget && setOpen(false)}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Ajukan tukar"
+                className="max-h-[90vh] w-full max-w-[440px] space-y-2 overflow-y-auto rounded-t-[8px] border-2 border-kongsi-ink bg-kongsi-parchment-3 p-4 text-[13px] shadow-hard sm:rounded-[8px]"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <b className="font-fraunces text-lg font-black text-kongsi-indigo">Ajukan Tukar</b>
+                  <button
+                    type="button"
+                    onClick={() => setOpen(false)}
+                    aria-label="Tutup"
+                    className="cursor-pointer text-xl font-bold"
+                  >
+                    ×
+                  </button>
+                </div>
+                <label className="block font-bold" htmlFor={`my-${targetId}`}>
+                  Tukar dengan barangku
+                </label>
+                <select
+                  id={`my-${targetId}`}
+                  value={mine.id}
+                  onChange={(e) => {
+                    setMyId(e.target.value);
+                    setTopupRaw(null);
+                  }}
+                  className="w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-2 py-1"
+                >
+                  {myItems.map((it) => (
+                    <option key={it.id} value={it.id}>
+                      {it.title} ({formatKeping(it.value)})
+                    </option>
+                  ))}
+                </select>
+
+                {/* Kalkulator barter */}
+                <div className="space-y-[2px] rounded-[3px] border-[1.5px] border-kongsi-ink/30 bg-kongsi-parchment p-2">
+                  <div className={row}>
+                    <span>Barangku</span>
+                    <b>{formatKeping(mine.value)}</b>
+                  </div>
+                  <div className={row}>
+                    <span>Barang dia</span>
+                    <b>{formatKeping(targetValue)}</b>
+                  </div>
+                  <div className={cn(row, "border-t border-dashed border-kongsi-ink/30 pt-[2px]")}>
+                    <span>Selisih</span>
+                    <b className={sel.diff ? "text-kongsi-grenadine" : "text-kongsi-ok"}>
+                      {sel.diff ? formatKeping(sel.diff) : "seimbang ✓"}
+                    </b>
+                  </div>
+                </div>
+
+                {sel.from ? (
+                  <div>
+                    <label className="block font-bold" htmlFor={`tp-${targetId}`}>
+                      {sel.from === "a" ? "Kamu menambah Keteng (min. selisih)" : "Dia menambah Keteng (boleh kamu relakan)"}
+                    </label>
+                    <input
+                      id={`tp-${targetId}`}
+                      inputMode="numeric"
+                      value={topup ? topup.toLocaleString("id-ID") : "0"}
+                      onChange={(e) => setTopupRaw(e.target.value)}
+                      className="w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-2 py-1"
+                    />
+                  </div>
+                ) : null}
+
+                <div className="space-y-[2px]">
+                  <div className={row}>
+                    <span>Bea Tukar kamu (10%, maks 10rb)</span>
+                    <b>{formatKeping(feeMine)}</b>
+                  </div>
+                  <div className={cn(row, "text-kongsi-ink-soft")}>
+                    <span>Bea Tukar dia</span>
+                    <span>{formatKeping(feeTheirs)}</span>
+                  </div>
+                  <div className={cn(row, "font-bold")}>
+                    <span>Ditahan dari Pundimu sekarang</span>
+                    <span>{formatKeping(ditahan)}</span>
+                  </div>
+                  <p className="text-[11px] text-kongsi-ink-soft">
+                    Keteng ditahan Kongsi sampai tukar selesai. Ditolak / batal → kembali utuh.
+                  </p>
+                </div>
+
+                {kurang ? (
+                  <a href="/pakhuis" className={cn(small, "block bg-kongsi-beeswax")}>
+                    Saldo {formatKeping(balance)} kurang — Isi Pundi
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={kirim}
+                    className={cn(small, "w-full cursor-pointer bg-kongsi-grenadine text-kongsi-parchment disabled:opacity-60")}
+                  >
+                    {busy ? "Mengirim…" : "Kirim tawaran"}
+                  </button>
+                )}
+                {msg ? <p className="text-[11px] text-kongsi-bad">{msg}</p> : null}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
@@ -109,121 +196,25 @@ export function AjukanTukar({
 export function TutupBarang({ id }: { id: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
   async function onClick() {
     setBusy(true);
-    await tutupBarang(id);
+    const { error } = await tutupBarang(id);
     setBusy(false);
-    router.refresh();
+    if (error) setMsg(error);
+    else router.refresh();
   }
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={busy}
-      className="mt-2 w-full cursor-pointer rounded-[3px] border-2 border-kongsi-ink bg-kongsi-parchment-3 px-2 py-[6px] text-[12px] font-bold text-kongsi-bad"
-    >
-      Tutup
-    </button>
-  );
-}
-
-export function DealActions({
-  id,
-  status,
-  iAmRecipient,
-  ratedByMe,
-}: {
-  id: string;
-  status: string;
-  iAmRecipient: boolean;
-  ratedByMe: boolean;
-}) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [rating, setRating] = useState(0);
-
-  async function setStatus(next: string) {
-    setBusy(true);
-    setMsg(null);
-    const { error } = await ubahStatusTukar(id, next);
-    setBusy(false);
-    if (error) {
-      setMsg(error);
-      return;
-    }
-    router.refresh();
-  }
-
-  async function submitRating(stars: number) {
-    setBusy(true);
-    setMsg(null);
-    setRating(stars);
-    const { error } = await nilaiTukar(id, stars);
-    setBusy(false);
-    if (error) {
-      setMsg(error);
-      return;
-    }
-    router.refresh();
-  }
-
-  const btn =
-    "cursor-pointer rounded-[3px] border-2 border-kongsi-ink px-2 py-1 text-[12px] font-bold disabled:opacity-60";
-
-  return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        {status === "proposed" && iAmRecipient ? (
-          <>
-            <button type="button" disabled={busy} onClick={() => setStatus("agreed")} className={cn(btn, "bg-kongsi-sage")}>
-              Terima
-            </button>
-            <button type="button" disabled={busy} onClick={() => setStatus("ditolak")} className={cn(btn, "bg-kongsi-parchment-3 text-kongsi-bad")}>
-              Tolak
-            </button>
-          </>
-        ) : null}
-        {status === "agreed" ? (
-          <button type="button" disabled={busy} onClick={() => setStatus("done")} className={cn(btn, "bg-kongsi-beeswax")}>
-            Tandai selesai
-          </button>
-        ) : null}
-        {status === "agreed" || status === "done" ? (
-          <button type="button" disabled={busy} onClick={() => setStatus("disputed")} className={cn(btn, "bg-kongsi-parchment-3 text-kongsi-bad")}>
-            Ajukan Sengketa
-          </button>
-        ) : null}
-        {status === "disputed" ? (
-          <span className="text-[12px] font-bold text-kongsi-bad">
-            ⚖️ Menunggu Syahbandar
-          </span>
-        ) : null}
-      </div>
-
-      {status === "done" ? (
-        ratedByMe ? (
-          <div className="text-[12px] font-bold text-kongsi-ok">✓ Sudah dinilai</div>
-        ) : (
-          <div className="flex items-center gap-1">
-            <span className="text-[12px] text-kongsi-ink-soft">Beri nilai:</span>
-            {[1, 2, 3, 4, 5].map((s) => (
-              <button
-                key={s}
-                type="button"
-                disabled={busy}
-                onClick={() => submitRating(s)}
-                className="cursor-pointer text-[16px] leading-none text-kongsi-beeswax-dark disabled:opacity-60"
-                aria-label={`${s} bintang`}
-              >
-                {s <= rating ? "★" : "☆"}
-              </button>
-            ))}
-          </div>
-        )
-      ) : null}
-
-      {msg ? <span className="text-[11px] text-kongsi-bad">{msg}</span> : null}
-    </div>
+    <>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={busy}
+        className={cn(small, "mt-2 w-full cursor-pointer bg-kongsi-parchment-3 text-kongsi-bad")}
+      >
+        Tutup
+      </button>
+      {msg ? <p className="mt-1 text-[11px] text-kongsi-bad">{msg}</p> : null}
+    </>
   );
 }

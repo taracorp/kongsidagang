@@ -195,3 +195,51 @@ Traefik yang sudah ada di VPS, cukup atur port.
   - Checklist kosong ditolak. Admin berhasil mengubah harga beras (data uji sudah dihapus).
 - **Rollback:** `git revert kd-tukar-m2`. Kolom dan tabel baru boleh dibiarkan (nullable); untuk menghapus,
   buat migrasi baru.
+
+### Ch 8.14 — Tukar Guling v2, M3: kesepakatan, bea, rekber, COD QR
+2026-10-05
+- **Alur** (`lib/domain/tukar.ts`, semua dalam transaksi dengan baris deal dikunci `FOR UPDATE`):
+  1. **Ajukan:** A memilih barangnya.
+     - Kalkulator menampilkan nilai kedua barang, selisih, dan bea.
+     - Bea A (10% taksiran, maks 10rb) langsung **ditahan**, plus tambahan Keteng bila barang A lebih rendah.
+     - Aturan tambah: A lebih rendah → minimal selisih. A lebih tinggi → B diminta 0 sampai selisih (A boleh merelakan).
+  2. **Terima** (hanya B):
+     - B memilih Titik Aman (jenis tempat umum + nama tempat, bukan alamat rumah).
+     - Bea B (+ tambahan bila B yang menambah) ditahan.
+     - Kedua barang jadi `dalam_tukar`. Tawaran lain untuk barang yang sama otomatis ditolak dan rekbernya dikembalikan.
+     - Kontak (email) lawan baru dibuka setelah sepakat.
+  3. **Ketemuan:** tiap pihak menunjukkan QR + kode 6 digit dan memindai/mengetik kode lawan.
+     - Kode diturunkan HMAC (`BARTER_QR_SECRET`, cadangan `BETTER_AUTH_SECRET`), jadi tidak disimpan di DB.
+     - Maksimal 10 kode salah. Hitungan salah tetap tersimpan walau aksinya gagal.
+     - Kedua kode cocok → **selesai**: bea diambil platform, tambahan Keteng dilepas ke lawan, barang jadi `ditukar`.
+  4. **Batal di tempat:** semua rekber kembali, termasuk bea, dan barang aktif lagi.
+     **Sengketa:** rekber tetap ditahan. Syahbandar memutus "selesai" (rekber dilepas) atau "batal" (rekber kembali).
+  5. **Kedaluwarsa** (cron `POST /api/cron/advance-barter`, header `Bearer CRON_SECRET`):
+     - Tawaran tak dijawab 7 hari kedaluwarsa.
+     - Sepakat tapi tidak ketemuan dalam 72 jam juga kedaluwarsa.
+     - Semua rekber kembali.
+- **Aturan murni** (`lib/domain/tukar-aturan.ts`, dipakai server & client): `beaTukar`, `hitungSelisih`,
+  `validasiTambah`, `TITIK_AMAN`, state machine `pastikanBoleh` (siapa boleh apa di status apa), label status.
+- **Status deal disatukan:** `proposed | agreed | done | rejected | cancelled | expired | disputed | resolved`.
+  Status lama `ditolak`/`dibatalkan` dimigrasi dan dijaga CHECK. Status barang `dalam_tukar` ditambahkan.
+- **UI:**
+  - Kalkulator di lembar bawah (portal ke `body`, karena `<main>` punya `z-[2]` yang membuatnya kalah dari BottomNav).
+  - Halaman baru `/tukar/deal/[id]`: neraca tukar, terima + Titik Aman, QR (SVG dari paket `qrcode`, dirender di server),
+    pindai kamera (`BarcodeDetector`) atau ketik kode, hitung mundur, batal/sengketa, penilaian bintang.
+  - Daftar tawaran di `/tukar` menaut ke halaman deal. Penilaian hanya dibuka untuk `done`/`resolved`.
+  - `ubahStatusTukar` (bebas lompat status) **dihapus**.
+- **Dependensi baru:** `qrcode`, `@types/qrcode`. `npm audit` melaporkan 17 kerentanan, termasuk 1 kritis di `next`;
+  semuanya sudah ada sebelum perubahan ini, tidak berasal dari `qrcode`.
+- **SQL:** migrasi `20261005140117_tukar_deal` (kolom deal, pemetaan status lama, CHECK status/mode/topup, status barang).
+  Sudah di-apply ke `kongsi_dev`. **Produksi: belum.**
+- **Deploy nanti:** tambah baris crontab VPS (mis. tiap 10 menit) untuk `/api/cron/advance-barter`.
+  Isi `BARTER_QR_SECRET` di `.env` VPS.
+- **Verifikasi:**
+  - `scripts/uji/tukar.ts` lulus 32/32: bea, transisi ilegal, saldo kurang, ajuan ganda, auto-tolak tawaran lain,
+    kode salah, orang luar, selesai, batal, kedaluwarsa, sengketa, dan Σ transaksi = saldo.
+  - Uji browser dua akun (mobile): ajukan beras 1,5jt ⇄ sepeda 1,9jt + 400rb → terima di Indomaret → kode salah
+    ditolak → saling ketik kode → selesai → bintang 5. Saldo DB tepat: penguji −410.000, admin −10.000 +400.000.
+  - `npm run flow` 19/19 (`scripts/flow.mjs` disesuaikan dengan label Keteng dan form 4 langkah).
+  - Cron tanpa kunci 401. Tamu tetap bisa melihat `/tukar`; halaman deal mengarahkan tamu ke `/masuk`.
+- **Rollback:** `git revert kd-tukar-m3`. Kolom baru boleh dibiarkan. Bila revert, status deal `rejected`/`cancelled`
+  tetap ada di DB (kode lama hanya menampilkannya apa adanya).

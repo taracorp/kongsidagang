@@ -9,7 +9,7 @@ export function DisputeResolve({ id }: { id: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
-  async function resolve(next: "done" | "dibatalkan") {
+  async function resolve(next: "selesai" | "batal") {
     setBusy(true);
     await putusSengketa(id, next);
     setBusy(false);
@@ -20,10 +20,10 @@ export function DisputeResolve({ id }: { id: string }) {
 
   return (
     <div className="flex gap-2">
-      <button type="button" disabled={busy} onClick={() => resolve("done")} className={cn(btn, "bg-kongsi-sage")}>
+      <button type="button" disabled={busy} onClick={() => resolve("selesai")} className={cn(btn, "bg-kongsi-sage")}>
         Sahkan (selesai)
       </button>
-      <button type="button" disabled={busy} onClick={() => resolve("dibatalkan")} className={cn(btn, "bg-kongsi-parchment-3 text-kongsi-bad")}>
+      <button type="button" disabled={busy} onClick={() => resolve("batal")} className={cn(btn, "bg-kongsi-parchment-3 text-kongsi-bad")}>
         Batalkan
       </button>
     </div>

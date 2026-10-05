@@ -127,31 +127,39 @@ if (!SKIP_AUTH && EMAIL && PASSWORD) {
     console.log("SKIP  tebak (lelang bukan fase tebak saat ini)");
   }
 
-  // Bayar dengan Keping (keranjang masih berisi 2 barang dari langkah guest)
+  // Bayar dengan Keteng (keranjang masih berisi 2 barang dari langkah guest)
   await p2.goto(`${BASE}/bayar`, { waitUntil: "domcontentloaded" });
   await p2.waitForTimeout(1000);
-  const payBtn = p2.locator('button:has-text("Keping")').first();
+  const payBtn = p2.locator('button:has-text("Keteng")').first();
   if (await payBtn.count()) {
     await payBtn.click();
     await p2.waitForTimeout(2000);
-    check("bayar pakai Keping berhasil", (await p2.locator("text=/[Bb]erhasil|[Tt]erbayar|[Ll]unas/").count()) > 0);
+    check("bayar pakai Keteng berhasil", (await p2.locator("text=/[Bb]erhasil|[Tt]erbayar|[Ll]unas/").count()) > 0);
   } else {
-    check("tombol bayar Keping tersedia", false);
+    check("tombol bayar Keteng tersedia", false);
   }
 
-  // Tukar Guling: unggah barang + foto (pengganti Supabase Storage)
+  // Tukar Guling: unggah barang 4 langkah (taksiran sistem) + foto
   const png = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
     "base64",
   );
   const judul = `Uji Flow ${Date.now()}`;
-  await p2.goto(`${BASE}/tukar/tawarkan`, { waitUntil: "domcontentloaded" });
-  await p2.fill('input[name="title"]', judul);
-  await p2.fill('input[name="est_value"]', "150000");
-  await p2.setInputFiles('input[name="photo"]', { name: "uji.png", mimeType: "image/png", buffer: png });
+  await p2.goto(`${BASE}/tukar/tawarkan`, { waitUntil: "networkidle" });
+  await p2.waitForTimeout(1000);
+  await p2.click('button:has-text("Lainnya")');
+  await p2.click('button:has-text("Lanjut")');
+  await p2.fill("#title", judul);
+  await p2.fill("#price", "200000");
+  await p2.fill("#year", String(new Date().getFullYear() - 1));
+  await p2.click('button:has-text("Lanjut")');
+  for (const t of await p2.locator('button:text-is("Tidak")').all()) await t.click();
+  check("tukar: taksiran sistem tampil", (await p2.locator("text=Taksiran Kongsi").count()) > 0);
+  await p2.click('button:has-text("Lanjut")');
+  await p2.setInputFiles("#photo", { name: "uji.png", mimeType: "image/png", buffer: png });
   await Promise.all([
     p2.waitForURL("**/tukar", { timeout: 20000 }).catch(() => {}),
-    p2.click('button[type="submit"]'),
+    p2.click('button:has-text("Unggah Barang")'),
   ]);
   await p2.waitForTimeout(1000);
   check("tukar: barang baru tampil", (await p2.locator(`text=${judul}`).count()) > 0);

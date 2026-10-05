@@ -28,6 +28,7 @@ Titik rollback = **git tag annotated** `kd-*`. Lihat semua: `git tag -l 'kd-*' -
 | `kd-vps-live` | 8a21fc3 | 2026-10-05 | **Live di https://kongsidagang.store** (pm2 :3020, Traefik, crontab) | Prisma: init, checks |
 | `kd-tukar-m1` | d1e3098 | 2026-10-05 | Tukar v2 M1: Keteng, rekber Pundi, paket Isi Pundi | Prisma: init, checks, wallet_holds (dev saja) |
 | `kd-tukar-m2` | 9177504 | 2026-10-05 | Tukar v2 M2: Mesin Taksiran | + 20261005135153_taksiran (dev saja) |
+| `kd-tukar-m3` | (lihat tag) | 2026-10-05 | Tukar v2 M3: kesepakatan, bea, rekber, COD QR | + 20261005140117_tukar_deal (dev saja) |
 
 ## Prosedur
 

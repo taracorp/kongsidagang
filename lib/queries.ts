@@ -422,6 +422,75 @@ export async function getMyBarter(userId: string): Promise<{
   }
 }
 
+export type DealDetail = {
+  id: string;
+  status: string;
+  me: "a" | "b";
+  mine: { title: string; value: number; photo_url: string | null };
+  theirs: { title: string; value: number; photo_url: string | null };
+  myFee: number;
+  theirFee: number;
+  topup: number;
+  iPayTopup: boolean;
+  counterparty: { name: string; email: string | null; city: string | null };
+  meetType: string | null;
+  meetPlace: string | null;
+  agreedAt: Date | null;
+  expiresAt: string | null;
+  myCodeScanned: boolean;
+  theirCodeScanned: boolean;
+  reason: string | null;
+  ratedByMe: boolean;
+};
+
+/** Detail satu tawaran — hanya untuk dua pihaknya. Kontak lawan dibuka setelah sepakat. */
+export async function getDealDetail(dealId: string, userId: string): Promise<DealDetail | null> {
+  await connection();
+  const d = await prisma.barterDeal.findUnique({
+    where: { id: dealId },
+    include: {
+      itemA: { select: { title: true, user_id: true, city: true, photo_url: true, user: { select: { name: true, email: true } } } },
+      itemB: { select: { title: true, user_id: true, city: true, photo_url: true, user: { select: { name: true, email: true } } } },
+      ratings: { where: { rater_id: userId }, select: { id: true } },
+    },
+  });
+  if (!d) return null;
+  const me = d.itemA.user_id === userId ? "a" : d.itemB.user_id === userId ? "b" : null;
+  if (!me) return null;
+  const [mi, ti] = me === "a" ? [d.itemA, d.itemB] : [d.itemB, d.itemA];
+  const [mv, tv] = me === "a" ? [d.value_a, d.value_b] : [d.value_b, d.value_a];
+  const kontakTerbuka = ["agreed", "done", "disputed", "resolved"].includes(d.status);
+  return {
+    id: d.id,
+    status: d.status,
+    me,
+    mine: { title: mi.title, value: mv ?? 0, photo_url: mi.photo_url },
+    theirs: { title: ti.title, value: tv ?? 0, photo_url: ti.photo_url },
+    myFee: me === "a" ? d.fee_a : d.fee_b,
+    theirFee: me === "a" ? d.fee_b : d.fee_a,
+    topup: d.topup_keping,
+    iPayTopup: d.topup_from === me,
+    counterparty: {
+      name: ti.user.name || "Saudagar",
+      email: kontakTerbuka ? ti.user.email : null,
+      city: ti.city,
+    },
+    meetType: d.meet_type,
+    meetPlace: d.meet_place,
+    agreedAt: d.agreed_at,
+    expiresAt: d.expires_at?.toISOString() ?? null,
+    myCodeScanned: Boolean(me === "a" ? d.scanned_a_at : d.scanned_b_at),
+    theirCodeScanned: Boolean(me === "a" ? d.scanned_b_at : d.scanned_a_at),
+    reason: d.cancel_reason,
+    ratedByMe: d.ratings.length > 0,
+  };
+}
+
+export async function getWalletBalance(userId: string): Promise<number> {
+  const w = await prisma.wallet.findUnique({ where: { user_id: userId }, select: { balance: true } });
+  return w?.balance ?? 0;
+}
+
 export type DisputeDeal = {
   id: string;
   topup: number;

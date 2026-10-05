@@ -270,7 +270,7 @@ model BarterItem {
   city       String?
   tone       String   @default("sage")
   photo_url  String?
-  status     String   @default("aktif") // aktif | ditutup | ditukar
+  status     String   @default("aktif") // aktif | dalam_tukar | ditutup | ditukar
   created_at DateTime @default(now())
 
   // Taksiran sistem (lib/domain/taksiran.ts). est_value = nilai tengah, tidak diketik user.
@@ -336,11 +336,31 @@ model BarterDeal {
   item_b       String
   itemB        BarterItem @relation("DealItemB", fields: [item_b], references: [id], onDelete: Cascade)
   topup_keping Int        @default(0)
-  status       String     @default("proposed") // proposed | agreed | done | disputed | rejected
+  // proposed | agreed | done | rejected | cancelled | expired | disputed | resolved (lib/domain/tukar-aturan.ts)
+  status       String     @default("proposed")
   created_at   DateTime   @default(now())
+
+  proposer_id   String? // pemilik item_a saat diajukan
+  mode          String    @default("cod") // cod | kirim (M4)
+  value_a       Int? // snapshot taksiran saat diajukan
+  value_b       Int?
+  topup_from    String? // a | b — siapa yang menambah Keteng
+  fee_a         Int       @default(0) // bea Tukar masing-masing pihak
+  fee_b         Int       @default(0)
+  agreed_at     DateTime?
+  expires_at    DateTime?
+  meet_type     String? // jenis Titik Aman
+  meet_place    String? // nama tempat umum (bukan alamat rumah)
+  scanned_a_at  DateTime? // kode A sudah dipindai B
+  scanned_b_at  DateTime? // kode B sudah dipindai A
+  scan_fails    Int       @default(0)
+  cancel_reason String?
+  fault_party   String? // a | b
+  closed_at     DateTime?
 
   ratings BarterRating[]
 
+  @@index([status, expires_at])
   @@map("barter_deals")
 }
 

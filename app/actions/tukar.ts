@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { saveUpload } from "@/lib/uploads";
 import { loadCategory } from "@/lib/domain/kategori";
 import { taksir } from "@/lib/domain/taksiran";
+import * as Tukar from "@/lib/domain/tukar";
 import { run, requireUser, requireAdminUp, toInt } from "./_util";
 
 function parseAnswers(raw: unknown, keys: string[]): Record<string, boolean> {
@@ -89,73 +90,85 @@ export async function aturHargaKomoditas(slug: string, price: number) {
 export async function tutupBarang(itemId: string) {
   return run(async () => {
     const user = await requireUser();
-    const res = await prisma.barterItem.updateMany({
-      where: { id: itemId, user_id: user.id },
-      data: { status: "ditutup" },
-    });
-    if (res.count === 0) throw new Error("Barang tidak ditemukan.");
+    await Tukar.tutupBarang(user.id, String(itemId));
   });
 }
 
 export async function ajukanTukar(myItemId: string, targetId: string, topup: number) {
   return run(async () => {
     const user = await requireUser();
-    if (!Number.isInteger(topup) || topup < 0) throw new Error("Tambahan Keteng tidak valid.");
-    const [mine, target] = await Promise.all([
-      prisma.barterItem.findUnique({ where: { id: myItemId }, select: { user_id: true, status: true } }),
-      prisma.barterItem.findUnique({ where: { id: targetId }, select: { user_id: true, status: true } }),
-    ]);
-    if (!mine || mine.user_id !== user.id) throw new Error("Pilih barangmu sendiri.");
-    if (!target || target.status !== "aktif") throw new Error("Barang tujuan tidak tersedia.");
-    if (target.user_id === user.id) throw new Error("Tidak bisa menukar dengan barang sendiri.");
-    await prisma.barterDeal.create({
-      data: { item_a: myItemId, item_b: targetId, topup_keping: topup, status: "proposed" },
-    });
+    return Tukar.ajukan(user.id, String(myItemId), String(targetId), Number(topup));
   });
 }
 
-/** Dua pihak dalam deal saja yang boleh mengubah status (dulu: RLS barter_deals_involved_update). */
-async function dealParties(dealId: string) {
-  const d = await prisma.barterDeal.findUnique({
-    where: { id: dealId },
-    select: { itemA: { select: { user_id: true } }, itemB: { select: { user_id: true } } },
-  });
-  if (!d) throw new Error("Kesepakatan tidak ditemukan.");
-  return { a: d.itemA.user_id, b: d.itemB.user_id };
-}
-
-const PARTY_STATUSES = ["agreed", "ditolak", "done", "disputed"];
-
-export async function ubahStatusTukar(dealId: string, next: string) {
+export async function terimaTukar(dealId: string, meetType: string, meetPlace: string) {
   return run(async () => {
     const user = await requireUser();
-    if (!PARTY_STATUSES.includes(next)) throw new Error("Status tidak dikenal.");
-    const { a, b } = await dealParties(dealId);
-    if (user.id !== a && user.id !== b) throw new Error("Bukan pihak deal ini");
-    await prisma.barterDeal.update({ where: { id: dealId }, data: { status: next } });
+    await Tukar.terima(user.id, String(dealId), String(meetType), String(meetPlace ?? ""));
   });
 }
 
+export async function tolakTukar(dealId: string) {
+  return run(async () => {
+    const user = await requireUser();
+    await Tukar.tolak(user.id, String(dealId));
+  });
+}
+
+export async function tarikTukar(dealId: string) {
+  return run(async () => {
+    const user = await requireUser();
+    await Tukar.tarik(user.id, String(dealId));
+  });
+}
+
+export async function batalDiTempat(dealId: string, alasan: string) {
+  return run(async () => {
+    const user = await requireUser();
+    await Tukar.batalDiTempat(user.id, String(dealId), String(alasan ?? ""));
+  });
+}
+
+export async function ajukanSengketa(dealId: string, alasan: string) {
+  return run(async () => {
+    const user = await requireUser();
+    await Tukar.sengketa(user.id, String(dealId), String(alasan ?? ""));
+  });
+}
+
+export async function pindaiKode(dealId: string, kode: string) {
+  return run(async () => {
+    const user = await requireUser();
+    return Tukar.pindai(user.id, String(dealId), String(kode ?? ""));
+  });
+}
+
+/** Penilaian hanya untuk tukar yang sudah selesai. */
 export async function nilaiTukar(dealId: string, stars: number, comment?: string) {
   return run(async () => {
     const user = await requireUser();
     if (!Number.isInteger(stars) || stars < 1 || stars > 5) throw new Error("Bintang 1–5.");
-    const { a, b } = await dealParties(dealId);
-    if (user.id !== a && user.id !== b) throw new Error("Bukan pihak deal ini");
-    const ratee = user.id === a ? b : a;
+    const d = await prisma.barterDeal.findUnique({
+      where: { id: String(dealId) },
+      select: { status: true, itemA: { select: { user_id: true } }, itemB: { select: { user_id: true } } },
+    });
+    if (!d) throw new Error("Tawaran tidak ditemukan.");
+    const p = Tukar.pihakDari(d, user.id);
+    if (d.status !== "done" && d.status !== "resolved") throw new Error("Penilaian dibuka setelah tukar selesai.");
+    const ratee = p === "a" ? d.itemB.user_id : d.itemA.user_id;
     await prisma.barterRating.upsert({
-      where: { deal_id_rater_id: { deal_id: dealId, rater_id: user.id } },
-      create: { deal_id: dealId, rater_id: user.id, ratee_id: ratee, stars, comment: comment ?? null },
+      where: { deal_id_rater_id: { deal_id: String(dealId), rater_id: user.id } },
+      create: { deal_id: String(dealId), rater_id: user.id, ratee_id: ratee, stars, comment: comment ?? null },
       update: { stars, comment: comment ?? null },
     });
   });
 }
 
 /** Syahbandar memutus sengketa. */
-export async function putusSengketa(dealId: string, next: "done" | "dibatalkan") {
+export async function putusSengketa(dealId: string, keputusan: "selesai" | "batal") {
   return run(async () => {
     await requireAdminUp();
-    if (next !== "done" && next !== "dibatalkan") throw new Error("Putusan tidak dikenal.");
-    await prisma.barterDeal.update({ where: { id: dealId }, data: { status: next } });
+    if (keputusan !== "selesai" && keputusan !== "batal") throw new Error("Putusan tidak dikenal.");
+    await Tukar.putus(String(dealId), keputusan);
   });
 }
