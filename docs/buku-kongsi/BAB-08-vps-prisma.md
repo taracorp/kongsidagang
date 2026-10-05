@@ -64,7 +64,7 @@ Traefik yang sudah ada di VPS, cukup atur port.
   `app/uploads/[...path]` (aman dari path traversal). `serverActions.bodySizeLimit = 6mb`.
 
 ### Ch 8.8 — P6 Bersih-bersih + verifikasi lokal
-`tag kd-prisma`
+`commit e437565` · `tag kd-prisma` · 2026-10-05
 - `supabase/` → `docs/arsip-supabase/` (referensi). Dependensi `@supabase/*` dihapus.
 - `scripts/seed.mjs` → `prisma/seed.ts` (`npm run seed`; akun awal dari `SEED_ADMIN_*` jadi Ketua, `SEED_TESTER_*` opsional).
 - `scripts/flow.mjs` diperluas jadi 18 cek; `scripts/deploy.sh` disiapkan.

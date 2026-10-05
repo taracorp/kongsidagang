@@ -24,7 +24,7 @@ Titik rollback = **git tag annotated** `kd-*`. Lihat semua: `git tag -l 'kd-*' -
 | `kd-auth-google` | 1163dc0 | 2026-07-06 | Login Google | 0001–0016 |
 | `kd-buku-kongsi` | 3b31848 | 2026-10-05 | Buku Kongsi + tag rollback | 0001–0016 |
 | `kd-pre-vps` | 47d4119 | 2026-10-05 | **Versi Supabase terakhir** (sebelum VPS/Prisma) | 0001–0016 (Supabase) |
-| `kd-prisma` | (lihat BAB 08 Ch 8.8) | 2026-10-05 | Prisma + Better Auth, lulus tes lokal | Prisma: init, checks |
+| `kd-prisma` | e437565 | 2026-10-05 | Prisma + Better Auth, lulus tes lokal | Prisma: init, checks |
 
 ## Prosedur
 
