@@ -249,4 +249,16 @@ Checkpoint: lapor ke Tara setelah TIAP fase + tes bersama. Jangan lanjut tanpa p
 
 ---
 
+## BAGIAN 10: BUKU KONGSI (catatan perubahan & rollback) — WAJIB
+
+Riwayat proyek dicatat di `docs/buku-kongsi/` (Bab → Chapter). Mulai dari `README.md` di sana.
+- **Setiap perubahan** → tambah Chapter di Bab aktif (`BAB-07-log-perubahan.md`) dalam commit yang sama.
+- **Fase/milestone selesai** → `git tag -a kd-<nama>` + baris baru di `LAMPIRAN-rollback.md`.
+- SQL baru → catat nomor migrasi, status apply, dan cara membatalkan.
+- Setelah ubah kode → `graphify update .` (peta di `graphify-out/`, tidak di-commit). Pakai
+  `graphify query "..."` untuk memahami kode sebelum membaca banyak file (hemat token).
+- Rollback default = `git revert <tag>..HEAD`. `reset --hard` hanya atas perintah eksplisit Tara.
+
+---
+
 *Design system & istilah dari diskusi Tara + Claude. Referensi visual: reference/kongsi-dagang-mockup-v2.html.*
