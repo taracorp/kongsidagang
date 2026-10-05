@@ -107,3 +107,16 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - Produksi: `SUPERADMIN_EMAILS=taradfworkspace@gmail.com` di `.env` VPS.
 - **SQL:** —
 - **Rollback:** kosongkan `SUPERADMIN_EMAILS` lalu restart pm2 (akun tetap Ketua lewat `staff_roles`).
+
+### Ch 8.11 — Login Google aktif
+2026-10-05
+- **Masalah:** tombol "Masuk dengan Google" tidak bekerja. Log: `Provider not found { provider: 'google' }`,
+  karena `GOOGLE_CLIENT_ID/SECRET` di `.env` VPS masih kosong.
+- **Google Cloud:** memakai OAuth client lama (project `247112782471`). Redirect URI diganti Tara menjadi
+  `https://kongsidagang.store/api/auth/callback/google`, origin `https://kongsidagang.store`. Diuji: URI baru diterima Google,
+  callback Supabase lama sudah ditolak.
+- **Perubahan:** `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` diisi di `.env` VPS (tidak di-commit), lalu `pm2 restart --update-env`.
+- **Verifikasi:** `POST /api/auth/sign-in/social` mengembalikan URL Google dan Google mengarahkan ke halaman pilih akun.
+  Akun email yang sama (mis. Ketua) otomatis tersambung karena Google mengirim `email_verified`.
+- **Catatan:** pastikan Audience/consent screen berstatus *In production*, bukan *Testing*, agar semua orang bisa login.
+- **Rollback:** kosongkan dua variabel itu lalu `pm2 restart kongsidagang --update-env` (login Google mati, email tetap jalan).
