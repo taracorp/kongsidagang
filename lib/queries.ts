@@ -2,7 +2,7 @@ import "server-only";
 import { connection } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
-import { getStaffSession, isAdminUp, canEditKabar, isKetua } from "@/lib/roles";
+import { getStaffSession, isAdminUp, canEditKabar, isKetua, isSuperadminEmail } from "@/lib/roles";
 import type { Tone } from "@/components/kongsi/ProdukCard";
 import {
   merchants as dummyMerchants,
@@ -702,6 +702,7 @@ export type StaffUser = {
   email: string;
   full_name: string;
   role: "pewarta" | "admin" | "ketua" | null;
+  is_super: boolean;
 };
 
 /** Daftar user + peran — khusus Ketua (pengganti RPC admin_list_users). */
@@ -722,12 +723,16 @@ export async function getAllUsersWithRoles(): Promise<StaffUser[]> {
       orderBy: { createdAt: "asc" },
     });
     return users
-      .map((u) => ({
-        user_id: u.id,
-        email: u.email,
-        full_name: u.profile?.full_name || u.name || "",
-        role: u.staffRole?.role ?? null,
-      }))
+      .map((u) => {
+        const is_super = isSuperadminEmail(u.email);
+        return {
+          user_id: u.id,
+          email: u.email,
+          full_name: u.profile?.full_name || u.name || "",
+          role: is_super ? ("ketua" as const) : (u.staffRole?.role ?? null),
+          is_super,
+        };
+      })
       .sort((a, b) => Number(a.role === null) - Number(b.role === null));
   } catch {
     return [];

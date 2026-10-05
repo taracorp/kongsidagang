@@ -96,3 +96,14 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - **Belum:** login Google (menunggu `GOOGLE_CLIENT_ID/SECRET`; client lama di Supabase = project Google Cloud nomor `247112782471`).
 - **Rollback:** `pm2 delete kongsidagang && pm2 save`, hapus `kongsidagang.yml` dan dua baris crontab kongsi.
   Kode Supabase tetap ada di tag `kd-pre-vps`.
+
+### Ch 8.10 — Superadmin: taradfworkspace@gmail.com
+2026-10-05
+- **Tujuan:** akun pemilik tidak boleh kehilangan akses Kantor Kongsi.
+- **Perubahan:** env `SUPERADMIN_EMAILS` (pisah koma). Email di daftar ini **selalu** dianggap Ketua Kongsi
+  (`lib/roles.ts` → `isSuperadminEmail`, `StaffSession.isSuper`), walau baris `staff_roles`-nya dihapus.
+  `aturPeran` menolak mengubah atau mencabut peran Superadmin. Dulu Ketua lain hanya dikunci di UI; sekarang dijaga di server.
+  Label "Superadmin" tampil di header admin dan di tabel Atur Peran.
+- Produksi: `SUPERADMIN_EMAILS=taradfworkspace@gmail.com` di `.env` VPS.
+- **SQL:** —
+- **Rollback:** kosongkan `SUPERADMIN_EMAILS` lalu restart pm2 (akun tetap Ketua lewat `staff_roles`).

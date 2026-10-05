@@ -50,10 +50,12 @@ const roleLabel: Record<string, string> = {
 export function AdminShell({
   role,
   name,
+  isSuper = false,
   children,
 }: {
   role: StaffRole | null;
   name: string;
+  isSuper?: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname();
@@ -146,7 +148,7 @@ export function AdminShell({
           <div className="hidden text-right text-[12px] leading-tight sm:block">
             <div className="font-bold">{name}</div>
             <div className="text-kongsi-ink-soft">
-              {role ? roleLabel[role] : "—"}
+              {isSuper ? "Superadmin" : role ? roleLabel[role] : "—"}
             </div>
           </div>
           <LogoutButton />

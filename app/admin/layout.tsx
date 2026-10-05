@@ -8,7 +8,7 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { userId, role, name } = await getStaffSession();
+  const { userId, role, name, isSuper } = await getStaffSession();
   if (!userId) redirect("/masuk");
 
   if (!role) {
@@ -30,7 +30,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <AdminShell role={role} name={name}>
+    <AdminShell role={role} name={name} isSuper={isSuper}>
       {children}
     </AdminShell>
   );

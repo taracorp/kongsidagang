@@ -8,11 +8,22 @@ export type StaffSession = {
   email: string | null;
   name: string;
   role: StaffRole | null;
+  /** Superadmin: email di SUPERADMIN_EMAILS — selalu Ketua, tak bisa dicabut. */
+  isSuper: boolean;
 };
+
+export function isSuperadminEmail(email: string | null | undefined): boolean {
+  if (!email) return false;
+  return (process.env.SUPERADMIN_EMAILS ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(email.toLowerCase());
+}
 
 export async function getStaffSession(): Promise<StaffSession> {
   const user = await getSessionUser();
-  if (!user) return { userId: null, email: null, name: "", role: null };
+  if (!user) return { userId: null, email: null, name: "", role: null, isSuper: false };
 
   const [staff, profile] = await Promise.all([
     prisma.staffRole.findUnique({
@@ -28,11 +39,13 @@ export async function getStaffSession(): Promise<StaffSession> {
   const name =
     profile?.full_name || user.name || user.email.split("@")[0] || "Pengurus";
 
+  const isSuper = isSuperadminEmail(user.email);
   return {
     userId: user.id,
     email: user.email,
     name,
-    role: (staff?.role as StaffRole | undefined) ?? null,
+    role: isSuper ? "ketua" : ((staff?.role as StaffRole | undefined) ?? null),
+    isSuper,
   };
 }
 

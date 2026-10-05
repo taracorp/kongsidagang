@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { approveMerchantApplication } from "@/lib/domain/saudagar";
+import { isSuperadminEmail } from "@/lib/roles";
 import { run, requireAdminUp, requireKabarEditor, requireKetua } from "./_util";
 
 export async function putuskanPengajuan(appId: string, status: "approved" | "rejected") {
@@ -90,6 +91,9 @@ export async function hapusArtikel(slug: string) {
 export async function aturPeran(userId: string, role: "" | "pewarta" | "admin" | "ketua") {
   return run(async () => {
     const me = await requireKetua();
+    const target = await prisma.user.findUnique({ where: { id: userId }, select: { email: true } });
+    if (!target) throw new Error("Pengguna tidak ditemukan.");
+    if (isSuperadminEmail(target.email)) throw new Error("Peran Superadmin tidak bisa diubah.");
     if (role === "") {
       await prisma.staffRole.deleteMany({ where: { user_id: userId } });
       return;

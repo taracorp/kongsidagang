@@ -86,7 +86,7 @@ export function RoleManager({
             {filtered.map((u) => {
               const isSelf = u.user_id === meId;
               const isKetuaRow = u.role === "ketua";
-              const locked = isSelf || isKetuaRow;
+              const locked = isSelf || isKetuaRow || u.is_super;
               const ketuaFull = ketuaCount >= 2 && u.role !== "ketua";
               return (
                 <tr key={u.user_id} className="even:bg-kongsi-sage/10">
@@ -107,7 +107,7 @@ export function RoleManager({
                           roleColor[u.role],
                         )}
                       >
-                        {roleLabel[u.role]}
+                        {u.is_super ? "Superadmin" : roleLabel[u.role]}
                       </span>
                     ) : (
                       <span className="text-[12px] text-kongsi-ink-soft">Pelanggan</span>
@@ -129,7 +129,7 @@ export function RoleManager({
                     </select>
                     {locked ? (
                       <span className="ml-2 text-[11px] text-kongsi-ink-soft">
-                        {isSelf ? "diri sendiri" : "terkunci"}
+                        {u.is_super ? "superadmin" : isSelf ? "diri sendiri" : "terkunci"}
                       </span>
                     ) : null}
                   </td>
@@ -140,7 +140,7 @@ export function RoleManager({
         </table>
       </div>
       <p className="text-[12px] text-kongsi-ink-soft">
-        ◆ Ketua lain &amp; dirimu sendiri terkunci. Maksimal 2 Ketua.
+        ◆ Superadmin, Ketua lain &amp; dirimu sendiri terkunci. Maksimal 2 Ketua.
       </p>
     </div>
   );
