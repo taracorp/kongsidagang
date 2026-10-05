@@ -79,7 +79,7 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - **Rollback:** `kd-pre-vps` (kode Supabase). Untuk VPS: `docker rm -f kongsi-db` (+ `docker volume rm kongsi-db-data`).
 
 ### Ch 8.9 — P7 Live di VPS: https://kongsidagang.store
-`tag kd-vps-live` · 2026-10-05
+`commit 8a21fc3` · `tag kd-vps-live` · 2026-10-05
 - **Aplikasi:** `/var/www/kongsidagang` (clone `taracorp/kongsidagang`), `.env` produksi (chmod 600, secret dibuat
   di VPS; `ENABLE_TOPUP_DEMO=false`, `UPLOAD_DIR=/var/www/kongsidagang-uploads`). pm2 `kongsidagang` (port 3020, sudah `pm2 save`).
 - **DB produksi** `kongsi`: `prisma migrate deploy` (init + checks) + seed katalog. Akun Ketua Kongsi:
