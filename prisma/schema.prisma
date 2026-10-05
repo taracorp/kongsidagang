@@ -273,11 +273,60 @@ model BarterItem {
   status     String   @default("aktif") // aktif | ditutup | ditukar
   created_at DateTime @default(now())
 
+  // Taksiran sistem (lib/domain/taksiran.ts). est_value = nilai tengah, tidak diketik user.
+  category       String?
+  categoryRef    BarterCategory? @relation(fields: [category], references: [slug])
+  qty            Float? // komoditas: jumlah satuan (kg/liter)
+  purchase_price Int? // aset: harga beli
+  purchase_year  Int?
+  checklist      Json? // { [key]: true } = kekurangan yang diakui
+  serial_number  String? // IMEI / nomor rangka / SN
+  est_low        Int?
+  est_high       Int?
+  ship_weight_kg Float? // dikunci dari kategori
+
   dealsAsA BarterDeal[] @relation("DealItemA")
   dealsAsB BarterDeal[] @relation("DealItemB")
 
   @@index([status])
+  @@index([serial_number])
   @@map("barter_items")
+}
+
+// Kategori taksiran. kind: komoditas (qty × harga) | aset (penyusutan × kondisi).
+model BarterCategory {
+  slug           String  @id
+  name           String
+  kind           String // komoditas | aset
+  unit           String? // komoditas: kg | liter
+  rate_y1        Float   @default(0) // aset: susut tahun pertama (0.2 = 20%)
+  rate_next      Float   @default(0) // aset: susut per tahun berikutnya
+  floor_pct      Float   @default(0.1) // aset: nilai minimum terhadap harga beli
+  ship_weight_kg Float // aset: per barang; komoditas: per satuan
+  needs_serial   Boolean @default(false)
+  serial_label   String? // "IMEI", "Nomor rangka", …
+  checklist      Json // [{ key, q, penalty }]
+  sort           Int     @default(0)
+  active         Boolean @default(true)
+
+  items  BarterItem[]
+  prices CommodityPrice[]
+
+  @@map("barter_categories")
+}
+
+// Riwayat harga komoditas per satuan (terbaru dipakai). Diisi admin; source feed nanti.
+model CommodityPrice {
+  id             String         @id @default(uuid())
+  category_slug  String
+  category       BarterCategory @relation(fields: [category_slug], references: [slug], onDelete: Cascade)
+  price_per_unit Int
+  source         String         @default("admin") // admin | feed
+  note           String?
+  created_at     DateTime       @default(now())
+
+  @@index([category_slug, created_at(sort: Desc)])
+  @@map("commodity_prices")
 }
 
 model BarterDeal {

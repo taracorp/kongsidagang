@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { DisputeResolve } from "@/components/admin/DisputeResolve";
+import { HargaKomoditas } from "@/components/admin/HargaKomoditas";
+import { loadCategories } from "@/lib/domain/kategori";
 import { getDisputedDeals } from "@/lib/queries";
 import { getStaffSession, isAdminUp } from "@/lib/roles";
 import { formatKeping } from "@/lib/utils";
@@ -7,7 +9,10 @@ import { formatKeping } from "@/lib/utils";
 export default async function AdminTukar() {
   const { role } = await getStaffSession();
   if (!isAdminUp(role)) redirect("/admin");
-  const disputes = await getDisputedDeals();
+  const [disputes, categories] = await Promise.all([getDisputedDeals(), loadCategories()]);
+  const komoditas = categories
+    .filter((c) => c.kind === "komoditas")
+    .map((c) => ({ slug: c.slug, name: c.name, unit: c.unit, price: c.price_per_unit }));
 
   return (
     <div className="space-y-3">
@@ -51,6 +56,14 @@ export default async function AdminTukar() {
           </table>
         </div>
       )}
+      <h3 className="pt-4 font-fraunces text-lg font-black text-kongsi-indigo">
+        Harga Komoditas — patokan Taksiran
+      </h3>
+      <p className="text-[13px] text-kongsi-ink-soft">
+        Harga per satuan untuk menaksir barang komoditas (beras, gula, minyak). Barang baru memakai harga
+        terbaru; barang yang sudah tayang tidak berubah.
+      </p>
+      <HargaKomoditas rows={komoditas} />
     </div>
   );
 }

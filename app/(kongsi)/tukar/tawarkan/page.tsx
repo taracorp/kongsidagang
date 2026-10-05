@@ -2,10 +2,12 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TawarkanForm } from "@/components/kongsi/TawarkanForm";
 import { getSessionUser } from "@/lib/auth";
+import { loadCategories } from "@/lib/domain/kategori";
 
 export default async function TawarkanPage() {
   const user = await getSessionUser();
   if (!user) redirect("/masuk");
+  const categories = await loadCategories();
 
   return (
     <section className="py-[34px]">
@@ -18,7 +20,7 @@ export default async function TawarkanPage() {
             Tawarkan barangmu
           </h2>
         </div>
-        <TawarkanForm />
+        <TawarkanForm categories={categories} nowYear={new Date().getFullYear()} />
         <p className="mt-4 text-center text-[12px] text-kongsi-ink-soft">
           <Link href="/tukar" className="font-bold text-kongsi-grenadine">
             ← Kembali ke Tukar Guling

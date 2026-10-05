@@ -314,6 +314,9 @@ export type BarterRow = {
   city: string | null;
   tone: Tone;
   photo_url: string | null;
+  est_low: number | null;
+  est_high: number | null;
+  categoryName: string | null;
 };
 
 const BARTER_ROW_SELECT = {
@@ -325,7 +328,18 @@ const BARTER_ROW_SELECT = {
   city: true,
   tone: true,
   photo_url: true,
+  est_low: true,
+  est_high: true,
+  categoryRef: { select: { name: true } },
 } as const;
+
+function toBarterRow({ categoryRef, ...b }: {
+  id: string; user_id: string; title: string; est_value: number; want_text: string | null;
+  city: string | null; tone: string; photo_url: string | null; est_low: number | null;
+  est_high: number | null; categoryRef: { name: string } | null;
+}): BarterRow {
+  return { ...b, tone: asTone(b.tone), categoryName: categoryRef?.name ?? null };
+}
 
 export async function getBarterRows(): Promise<BarterRow[]> {
   await connection(); // data DB selalu per-request, jangan diprerender saat build
@@ -335,7 +349,7 @@ export async function getBarterRows(): Promise<BarterRow[]> {
       select: BARTER_ROW_SELECT,
       orderBy: { created_at: "desc" },
     });
-    return data.map((b) => ({ ...b, tone: asTone(b.tone) }));
+    return data.map(toBarterRow);
   } catch {
     return [];
   }
@@ -385,7 +399,7 @@ export async function getMyBarter(userId: string): Promise<{
     ]);
 
     const ratedSet = new Set(ratings.map((r) => r.deal_id));
-    const mine = mineRows.map((b) => ({ ...b, tone: asTone(b.tone) }));
+    const mine = mineRows.map(toBarterRow);
     const deals: BarterDeal[] = dealRows.map((d) => {
       const a = d.itemA;
       const b = d.itemB;

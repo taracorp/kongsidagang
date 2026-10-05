@@ -155,3 +155,43 @@ Traefik yang sudah ada di VPS, cukup atur port.
   - Uji browser: paket Pemula → ledger +25.000 dan bonus +500.
 - **Rollback:** `git revert kd-tukar-m1`. Tabel `wallet_holds` boleh dibiarkan; untuk benar-benar menghapus,
   buat migrasi baru `DROP TABLE "wallet_holds"`.
+
+### Ch 8.13 — Tukar Guling v2, M2: Mesin Taksiran
+2026-10-05
+- **Tujuan:** nilai barang barter ditaksir sistem, bukan diketik bebas oleh user.
+- **Rumus** (`lib/domain/taksiran.ts`, fungsi murni, dipakai server dan pratinjau client):
+  - Komoditas: jumlah × harga per satuan terbaru × faktor kondisi, rentang ±5%.
+  - Aset: penyusutan saldo menurun (`rate_y1` tahun pertama, `rate_next` per tahun berikutnya, tidak di bawah
+    `floor_pct`) × faktor kondisi, rentang ±10%. Barang umur 0 tahun kena setengah susut tahun pertama.
+  - Faktor kondisi = 1 − jumlah penalti checklist yang dijawab "Ya", minimal 0,3.
+  - Hasil dibulatkan ke 500 (di bawah 50rb) atau 1.000.
+- **Skema:**
+  - `BarterCategory` (`barter_categories`): 10 kategori awal. Komoditas: beras, gula, minyak goreng.
+    Aset: sepeda, ponsel, laptop, elektronik rumah, buku, pakaian & sepatu, lainnya.
+  - `CommodityPrice` (`commodity_prices`): riwayat harga; harga terbaru yang dipakai.
+  - Kolom baru `barter_items`: `category, qty, purchase_price, purchase_year, checklist, serial_number,
+    est_low, est_high, ship_weight_kg`. Semua nullable, jadi barang lama tetap tampil.
+- **Perubahan:**
+  - `tawarkanBarang` menaksir di server. `est_value` dari client diabaikan.
+  - Nomor seri (IMEI / nomor rangka / SN) wajib untuk sepeda, ponsel, laptop, dan elektronik rumah, dan
+    ditolak bila sama dengan barang lain yang masih aktif.
+  - Berat kirim dikunci dari kategori.
+  - `TawarkanForm` ditulis ulang jadi 4 langkah: Kategori → Data barang → Kondisi → Foto & tukar.
+    - Checklist Ya/Tidak wajib dijawab semua.
+    - Kartu "Taksiran Kongsi" tampil live beserta rinciannya.
+    - Foto memakai `capture="environment"`.
+  - Kartu `/tukar` menampilkan rentang taksiran dan nama kategori.
+  - Kantor Kongsi → Sengketa Tukar: tabel **Harga Komoditas** untuk memperbarui harga per satuan
+    (aksi `aturHargaKomoditas`, khusus admin).
+- **Belum:** harga pasar (scraper/feed) menunggu konfirmasi sumber (Bagian 7). Angka susut dan penalti
+  adalah usulan awal agen; Tara bisa mengoreksinya.
+- **SQL:** migrasi `20261005135153_taksiran` (tabel, FK, CHECK, plus data awal kategori dan harga komoditas).
+  Sudah di-apply ke `kongsi_dev`. **Produksi: belum.**
+- **Verifikasi:**
+  - `npx tsx scripts/uji/taksiran.ts` lulus 16/16: beras 100kg × 15rb = 1,5jt; sepeda 3,5jt umur 3 tahun = 2.023.000.
+  - `tsc` dan `eslint` lolos.
+  - Uji browser (mobile + desktop): sepeda 3,5jt/2023 dengan ban perlu ganti tersimpan
+    `est_value` 1.922.000 (rentang 1.730.000–2.114.000), berat 15kg.
+  - Checklist kosong ditolak. Admin berhasil mengubah harga beras (data uji sudah dihapus).
+- **Rollback:** `git revert kd-tukar-m2`. Kolom dan tabel baru boleh dibiarkan (nullable); untuk menghapus,
+  buat migrasi baru.

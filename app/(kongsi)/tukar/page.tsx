@@ -56,6 +56,12 @@ function BarterCard({
         <div className="font-fraunces text-[15px] font-black text-kongsi-grenadine">
           ≈ {formatKeping(item.est_value)}
         </div>
+        {item.est_low != null && item.est_high != null ? (
+          <div className="text-[11px] text-kongsi-ink-soft">
+            Taksiran Kongsi{item.categoryName ? ` · ${item.categoryName}` : ""}:{" "}
+            {formatKeping(item.est_low)}–{formatKeping(item.est_high)}
+          </div>
+        ) : null}
         {item.want_text ? (
           <div className="mt-[6px] border-t-[1.5px] border-dashed border-kongsi-ink/20 pt-[6px] text-[12px] text-kongsi-ink-soft">
             Mau ditukar: <b className="text-kongsi-indigo">{item.want_text}</b>
