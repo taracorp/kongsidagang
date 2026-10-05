@@ -202,7 +202,8 @@ Enum `user_level`. Ambang (rupiah akumulasi) ditentukan Tara — tanya dulu sebe
 - Ajukan tukar; selisih nilai ditutup dengan **tambah Keteng** dari pihak bernilai lebih rendah.
 - **Bea Tukar** = 10% taksiran barang sendiri, maks 10.000 Keteng, ditanggung **kedua pihak**.
 - **Rekber diizinkan**: bea, tambah Keteng, deposit, ongkir ditahan di `wallet_holds` saat deal disepakati.
-- Mode **COD** (QR handshake, Titik Aman, batal di tempat) atau **Kirim** (Biteship, penahanan silang).
+- Mode **COD** (QR handshake, Titik Aman, batal di tempat) atau **Kirim** (KiriminAja express — `lib/shipping/kiriminaja.ts`;
+  ongkir dibayar penerima paket, penahanan silang 2×24 jam, konfirmasi/otomatis 48 jam).
 - Deposit (mode Kirim) & KYC (Kirim / nilai > 1jt) — lihat rencana di Buku Kongsi Ch 8.12.
 - Sengketa → diadili **Syahbandar** (admin) di Kantor Kongsi; Keteng dipindah lewat helper `lib/domain/pundi.ts`.
 - Belum: barter segitiga, bundling, scraper harga pasar, DOKU asli.

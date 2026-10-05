@@ -32,6 +32,7 @@ export default async function AdminTukar() {
                 <th className="p-[11px_14px]">Barang A</th>
                 <th className="p-[11px_14px]">Barang B</th>
                 <th className="p-[11px_14px]">Tambahan</th>
+                <th className="p-[11px_14px]">Masalah</th>
                 <th className="p-[11px_14px]">Putusan</th>
               </tr>
             </thead>
@@ -46,6 +47,13 @@ export default async function AdminTukar() {
                   </td>
                   <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_14px]">
                     {d.topup > 0 ? formatKeping(d.topup) : "—"}
+                  </td>
+                  <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_14px] text-[12px]">
+                    <div className="font-bold">{d.mode === "kirim" ? "📦 Kirim" : "🤝 COD"}</div>
+                    {d.reason ?? "—"}
+                    {d.fault ? (
+                      <div className="mt-1 font-bold text-kongsi-bad">Penyebab (sistem): pihak {d.fault.toUpperCase()}</div>
+                    ) : null}
                   </td>
                   <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_14px]">
                     <DisputeResolve id={d.id} />

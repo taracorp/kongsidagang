@@ -5,6 +5,8 @@ import { saveUpload } from "@/lib/uploads";
 import { loadCategory } from "@/lib/domain/kategori";
 import { taksir } from "@/lib/domain/taksiran";
 import * as Tukar from "@/lib/domain/tukar";
+import * as Kirim from "@/lib/domain/tukar-kirim";
+import * as Alamat from "@/lib/domain/alamat";
 import { run, requireUser, requireAdminUp, toInt } from "./_util";
 
 function parseAnswers(raw: unknown, keys: string[]): Record<string, boolean> {
@@ -94,17 +96,98 @@ export async function tutupBarang(itemId: string) {
   });
 }
 
-export async function ajukanTukar(myItemId: string, targetId: string, topup: number) {
+export async function ajukanTukar(
+  myItemId: string,
+  targetId: string,
+  topup: number,
+  mode: "cod" | "kirim" = "cod",
+  addressId: string | null = null,
+) {
   return run(async () => {
     const user = await requireUser();
-    return Tukar.ajukan(user.id, String(myItemId), String(targetId), Number(topup));
+    return Tukar.ajukan(user.id, String(myItemId), String(targetId), Number(topup), {
+      mode: mode === "kirim" ? "kirim" : "cod",
+      addressId: addressId ? String(addressId) : null,
+    });
   });
 }
 
-export async function terimaTukar(dealId: string, meetType: string, meetPlace: string) {
+/** COD: { meetType, meetPlace }. Kirim: { addressId }. */
+export async function terimaTukar(
+  dealId: string,
+  opsi: { meetType?: string; meetPlace?: string; addressId?: string },
+) {
   return run(async () => {
     const user = await requireUser();
-    await Tukar.terima(user.id, String(dealId), String(meetType), String(meetPlace ?? ""));
+    if (opsi?.addressId) {
+      await Kirim.terimaKirim(user.id, String(dealId), String(opsi.addressId));
+    } else {
+      await Tukar.terima(user.id, String(dealId), {
+        meetType: String(opsi?.meetType ?? ""),
+        meetPlace: String(opsi?.meetPlace ?? ""),
+      });
+    }
+  });
+}
+
+export async function bayarOngkirTukar(dealId: string) {
+  return run(async () => {
+    const user = await requireUser();
+    await Kirim.bayarOngkir(user.id, String(dealId));
+  });
+}
+
+/** Coba buat ulang order kurir yang gagal (pihak deal saja). */
+export async function cobaKirimLagi(dealId: string) {
+  return run(async () => {
+    const user = await requireUser();
+    const d = await prisma.barterDeal.findUnique({
+      where: { id: String(dealId) },
+      select: { itemA: { select: { user_id: true } }, itemB: { select: { user_id: true } } },
+    });
+    if (!d) throw new Error("Tawaran tidak ditemukan.");
+    Tukar.pihakDari(d, user.id);
+    const r = await Kirim.kirimkanPaket(String(dealId));
+    if (r.gagal.length) throw new Error(r.gagal[0]);
+    return r;
+  });
+}
+
+export async function konfirmasiTerima(dealId: string) {
+  return run(async () => {
+    const user = await requireUser();
+    return Tukar.konfirmasi({ userId: user.id }, String(dealId));
+  });
+}
+
+export async function cariWilayah(q: string) {
+  return run(async () => {
+    const user = await requireUser();
+    return Alamat.cariWilayah(user.id, String(q ?? ""));
+  });
+}
+
+export async function simpanAlamat(input: Alamat.AlamatInput) {
+  return run(async () => {
+    const user = await requireUser();
+    return Alamat.simpanAlamat(user.id, {
+      label: String(input?.label ?? ""),
+      name: String(input?.name ?? ""),
+      phone: String(input?.phone ?? ""),
+      address: String(input?.address ?? ""),
+      area: String(input?.area ?? ""),
+      district_id: Number(input?.district_id),
+      subdistrict_id: Number(input?.subdistrict_id),
+      lat: Number(input?.lat),
+      lng: Number(input?.lng),
+    });
+  });
+}
+
+export async function hapusAlamat(id: string) {
+  return run(async () => {
+    const user = await requireUser();
+    await Alamat.hapusAlamat(user.id, String(id));
   });
 }
 

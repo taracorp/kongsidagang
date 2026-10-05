@@ -7,6 +7,8 @@ import { AjukanTukar, TutupBarang } from "@/components/kongsi/BarterActions";
 import { getSessionUser } from "@/lib/auth";
 import { getBarterRows, getMyBarter, getWalletBalance, type BarterRow } from "@/lib/queries";
 import { labelStatus, STATUS_AKHIR } from "@/lib/domain/tukar-aturan";
+import { alamatSaya } from "@/lib/domain/alamat";
+import { kirimAktif } from "@/lib/shipping/kiriminaja";
 import { cn, formatKeping } from "@/lib/utils";
 import type { Tone } from "@/components/kongsi/ProdukCard";
 
@@ -83,16 +85,23 @@ export default async function TukarPage() {
   const user = await getSessionUser();
 
   const rows = await getBarterRows();
-  const [{ mine, deals }, balance] = user
-    ? await Promise.all([getMyBarter(user.id), getWalletBalance(user.id)])
-    : [{ mine: [], deals: [] }, 0];
+  const [{ mine, deals }, balance, alamat] = user
+    ? await Promise.all([getMyBarter(user.id), getWalletBalance(user.id), alamatSaya(user.id)])
+    : [{ mine: [], deals: [] }, 0, []];
+  const bisaKirim = kirimAktif();
   // Tawaran aktif di atas, yang sudah tutup di bawah.
   const sortedDeals = [...deals].sort(
     (x, y) => Number(STATUS_AKHIR.includes(x.status as never)) - Number(STATUS_AKHIR.includes(y.status as never)),
   );
 
   const others = user ? rows.filter((r) => r.user_id !== user.id) : rows;
-  const myItemOptions = mine.map((m) => ({ id: m.id, title: m.title, value: m.est_value }));
+  const myItemOptions = mine.map((m) => ({
+    id: m.id,
+    title: m.title,
+    value: m.est_value,
+    kirimOk: m.categoryName !== null,
+  }));
+  const alamatPilihan = alamat.map((a) => ({ id: a.id, label: a.label, area: a.area }));
 
   return (
     <section className="py-[34px]">
@@ -116,7 +125,8 @@ export default async function TukarPage() {
           <p className="text-[13px] text-kongsi-ink-soft">
             Unggah barangmu — Kongsi menaksir nilainya. Kalau timpang, yang lebih
             rendah <b>tambah Keteng</b>. Bea Tukar cuma 10% (maks Rp 10.000) per
-            pihak, ditahan sampai kalian saling pindai kode di Titik Aman.
+            pihak, ditahan sampai tukar selesai — ketemuan di Titik Aman (COD) atau
+            dikirim kurir.
             Sengketa diadili <b>Syahbandar</b>.
           </p>
           <KongsiLinkButton
@@ -185,9 +195,12 @@ export default async function TukarPage() {
                 <AjukanTukar
                   targetId={it.id}
                   targetValue={it.est_value}
+                  targetKirimOk={it.categoryName !== null}
                   myItems={myItemOptions}
                   loggedIn={Boolean(user)}
                   balance={balance}
+                  kirimAktif={bisaKirim}
+                  alamat={alamatPilihan}
                 />
               </BarterCard>
             ))}

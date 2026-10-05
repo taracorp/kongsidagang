@@ -4,25 +4,32 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ajukanTukar, tutupBarang } from "@/app/actions/tukar";
-import { beaTukar, hitungSelisih } from "@/lib/domain/tukar-aturan";
+import { beaTukar, depositKirim, hitungSelisih } from "@/lib/domain/tukar-aturan";
 import { cn, formatKeping } from "@/lib/utils";
 
-type MyItem = { id: string; title: string; value: number };
+type MyItem = { id: string; title: string; value: number; kirimOk: boolean };
+type AlamatPilihan = { id: string; label: string; area: string };
 
 const small = "rounded-[3px] border-2 border-kongsi-ink px-2 py-[6px] text-center text-[12px] font-bold";
 
 export function AjukanTukar({
   targetId,
   targetValue,
+  targetKirimOk,
   myItems,
   loggedIn,
   balance,
+  kirimAktif,
+  alamat,
 }: {
   targetId: string;
   targetValue: number;
+  targetKirimOk: boolean;
   myItems: MyItem[];
   loggedIn: boolean;
   balance: number;
+  kirimAktif: boolean;
+  alamat: AlamatPilihan[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -32,6 +39,8 @@ export function AjukanTukar({
   const mine = myItems.find((m) => m.id === myId) ?? myItems[0];
   const sel = mine ? hitungSelisih(mine.value, targetValue) : null;
   const [topupRaw, setTopupRaw] = useState<string | null>(null); // null = pakai default (selisih)
+  const [mode, setMode] = useState<"cod" | "kirim">("cod");
+  const [addressId, setAddressId] = useState(alamat[0]?.id ?? "");
 
   if (!loggedIn) {
     return (
@@ -51,13 +60,23 @@ export function AjukanTukar({
   const topup = topupRaw === null ? sel.diff : Number(topupRaw.replace(/\D/g, "")) || 0;
   const feeMine = beaTukar(mine.value);
   const feeTheirs = beaTukar(targetValue);
-  const ditahan = feeMine + (sel.from === "a" ? topup : 0);
+  const bisaKirim = kirimAktif && mine.kirimOk && targetKirimOk;
+  const modeAktif = bisaKirim ? mode : "cod";
+  const deposit = modeAktif === "kirim" ? depositKirim(mine.value) : 0;
+  const ditahan = feeMine + (sel.from === "a" ? topup : 0) + deposit;
   const kurang = ditahan > balance;
+  const butuhAlamat = modeAktif === "kirim" && !addressId;
 
   async function kirim() {
     setBusy(true);
     setMsg(null);
-    const { error, data } = await ajukanTukar(mine.id, targetId, sel!.from ? topup : 0);
+    const { error, data } = await ajukanTukar(
+      mine.id,
+      targetId,
+      sel!.from ? topup : 0,
+      modeAktif,
+      modeAktif === "kirim" ? addressId : null,
+    );
     setBusy(false);
     if (error) {
       setMsg(error);
@@ -118,6 +137,61 @@ export function AjukanTukar({
                   ))}
                 </select>
 
+                {kirimAktif ? (
+                  <div>
+                    <div className="mb-1 font-bold">Cara tukar</div>
+                    <div className="flex gap-2">
+                      {(
+                        [
+                          { v: "cod", l: "🤝 COD ketemuan" },
+                          { v: "kirim", l: "📦 Kirim kurir" },
+                        ] as const
+                      ).map((o) => (
+                        <button
+                          key={o.v}
+                          type="button"
+                          aria-pressed={modeAktif === o.v}
+                          disabled={o.v === "kirim" && !bisaKirim}
+                          onClick={() => setMode(o.v)}
+                          className={cn(
+                            "flex-1 cursor-pointer rounded-full border-[1.5px] border-kongsi-ink px-3 py-[6px] font-bold disabled:cursor-not-allowed disabled:opacity-50",
+                            modeAktif === o.v ? "bg-kongsi-grenadine text-kongsi-parchment" : "bg-kongsi-parchment",
+                          )}
+                        >
+                          {o.l}
+                        </button>
+                      ))}
+                    </div>
+                    {!bisaKirim ? (
+                      <p className="mt-1 text-[11px] text-kongsi-ink-soft">Kirim kurir butuh dua barang yang sudah ditaksir.</p>
+                    ) : null}
+                    {modeAktif === "kirim" ? (
+                      <div className="mt-2">
+                        <label className="block font-bold" htmlFor={`adr-${targetId}`}>
+                          Alamat jemput / kirim
+                        </label>
+                        {alamat.length ? (
+                          <select
+                            id={`adr-${targetId}`}
+                            value={addressId}
+                            onChange={(e) => setAddressId(e.target.value)}
+                            className="w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-2 py-1"
+                          >
+                            {alamat.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.label} — {a.area}
+                              </option>
+                            ))}
+                          </select>
+                        ) : null}
+                        <a href="/pakhuis/alamat" className="mt-1 inline-block text-[12px] font-bold text-kongsi-grenadine">
+                          {alamat.length ? "+ Kelola alamat" : "+ Tambah alamat dulu"}
+                        </a>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 {/* Kalkulator barter */}
                 <div className="space-y-[2px] rounded-[3px] border-[1.5px] border-kongsi-ink/30 bg-kongsi-parchment p-2">
                   <div className={row}>
@@ -160,12 +234,19 @@ export function AjukanTukar({
                     <span>Bea Tukar dia</span>
                     <span>{formatKeping(feeTheirs)}</span>
                   </div>
+                  {deposit > 0 ? (
+                    <div className={row}>
+                      <span>Deposit Kirim (kembali saat selesai)</span>
+                      <b>{formatKeping(deposit)}</b>
+                    </div>
+                  ) : null}
                   <div className={cn(row, "font-bold")}>
                     <span>Ditahan dari Pundimu sekarang</span>
                     <span>{formatKeping(ditahan)}</span>
                   </div>
                   <p className="text-[11px] text-kongsi-ink-soft">
                     Keteng ditahan Kongsi sampai tukar selesai. Ditolak / batal → kembali utuh.
+                    {modeAktif === "kirim" ? " Ongkir barang yang kamu terima ditagih setelah tawaran diterima." : ""}
                   </p>
                 </div>
 
@@ -176,7 +257,7 @@ export function AjukanTukar({
                 ) : (
                   <button
                     type="button"
-                    disabled={busy}
+                    disabled={busy || butuhAlamat}
                     onClick={kirim}
                     className={cn(small, "w-full cursor-pointer bg-kongsi-grenadine text-kongsi-parchment disabled:opacity-60")}
                   >

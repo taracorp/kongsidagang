@@ -10,9 +10,12 @@ import {
   batalDiTempat,
   ajukanSengketa,
   nilaiTukar,
+  bayarOngkirTukar,
+  cobaKirimLagi,
+  konfirmasiTerima,
 } from "@/app/actions/tukar";
 import { TITIK_AMAN } from "@/lib/domain/tukar-aturan";
-import { cn } from "@/lib/utils";
+import { cn, formatKeping } from "@/lib/utils";
 import { KongsiButton } from "./KongsiButton";
 
 const input =
@@ -43,10 +46,71 @@ function useAksi() {
   return { busy, err, jalankan };
 }
 
-export function TerimaTawaran({ dealId }: { dealId: string }) {
+export type AlamatPilihan = { id: string; label: string; area: string };
+
+export function TerimaTawaran({
+  dealId,
+  mode,
+  alamat = [],
+}: {
+  dealId: string;
+  mode: "cod" | "kirim";
+  alamat?: AlamatPilihan[];
+}) {
   const { busy, err, jalankan } = useAksi();
   const [type, setType] = useState<string>(TITIK_AMAN[0].key);
   const [place, setPlace] = useState("");
+  const [addressId, setAddressId] = useState(alamat[0]?.id ?? "");
+
+  const tombol = (
+    <div className="mt-3 flex gap-3">
+      <KongsiButton type="button" variant="ghost" disabled={busy} onClick={() => jalankan(() => tolakTukar(dealId))}>
+        Tolak
+      </KongsiButton>
+      <KongsiButton
+        type="button"
+        className="flex-1"
+        disabled={busy || (mode === "kirim" && !addressId)}
+        onClick={() =>
+          jalankan(() =>
+            terimaTukar(dealId, mode === "kirim" ? { addressId } : { meetType: type, meetPlace: place }),
+          )
+        }
+      >
+        {busy ? "Memproses…" : mode === "kirim" ? "Terima & bayar ongkir" : "Terima & tahan bea"}
+      </KongsiButton>
+    </div>
+  );
+
+  if (mode === "kirim") {
+    return (
+      <div>
+        <label className={label} htmlFor="address_b">
+          Kirim barang ke alamatku
+        </label>
+        {alamat.length ? (
+          <select id="address_b" value={addressId} onChange={(e) => setAddressId(e.target.value)} className={input}>
+            {alamat.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label} — {a.area}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <p className="text-[13px] text-kongsi-ink-soft">Belum ada alamat.</p>
+        )}
+        <a href="/pakhuis/alamat" className="mt-1 inline-block text-[12px] font-bold text-kongsi-grenadine">
+          + Tambah / kelola alamat
+        </a>
+        <p className="mt-2 text-[12px] text-kongsi-ink-soft">
+          Ongkir dihitung otomatis (kurir termurah + asuransi). Kamu membayar ongkir barang yang <b>kamu terima</b>.
+        </p>
+        {tombol}
+        <Pesan m={err} />
+      </div>
+    );
+  }
+
   return (
     <div>
       <label className={label} htmlFor="meet_type">
@@ -73,24 +137,43 @@ export function TerimaTawaran({ dealId }: { dealId: string }) {
       <p className="mt-1 text-[11px] text-kongsi-ink-soft">
         Tempat umum, terang, ramai / ber-CCTV. Jangan ketemuan di rumah.
       </p>
-      <div className="mt-3 flex gap-3">
-        <KongsiButton
-          type="button"
-          variant="ghost"
-          disabled={busy}
-          onClick={() => jalankan(() => tolakTukar(dealId))}
-        >
-          Tolak
-        </KongsiButton>
-        <KongsiButton
-          type="button"
-          className="flex-1"
-          disabled={busy}
-          onClick={() => jalankan(() => terimaTukar(dealId, type, place))}
-        >
-          {busy ? "Memproses…" : "Terima & tahan bea"}
-        </KongsiButton>
-      </div>
+      {tombol}
+      <Pesan m={err} />
+    </div>
+  );
+}
+
+export function BayarOngkir({ dealId, amount }: { dealId: string; amount: number }) {
+  const { busy, err, jalankan } = useAksi();
+  return (
+    <div>
+      <KongsiButton type="button" block disabled={busy} onClick={() => jalankan(() => bayarOngkirTukar(dealId))}>
+        {busy ? "Memproses…" : `Bayar ongkir ${formatKeping(amount)} dari Pundi`}
+      </KongsiButton>
+      <Pesan m={err} />
+    </div>
+  );
+}
+
+export function CobaKirimLagi({ dealId }: { dealId: string }) {
+  const { busy, err, jalankan } = useAksi();
+  return (
+    <div>
+      <KongsiButton type="button" variant="gold" disabled={busy} onClick={() => jalankan(() => cobaKirimLagi(dealId))}>
+        {busy ? "Menghubungi kurir…" : "Coba buat order kurir lagi"}
+      </KongsiButton>
+      <Pesan m={err} />
+    </div>
+  );
+}
+
+export function KonfirmasiTerima({ dealId }: { dealId: string }) {
+  const { busy, err, jalankan } = useAksi();
+  return (
+    <div>
+      <KongsiButton type="button" block disabled={busy} onClick={() => jalankan(() => konfirmasiTerima(dealId))}>
+        {busy ? "Memproses…" : "Barang sudah kuterima & sesuai"}
+      </KongsiButton>
       <Pesan m={err} />
     </div>
   );
@@ -220,16 +303,26 @@ export function PindaiKode({ dealId }: { dealId: string }) {
   );
 }
 
-export function BatalAtauSengketa({ dealId }: { dealId: string }) {
+export function BatalAtauSengketa({
+  dealId,
+  bolehBatal = true,
+  labelBatal = "Batalkan di tempat",
+}: {
+  dealId: string;
+  bolehBatal?: boolean;
+  labelBatal?: string;
+}) {
   const { busy, err, jalankan } = useAksi();
   const [mode, setMode] = useState<null | "batal" | "sengketa">(null);
   const [alasan, setAlasan] = useState("");
   if (!mode) {
     return (
       <div className="flex flex-wrap gap-3">
-        <KongsiButton type="button" variant="ghost" onClick={() => setMode("batal")}>
-          Batalkan di tempat
-        </KongsiButton>
+        {bolehBatal ? (
+          <KongsiButton type="button" variant="ghost" onClick={() => setMode("batal")}>
+            {labelBatal}
+          </KongsiButton>
+        ) : null}
         <KongsiButton type="button" variant="ghost" className="text-kongsi-bad" onClick={() => setMode("sengketa")}>
           ⚖️ Ajukan ke Syahbandar
         </KongsiButton>

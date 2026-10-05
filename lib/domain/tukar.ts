@@ -4,27 +4,32 @@ import { prisma } from "@/lib/db";
 import { hold, captureHold, releaseHold, refundHold, type Tx } from "@/lib/domain/pundi";
 import {
   beaTukar,
+  depositKirim,
   validasiTambah,
   pastikanBoleh,
   TITIK_AMAN,
   JAM_COD,
+  JAM_BAYAR_ONGKIR,
+  JAM_PENAHANAN_SILANG,
   HARI_TAWARAN,
   MAKS_GAGAL_PINDAI,
   type Pihak,
+  type ModeTukar,
 } from "@/lib/domain/tukar-aturan";
 
-// Alur Tukar Guling v2 (COD). Semua mutasi di dalam $transaction dengan baris deal dikunci,
+// Alur Tukar Guling v2. Semua mutasi di dalam $transaction dengan baris deal dikunci,
 // dan semua Keteng lewat helper rekber di pundi.ts.
 //
-// Ajukan  : A menahan bea_a (+ tambah Keteng bila A yang menambah).
-// Terima  : B menahan bea_b (+ tambah bila B), kedua barang jadi dalam_tukar, tawaran lain ditolak.
-// Pindai  : tiap pihak memindai kode pihak lain di Titik Aman; dua-duanya → selesai.
-// Selesai : bea diambil platform, tambah Keteng dilepas ke pihak lain, barang jadi ditukar.
-// Batal   : semua rekber kembali, barang kembali aktif.
+// Ajukan  : A menahan bea_a (+ tambah Keteng bila A yang menambah, + deposit bila mode Kirim).
+// Terima  : B menahan bea_b (+ tambah, + deposit), kedua barang jadi dalam_tukar, tawaran lain ditolak.
+// COD     : tiap pihak memindai kode pihak lain di Titik Aman; dua-duanya → selesai.
+// Kirim   : lihat tukar-kirim.ts (ongkir, order KiriminAja, webhook, konfirmasi).
+// Selesai : bea diambil platform, tambah Keteng dilepas ke pihak lain, deposit kembali, barang jadi ditukar.
+// Batal   : semua rekber yang masih ditahan kembali, barang kembali aktif.
 
 const JAM = 3600_000;
 
-type DealRow = NonNullable<Awaited<ReturnType<typeof bacaDeal>>>;
+export type DealRow = NonNullable<Awaited<ReturnType<typeof bacaDeal>>>;
 
 function bacaDeal(tx: Tx, id: string) {
   return tx.barterDeal.findUnique({
@@ -32,12 +37,13 @@ function bacaDeal(tx: Tx, id: string) {
     include: {
       itemA: { select: { id: true, user_id: true, title: true } },
       itemB: { select: { id: true, user_id: true, title: true } },
+      shipments: true,
     },
   });
 }
 
 /** Kunci baris deal (FOR UPDATE) lalu baca isinya. */
-async function kunciDeal(tx: Tx, id: string): Promise<DealRow> {
+export async function kunciDeal(tx: Tx, id: string): Promise<DealRow> {
   await tx.$queryRaw`SELECT id FROM barter_deals WHERE id = ${id} FOR UPDATE`;
   const d = await bacaDeal(tx, id);
   if (!d) throw new Error("Tawaran tidak ditemukan.");
@@ -50,11 +56,12 @@ export function pihakDari(d: { itemA: { user_id: string }; itemB: { user_id: str
   throw new Error("Bukan pihak dalam tawaran ini.");
 }
 
-const lawan = (p: Pihak): Pihak => (p === "a" ? "b" : "a");
-const pemilik = (d: DealRow, p: Pihak) => (p === "a" ? d.itemA.user_id : d.itemB.user_id);
+export const lawan = (p: Pihak): Pihak => (p === "a" ? "b" : "a");
+export const pemilik = (d: DealRow, p: Pihak) => (p === "a" ? d.itemA.user_id : d.itemB.user_id);
+const labelDeal = (d: { itemA: { title: string }; itemB: { title: string } }) => `${d.itemA.title} ⇄ ${d.itemB.title}`;
 
 // ============================================================
-// Kode ketemu (QR + 6 digit) — diturunkan HMAC, tidak disimpan.
+// Kode ketemu COD (QR + 6 digit) — diturunkan HMAC, tidak disimpan.
 // ============================================================
 
 function rahasia(): string {
@@ -89,13 +96,13 @@ function samaKode(a: string, b: string) {
 // Penyelesaian rekber
 // ============================================================
 
-async function selesaikan(tx: Tx, d: DealRow, status: "done" | "resolved", note?: string) {
+export async function selesaikan(tx: Tx, d: DealRow, status: "done" | "resolved", note?: string) {
   const holds = await tx.walletHold.findMany({ where: { deal_id: d.id, status: "ditahan" } });
   for (const h of holds) {
     const p: Pihak = h.user_id === d.itemA.user_id ? "a" : "b";
-    if (h.kind === "bea") await captureHold(tx, h.id, "bea_tukar", `Bea Tukar Guling: ${d.itemA.title} ⇄ ${d.itemB.title}`);
+    if (h.kind === "bea") await captureHold(tx, h.id, "bea_tukar", `Bea Tukar Guling: ${labelDeal(d)}`);
     else if (h.kind === "tambah") await releaseHold(tx, h.id, pemilik(d, lawan(p)), "Tambahan Keteng dari Tukar Guling");
-    else await refundHold(tx, h.id, "Rekber Tukar Guling dikembalikan");
+    else await refundHold(tx, h.id, h.kind === "deposit" ? "Deposit Tukar Guling kembali" : "Rekber Tukar Guling dikembalikan");
   }
   await tx.barterItem.updateMany({ where: { id: { in: [d.itemA.id, d.itemB.id] } }, data: { status: "ditukar" } });
   await tx.barterDeal.update({
@@ -104,7 +111,7 @@ async function selesaikan(tx: Tx, d: DealRow, status: "done" | "resolved", note?
   });
 }
 
-async function batalkan(
+export async function batalkan(
   tx: Tx,
   d: DealRow,
   status: "rejected" | "cancelled" | "expired" | "resolved",
@@ -113,13 +120,17 @@ async function batalkan(
 ) {
   const holds = await tx.walletHold.findMany({ where: { deal_id: d.id, status: "ditahan" } });
   for (const h of holds) await refundHold(tx, h.id, `Rekber Tukar Guling dikembalikan (${reason})`);
-  // Barang dilepas hanya bila memang terkunci oleh deal ini (sudah sepakat).
-  if (d.status === "agreed" || d.status === "disputed") {
+  // Barang dilepas hanya bila memang terkunci oleh deal ini.
+  if (["agreed", "dikirim", "diterima", "disputed"].includes(d.status)) {
     await tx.barterItem.updateMany({
       where: { id: { in: [d.itemA.id, d.itemB.id] }, status: "dalam_tukar" },
       data: { status: "aktif" },
     });
   }
+  await tx.barterShipment.updateMany({
+    where: { deal_id: d.id, status: { in: ["quoted", "paid"] } },
+    data: { status: "canceled", status_text: reason },
+  });
   await tx.barterDeal.update({
     where: { id: d.id },
     data: { status, cancel_reason: reason, fault_party: fault, closed_at: new Date() },
@@ -142,31 +153,50 @@ async function tolakTawaranLain(tx: Tx, itemIds: string[], kecuali: string | nul
   }
 }
 
+async function pastikanAlamat(tx: Tx, userId: string, addressId: string | null | undefined) {
+  if (!addressId) throw new Error("Pilih alamat pengiriman.");
+  const a = await tx.userAddress.findFirst({ where: { id: addressId, user_id: userId }, select: { id: true } });
+  if (!a) throw new Error("Alamat tidak ditemukan.");
+  return a.id;
+}
+
 // ============================================================
 // Aksi
 // ============================================================
 
-export async function ajukan(userId: string, myItemId: string, targetId: string, topup: number) {
+export type AjukanOpsi = { mode?: ModeTukar; addressId?: string | null };
+
+export async function ajukan(userId: string, myItemId: string, targetId: string, topup: number, opsi: AjukanOpsi = {}) {
+  const mode: ModeTukar = opsi.mode === "kirim" ? "kirim" : "cod";
   return prisma.$transaction(async (tx) => {
-    const [mine, target] = await Promise.all([
-      tx.barterItem.findUnique({ where: { id: myItemId } }),
-      tx.barterItem.findUnique({ where: { id: targetId } }),
-    ]);
+    // Berurutan: satu koneksi transaksi tidak boleh menjalankan query paralel.
+    const mine = await tx.barterItem.findUnique({ where: { id: myItemId } });
+    const target = await tx.barterItem.findUnique({ where: { id: targetId } });
     if (!mine || mine.user_id !== userId) throw new Error("Pilih barangmu sendiri.");
     if (mine.status !== "aktif") throw new Error("Barangmu sedang tidak tersedia.");
     if (!target || target.status !== "aktif") throw new Error("Barang tujuan tidak tersedia.");
     if (target.user_id === userId) throw new Error("Tidak bisa menukar dengan barang sendiri.");
+    if (mode === "kirim" && (!mine.category || !target.category)) {
+      throw new Error("Barang tanpa kategori taksiran hanya bisa COD.");
+    }
     const dobel = await tx.barterDeal.findFirst({
-      where: { item_a: myItemId, item_b: targetId, status: { in: ["proposed", "agreed", "disputed"] } },
+      where: {
+        item_a: myItemId,
+        item_b: targetId,
+        status: { in: ["proposed", "agreed", "dikirim", "diterima", "disputed"] },
+      },
       select: { id: true },
     });
     if (dobel) throw new Error("Kamu sudah mengajukan tukar untuk pasangan barang ini.");
+    const addressId = mode === "kirim" ? await pastikanAlamat(tx, userId, opsi.addressId) : null;
 
     const va = mine.est_value;
     const vb = target.est_value;
     const from = validasiTambah(va, vb, topup);
     const fee_a = beaTukar(va);
     const fee_b = beaTukar(vb);
+    const deposit_a = mode === "kirim" ? depositKirim(va) : 0;
+    const deposit_b = mode === "kirim" ? depositKirim(vb) : 0;
 
     const deal = await tx.barterDeal.create({
       data: {
@@ -174,53 +204,86 @@ export async function ajukan(userId: string, myItemId: string, targetId: string,
         item_b: targetId,
         proposer_id: userId,
         status: "proposed",
-        mode: "cod",
+        mode,
         value_a: va,
         value_b: vb,
         topup_keping: from ? topup : 0,
         topup_from: from,
         fee_a,
         fee_b,
+        deposit_a,
+        deposit_b,
+        address_a_id: addressId,
         expires_at: new Date(Date.now() + HARI_TAWARAN * 24 * JAM),
       },
     });
     const label = `${mine.title} ⇄ ${target.title}`;
     if (fee_a > 0) await hold(tx, userId, deal.id, fee_a, "bea", `Tahan bea Tukar: ${label}`);
     if (from === "a") await hold(tx, userId, deal.id, topup, "tambah", `Tahan tambahan Keteng: ${label}`);
+    if (deposit_a > 0) await hold(tx, userId, deal.id, deposit_a, "deposit", `Tahan deposit Kirim: ${label}`);
     return deal.id;
   });
 }
 
-export async function terima(userId: string, dealId: string, meetType: string, meetPlace: string) {
-  if (!TITIK_AMAN.some((t) => t.key === meetType)) throw new Error("Pilih jenis Titik Aman.");
-  const place = meetPlace.trim();
-  if (place.length < 3 || place.length > 80) throw new Error("Tulis nama tempat umum (3–80 huruf).");
-  return prisma.$transaction(async (tx) => {
-    const d = await kunciDeal(tx, dealId);
-    pastikanBoleh(d.status, pihakDari(d, userId), "terima");
-    const kunci = await tx.barterItem.updateMany({
-      where: { id: { in: [d.itemA.id, d.itemB.id] }, status: "aktif" },
-      data: { status: "dalam_tukar" },
-    });
-    if (kunci.count !== 2) throw new Error("Salah satu barang sudah tidak tersedia.");
-    const label = `${d.itemA.title} ⇄ ${d.itemB.title}`;
-    if (d.fee_b > 0) await hold(tx, userId, d.id, d.fee_b, "bea", `Tahan bea Tukar: ${label}`);
-    if (d.topup_from === "b" && d.topup_keping > 0) {
-      await hold(tx, userId, d.id, d.topup_keping, "tambah", `Tahan tambahan Keteng: ${label}`);
-    }
-    const now = new Date();
-    await tx.barterDeal.update({
-      where: { id: d.id },
-      data: {
-        status: "agreed",
-        agreed_at: now,
-        expires_at: new Date(now.getTime() + JAM_COD * JAM),
-        meet_type: meetType,
-        meet_place: place,
-      },
-    });
-    await tolakTawaranLain(tx, [d.itemA.id, d.itemB.id], d.id, "Barang sudah disepakati dengan tawaran lain");
-  });
+export type TerimaOpsi = { meetType?: string; meetPlace?: string; addressId?: string | null };
+
+/**
+ * B menerima. COD: wajib Titik Aman. Kirim: wajib alamat; `siapkanKirim` (dalam transaksi yang sama)
+ * membuat dua paket berstatus quoted dan menahan ongkir milik B.
+ */
+export async function terima(
+  userId: string,
+  dealId: string,
+  opsi: TerimaOpsi,
+  siapkanKirim?: (tx: Tx, d: DealRow, addressB: string) => Promise<void>,
+) {
+  return prisma.$transaction(
+    async (tx) => {
+      const d = await kunciDeal(tx, dealId);
+      pastikanBoleh(d.status, pihakDari(d, userId), "terima");
+
+      let meet: { meet_type: string; meet_place: string } | null = null;
+      let addressB: string | null = null;
+      if (d.mode === "cod") {
+        if (!TITIK_AMAN.some((t) => t.key === opsi.meetType)) throw new Error("Pilih jenis Titik Aman.");
+        const place = (opsi.meetPlace ?? "").trim();
+        if (place.length < 3 || place.length > 80) throw new Error("Tulis nama tempat umum (3–80 huruf).");
+        meet = { meet_type: opsi.meetType!, meet_place: place };
+      } else {
+        addressB = await pastikanAlamat(tx, userId, opsi.addressId);
+      }
+
+      const kunci = await tx.barterItem.updateMany({
+        where: { id: { in: [d.itemA.id, d.itemB.id] }, status: "aktif" },
+        data: { status: "dalam_tukar" },
+      });
+      if (kunci.count !== 2) throw new Error("Salah satu barang sudah tidak tersedia.");
+      const label = labelDeal(d);
+      if (d.fee_b > 0) await hold(tx, userId, d.id, d.fee_b, "bea", `Tahan bea Tukar: ${label}`);
+      if (d.topup_from === "b" && d.topup_keping > 0) {
+        await hold(tx, userId, d.id, d.topup_keping, "tambah", `Tahan tambahan Keteng: ${label}`);
+      }
+      if (d.deposit_b > 0) await hold(tx, userId, d.id, d.deposit_b, "deposit", `Tahan deposit Kirim: ${label}`);
+
+      const now = new Date();
+      await tx.barterDeal.update({
+        where: { id: d.id },
+        data: {
+          status: "agreed",
+          agreed_at: now,
+          expires_at: new Date(now.getTime() + (d.mode === "cod" ? JAM_COD : JAM_BAYAR_ONGKIR) * JAM),
+          ...(meet ?? {}),
+          ...(addressB ? { address_b_id: addressB } : {}),
+        },
+      });
+      if (d.mode === "kirim") {
+        if (!siapkanKirim) throw new Error("Mode Kirim belum tersedia.");
+        await siapkanKirim(tx, { ...d, address_b_id: addressB }, addressB!);
+      }
+      await tolakTawaranLain(tx, [d.itemA.id, d.itemB.id], d.id, "Barang sudah disepakati dengan tawaran lain");
+    },
+    { timeout: 20_000 },
+  );
 }
 
 export async function tolak(userId: string, dealId: string) {
@@ -239,32 +302,46 @@ export async function tarik(userId: string, dealId: string) {
   });
 }
 
+/** COD: batal saat/sebelum ketemu. Kirim: batal sebelum paket dibuat. Semua rekber kembali. */
 export async function batalDiTempat(userId: string, dealId: string, alasan: string) {
   return prisma.$transaction(async (tx) => {
     const d = await kunciDeal(tx, dealId);
     const p = pihakDari(d, userId);
-    pastikanBoleh(d.status, p, "batal_di_tempat");
+    pastikanBoleh(d.status, p, d.mode === "kirim" ? "batal_sebelum_kirim" : "batal_di_tempat", d.mode);
+    if (d.shipments.some((s) => s.order_id && s.status !== "failed")) {
+      throw new Error("Paket sudah dibuat di kurir — ajukan ke Syahbandar bila ada masalah.");
+    }
     const why = alasan.trim().slice(0, 200) || "tanpa alasan";
-    await batalkan(tx, d, "cancelled", `Dibatalkan di tempat oleh pihak ${p.toUpperCase()}: ${why}`);
+    const kapan = d.mode === "kirim" ? "sebelum dikirim" : "di tempat";
+    await batalkan(tx, d, "cancelled", `Dibatalkan ${kapan} oleh pihak ${p.toUpperCase()}: ${why}`);
   });
 }
 
 export async function sengketa(userId: string, dealId: string, alasan: string) {
   return prisma.$transaction(async (tx) => {
     const d = await kunciDeal(tx, dealId);
-    pastikanBoleh(d.status, pihakDari(d, userId), "sengketa");
+    pastikanBoleh(d.status, pihakDari(d, userId), "sengketa", d.mode);
     const why = alasan.trim().slice(0, 300);
     if (why.length < 5) throw new Error("Ceritakan masalahnya (minimal 5 huruf).");
     await tx.barterDeal.update({ where: { id: d.id }, data: { status: "disputed", cancel_reason: why } });
   });
 }
 
-/** Pihak `userId` memindai/mengetik kode milik pihak lawan. Dua-duanya terpindai → selesai. */
+/** Sistem mengirim deal ke Syahbandar (paket bermasalah / penahanan silang). */
+export async function sengketaSistem(tx: Tx, d: DealRow, alasan: string, fault: Pihak | null = null) {
+  pastikanBoleh(d.status, "system", "sengketa", d.mode);
+  await tx.barterDeal.update({
+    where: { id: d.id },
+    data: { status: "disputed", cancel_reason: alasan, fault_party: fault },
+  });
+}
+
+/** COD: pihak `userId` memindai/mengetik kode milik pihak lawan. Dua-duanya terpindai → selesai. */
 export async function pindai(userId: string, dealId: string, input: string): Promise<{ done: boolean }> {
   const res = await prisma.$transaction(async (tx) => {
     const d = await kunciDeal(tx, dealId);
     const p = pihakDari(d, userId);
-    pastikanBoleh(d.status, p, "pindai");
+    pastikanBoleh(d.status, p, "pindai", d.mode);
     if (!d.agreed_at) throw new Error("Tawaran belum disepakati.");
     if (d.scan_fails >= MAKS_GAGAL_PINDAI) {
       throw new Error("Terlalu banyak kode salah. Ajukan ke Syahbandar bila ada masalah.");
@@ -295,6 +372,31 @@ export async function pindai(userId: string, dealId: string, input: string): Pro
   return { done: res.done };
 }
 
+/** Kirim: pihak menyatakan barang lawan sudah diterima & sesuai. Dua-duanya (atau otomatis) → selesai. */
+export async function konfirmasi(aktor: { userId: string } | "system", dealId: string): Promise<{ done: boolean }> {
+  return prisma.$transaction(async (tx) => {
+    const d = await kunciDeal(tx, dealId);
+    if (aktor === "system") {
+      pastikanBoleh(d.status, "system", "konfirmasi", d.mode);
+      await selesaikan(tx, d, "done", `Dikonfirmasi otomatis setelah paket sampai`);
+      return { done: true };
+    }
+    const p = pihakDari(d, aktor.userId);
+    pastikanBoleh(d.status, p, "konfirmasi", d.mode);
+    const now = new Date();
+    const conf = { a: p === "a" ? now : d.confirmed_a_at, b: p === "b" ? now : d.confirmed_b_at };
+    await tx.barterDeal.update({
+      where: { id: d.id },
+      data: p === "a" ? { confirmed_a_at: now } : { confirmed_b_at: now },
+    });
+    if (conf.a && conf.b) {
+      await selesaikan(tx, d, "done");
+      return { done: true };
+    }
+    return { done: false };
+  });
+}
+
 /** Syahbandar memutus sengketa. */
 export async function putus(dealId: string, keputusan: "selesai" | "batal") {
   return prisma.$transaction(async (tx) => {
@@ -317,27 +419,74 @@ export async function tutupBarang(userId: string, itemId: string) {
   });
 }
 
-/** Dipanggil cron: tawaran/kesepakatan lewat batas waktu → kedaluwarsa, rekber kembali. */
-export async function kedaluwarsakan(now = new Date()): Promise<number> {
+/**
+ * Dipanggil cron:
+ * - tawaran/kesepakatan lewat batas waktu → kedaluwarsa, rekber kembali
+ *   (kecuali paket sudah dibuat di kurir → Syahbandar);
+ * - paket sampai lewat JAM_KONFIRMASI → selesai otomatis;
+ * - penahanan silang: satu paket sudah jalan > JAM_PENAHANAN_SILANG, paket lain belum → Syahbandar.
+ */
+export async function majukanTukar(now = new Date()) {
+  const hasil = { kedaluwarsa: 0, selesai: 0, sengketa: 0 };
+
   const due = await prisma.barterDeal.findMany({
-    where: { status: { in: ["proposed", "agreed"] }, expires_at: { lt: now } },
+    where: { status: { in: ["proposed", "agreed", "diterima"] }, expires_at: { lt: now } },
     select: { id: true },
     take: 100,
   });
-  let n = 0;
   for (const { id } of due) {
-    await prisma.$transaction(async (tx) => {
+    const r = await prisma.$transaction(async (tx) => {
       const d = await kunciDeal(tx, id);
-      if ((d.status !== "proposed" && d.status !== "agreed") || !d.expires_at || d.expires_at >= now) return;
-      pastikanBoleh(d.status, "system", "kedaluwarsa");
-      await batalkan(
+      if (!d.expires_at || d.expires_at >= now) return null;
+      if (d.status === "diterima") {
+        await selesaikan(tx, d, "done", "Dikonfirmasi otomatis setelah paket sampai");
+        return "selesai" as const;
+      }
+      if (d.status !== "proposed" && d.status !== "agreed") return null;
+      if (d.shipments.some((s) => s.order_id && s.status !== "failed")) {
+        await sengketaSistem(tx, d, "Batas waktu lewat tetapi sebagian paket sudah dibuat di kurir");
+        return "sengketa" as const;
+      }
+      const why =
+        d.status === "proposed"
+          ? `Tawaran tidak dijawab ${HARI_TAWARAN} hari`
+          : d.mode === "cod"
+            ? `Tidak ketemuan dalam ${JAM_COD} jam`
+            : `Ongkir tidak dilunasi dalam ${JAM_BAYAR_ONGKIR} jam`;
+      // Pihak yang belum melunasi ongkir dicatat sebagai penyebab.
+      const belumBayar =
+        d.mode === "kirim" && d.status === "agreed"
+          ? d.shipments.filter((s) => s.status === "quoted").map((s) => (s.payer_id === d.itemA.user_id ? "a" : "b"))
+          : [];
+      await batalkan(tx, d, "expired", why, belumBayar.length === 1 ? (belumBayar[0] as Pihak) : null);
+      return "kedaluwarsa" as const;
+    });
+    if (r) hasil[r]++;
+  }
+
+  const batasSilang = new Date(now.getTime() - JAM_PENAHANAN_SILANG * JAM);
+  const silang = await prisma.barterDeal.findMany({
+    where: { status: "dikirim", shipments: { some: { shipped_at: { lt: batasSilang } } } },
+    select: { id: true },
+    take: 100,
+  });
+  for (const { id } of silang) {
+    const r = await prisma.$transaction(async (tx) => {
+      const d = await kunciDeal(tx, id);
+      if (d.status !== "dikirim") return null;
+      const jalan = d.shipments.find((s) => s.shipped_at && s.shipped_at < batasSilang);
+      const mandek = d.shipments.find((s) => !s.shipped_at);
+      if (!jalan || !mandek) return null;
+      const fault: Pihak = mandek.leg === "a_to_b" ? "a" : "b";
+      await sengketaSistem(
         tx,
         d,
-        "expired",
-        d.status === "proposed" ? "Tawaran tidak dijawab 7 hari" : `Tidak ketemuan dalam ${JAM_COD} jam`,
+        `Penahanan silang: pihak ${fault.toUpperCase()} belum menyerahkan paket ke kurir ${JAM_PENAHANAN_SILANG} jam setelah pihak lain mengirim`,
+        fault,
       );
-      n++;
+      return "sengketa" as const;
     });
+    if (r) hasil[r]++;
   }
-  return n;
+  return hasil;
 }

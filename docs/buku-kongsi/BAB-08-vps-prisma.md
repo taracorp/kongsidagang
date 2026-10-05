@@ -243,3 +243,82 @@ Traefik yang sudah ada di VPS, cukup atur port.
   - Cron tanpa kunci 401. Tamu tetap bisa melihat `/tukar`; halaman deal mengarahkan tamu ke `/masuk`.
 - **Rollback:** `git revert kd-tukar-m3`. Kolom baru boleh dibiarkan. Bila revert, status deal `rejected`/`cancelled`
   tetap ada di DB (kode lama hanya menampilkannya apa adanya).
+
+### Ch 8.15 — Tukar Guling v2, M4: mode Kirim via KiriminAja
+2026-10-06
+- **Keputusan Tara:** kurir memakai **KiriminAja** (Mitra API), bukan Biteship.
+  Dokumentasi: github.com/kiriminaja/docs. SDK PHP hanya dipakai sebagai rujukan endpoint.
+- **Klien** `lib/shipping/kiriminaja.ts`:
+  - Endpoint yang dipakai:
+    - `GET /api/mitra/v6.1/addresses` (cari kelurahan)
+    - `POST /v6.1/shipping_price` (tarif + asuransi)
+    - `POST /v2/schedules` (jadwal pickup)
+    - `POST /v6.2/pin/validate` lalu `POST /v6.2/request_pickup` (ongkir dipotong dari **KA Credit** platform)
+    - `POST /v3/cancel_shipment`
+  - Env: `KIRIMINAJA_API_KEY`, `KIRIMINAJA_BASE_URL` (default sandbox `tdev`), `KIRIMINAJA_PIN`.
+  - Tanpa key dengan `KIRIMINAJA_MOCK=true` → **driver tiruan**. Tanpa keduanya, mode Kirim tersembunyi dan
+    hanya COD yang tampil.
+- **Alur** (`lib/domain/tukar-kirim.ts`):
+  1. Pengaju memilih "Kirim kurir" + alamat. Ditahan: bea + tambahan + **deposit** (10%, min 5rb, maks 200rb).
+  2. Penerima memilih alamat.
+     - Tarif termurah dua arah dihitung (ongkir + asuransi). Berat & dimensi dikunci dari kategori, misalnya
+       sepeda 140×20×75 cm; komoditas dihitung sebagai kubus setara berat.
+     - Dua paket berstatus `quoted` dibuat.
+     - Penerima langsung menahan bea + deposit + **ongkir barang yang ia terima** ("bayar apa yang kamu terima").
+  3. Pengaju melunasi ongkirnya dalam **12 jam**. Bila tidak, kedaluwarsa, penyebab = pengaju, dan semua rekber kembali.
+  4. Dua-duanya lunas → dua order dibuat di KiriminAja.
+     - Paket diklaim atomik (`paid|failed → requested`), jadi tidak ada order dobel.
+     - Rekber ongkir **diambil** (dibayar dari KA Credit).
+     - Gagal → status `failed` + tombol "Coba buat order kurir lagi". Deal → `dikirim`.
+  5. **Webhook** `POST /api/kiriminaja/webhook` (header `Bearer {api_key}`, dicek timing-safe).
+     - Event yang diproses: `processed/shipped/finished/canceled/returned/problem_packages`.
+       Status tidak mundur karena callback terlambat.
+     - Dua paket sampai → `diterima` → tiap pihak konfirmasi (atau **otomatis 48 jam** lewat cron) → selesai:
+       bea diambil, tambahan dilepas, deposit kembali.
+     - Paket batal/diretur/bermasalah → otomatis ke Syahbandar beserta alasan dari kurir.
+  6. **Penahanan silang** (cron): satu paket sudah jalan > 48 jam, paket lain belum diserahkan → Syahbandar,
+     `fault_party` = pihak yang belum kirim. Deposit tetap ditahan menunggu putusan.
+- **Lainnya:**
+  - Batal sepihak hanya boleh sebelum order kurir dibuat.
+  - Cron `advance-barter` kini menjalankan `majukanTukar()`: kedaluwarsa, konfirmasi otomatis, dan penahanan silang.
+- **Alamat** (`UserAddress`, `/pakhuis/alamat`):
+  - Isi: nama, HP (divalidasi sesuai aturan KiriminAja), jalan, kelurahan dari pencarian wilayah (ID KiriminAja + kode pos),
+    dan titik koordinat ("Pakai lokasiku", wajib untuk pickup).
+  - Maksimal 5 alamat per user.
+  - Pencarian wilayah di-cache 24 jam dan dibatasi 20 kali/menit per user.
+- **UI:**
+  - Lembar Ajukan Tukar: pilihan 🤝 COD / 📦 Kirim, pilih alamat, baris deposit.
+  - Halaman deal: kartu paket per arah (kurir, estimasi, ongkir, resi, status), bayar ongkir + hitung mundur,
+    coba ulang order, konfirmasi terima.
+  - Admin Syahbandar menampilkan mode, alasan, dan penyebab dari sistem.
+- **Skema:** migrasi `20261005170606_tukar_kirim`.
+  - `user_addresses`, `barter_shipments` (unik `order_id` dan `(deal_id, leg)`).
+  - Kolom deal: `address_a/b_id, deposit_a/b, confirmed_a/b_at`.
+  - Status deal + `dikirim|diterima`.
+  - Dimensi paket di `barter_categories`.
+  - Sudah di-apply ke `kongsi_dev`. **Produksi: belum.**
+- **Catatan teknis:**
+  - `ajukan` tidak lagi menjalankan query paralel di dalam transaksi.
+  - Peringatan `pg` "client.query() when already executing" yang tersisa berasal dari internal Prisma adapter-pg,
+    bukan kode kita.
+  - Kurir instan (GoSend/Grab, maks 40 kg, butuh koordinat) **belum** dipakai. Barang berat memakai layanan
+    express/trucking dari hasil tarif.
+- **Verifikasi:**
+  - `scripts/uji/kirim.ts` lulus 30/30 (driver tiruan): deposit, dimensi, validasi alamat/HP, rekber per pihak,
+    order tidak dobel, webhook idempoten, konfirmasi, kedaluwarsa ongkir, penahanan silang, paket bermasalah,
+    dan Σ transaksi = saldo.
+  - Uji ulang: `pundi` 10/10, `taksiran` 16/16, `tukar` 32/32, `npm run flow` 19/19.
+    Flow kini mengisi Pundi dulu agar tidak bergantung pada sisa saldo penguji.
+  - Uji browser dua akun (mobile, dev dengan `KIRIMINAJA_MOCK=true`):
+    - Penguji menambah alamat lewat form (cari "sleman", lokasi tiruan).
+    - Penguji mengajukan Buku 200rb ⇄ HP 300rb (ditahan 130rb). Admin menerima, penguji membayar ongkir → `dikirim`.
+    - Webhook disimulasikan via HTTP (token salah → 401) → sampai → kedua pihak konfirmasi → selesai.
+    - DB: bea diambil, deposit 20rb/30rb kembali, dua ongkir diambil, tambahan 100rb dilepas.
+- **Untuk produksi:**
+  1. Daftar & dapatkan API key: sandbox dulu, lalu produksi.
+  2. Isi `KIRIMINAJA_*` di `.env` VPS.
+  3. Isi saldo KA Credit dan atur PIN.
+  4. `POST /api/mitra/set_callback` ke `https://kongsidagang.store/api/kiriminaja/webhook`.
+  5. Tambah baris crontab `advance-barter`.
+- **Rollback:** `git revert kd-tukar-m4`. Tabel/kolom baru boleh dibiarkan. Kosongkan `KIRIMINAJA_*` untuk
+  mematikan mode Kirim tanpa revert.

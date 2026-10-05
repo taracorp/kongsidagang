@@ -17,7 +17,7 @@ Kondisi kode sekarang (`app/actions/tukar.ts`, `prisma/schema.prisma` L262–311
 Keputusan Tara:
 - **Lingkup:** semua bagian dibangun (bea, paket Isi Pundi, taksiran, COD QR, kirim+rekber, deposit, KYC).
 - **Bea:** ditanggung kedua pihak.
-- **Kurir:** Biteship.
+- **Kurir:** ~~Biteship~~ → **KiriminAja** (keputusan Tara, 6 Okt 2026; lihat Ch 8.15).
 - **DOKU:** belum siap, Isi Pundi tetap demo.
 - **Istilah UI:** "Keteng" di semua tempat.
 
@@ -130,7 +130,7 @@ Kalau Tara tidak setuju, deposit atau KYC bisa dimatikan lewat konstanta tanpa m
 - **Komponen:** `DealActions` di `components/kongsi/BarterActions.tsx` ditulis ulang utuh per status.
   Halaman deal baru `app/(kongsi)/tukar/deal/[id]/page.tsx` (QR, timeline, pelacakan).
 
-### M4 — Mode Kirim via Biteship
+### M4 — Mode Kirim via KiriminAja (semula Biteship)
 - **`lib/shipping/biteship.ts`:** `getRates, createOrder, getTracking`. Env `BITESHIP_API_KEY`.
   Tanpa key → driver mock, supaya dev dan tes tetap jalan.
 - **Model `BarterShipment`:**

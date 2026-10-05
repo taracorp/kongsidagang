@@ -41,6 +41,7 @@ model User {
   vouchers            Voucher[]
   walletTransactions  WalletTransaction[]
   walletHolds         WalletHold[]
+  addresses           UserAddress[]
   follows             Follow[]
 
   @@map("user")
@@ -293,6 +294,63 @@ model BarterItem {
   @@map("barter_items")
 }
 
+// Alamat kirim milik user (dipakai mode Kirim Tukar Guling). Wilayah = ID KiriminAja.
+model UserAddress {
+  id             String   @id @default(uuid())
+  user_id        String
+  user           User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  label          String   @default("Rumah")
+  name           String
+  phone          String
+  address        String // jalan, nomor, RT/RW
+  area           String // "Kelurahan, Kecamatan, Kota, Provinsi, Kodepos" dari pencarian
+  district_id    Int // kecamatan_id KiriminAja
+  subdistrict_id Int // kelurahan_id KiriminAja
+  zipcode        String
+  lat            Float
+  lng            Float
+  created_at     DateTime @default(now())
+
+  @@index([user_id])
+  @@map("user_addresses")
+}
+
+// Satu paket dalam tukar mode Kirim. a_to_b = barang A dikirim ke B (ongkir dibayar B, penerima).
+model BarterShipment {
+  id            String     @id @default(uuid())
+  deal_id       String
+  deal          BarterDeal @relation(fields: [deal_id], references: [id], onDelete: Cascade)
+  leg           String // a_to_b | b_to_a
+  payer_id      String // penerima paket = pembayar ongkir
+  origin        Json // snapshot alamat pengirim
+  destination   Json // snapshot alamat penerima
+  weight_g      Int
+  length_cm     Int
+  width_cm      Int
+  height_cm     Int
+  item_value    Int
+  courier       String // kode kurir (service) KiriminAja, mis. jne
+  service_type  String // mis. REG23
+  service_name  String
+  etd           String?
+  shipping_cost Int
+  insurance     Int        @default(0)
+  order_id      String?    @unique // ID kita di KiriminAja (≤ 20 karakter)
+  pickup_number String?
+  awb           String?
+  // quoted | paid | requested | shipped | delivered | canceled | returned | problem | failed
+  status        String     @default("quoted")
+  status_text   String?
+  events        Json       @default("[]")
+  shipped_at    DateTime?
+  delivered_at  DateTime?
+  created_at    DateTime   @default(now())
+  updated_at    DateTime   @updatedAt
+
+  @@unique([deal_id, leg])
+  @@map("barter_shipments")
+}
+
 // Kategori taksiran. kind: komoditas (qty × harga) | aset (penyusutan × kondisi).
 model BarterCategory {
   slug           String  @id
@@ -303,6 +361,9 @@ model BarterCategory {
   rate_next      Float   @default(0) // aset: susut per tahun berikutnya
   floor_pct      Float   @default(0.1) // aset: nilai minimum terhadap harga beli
   ship_weight_kg Float // aset: per barang; komoditas: per satuan
+  ship_length_cm Int? // aset: dimensi paket (volumetrik kurir); komoditas dihitung dari berat
+  ship_width_cm  Int?
+  ship_height_cm Int?
   needs_serial   Boolean @default(false)
   serial_label   String? // "IMEI", "Nomor rangka", …
   checklist      Json // [{ key, q, penalty }]
@@ -336,7 +397,8 @@ model BarterDeal {
   item_b       String
   itemB        BarterItem @relation("DealItemB", fields: [item_b], references: [id], onDelete: Cascade)
   topup_keping Int        @default(0)
-  // proposed | agreed | done | rejected | cancelled | expired | disputed | resolved (lib/domain/tukar-aturan.ts)
+  // proposed | agreed | dikirim | diterima | done | rejected | cancelled | expired | disputed | resolved
+  // (lib/domain/tukar-aturan.ts)
   status       String     @default("proposed")
   created_at   DateTime   @default(now())
 
@@ -357,6 +419,16 @@ model BarterDeal {
   cancel_reason String?
   fault_party   String? // a | b
   closed_at     DateTime?
+
+  // Mode Kirim (KiriminAja)
+  address_a_id   String? // alamat pemilik item A (asal paket A, tujuan paket B)
+  address_b_id   String?
+  deposit_a      Int       @default(0)
+  deposit_b      Int       @default(0)
+  confirmed_a_at DateTime? // A mengonfirmasi barang B diterima & sesuai
+  confirmed_b_at DateTime?
+
+  shipments BarterShipment[]
 
   ratings BarterRating[]
 

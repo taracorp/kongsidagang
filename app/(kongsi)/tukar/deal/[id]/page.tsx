@@ -9,10 +9,14 @@ import {
   BatalAtauSengketa,
   NilaiTukar,
   HitungMundur,
+  BayarOngkir,
+  CobaKirimLagi,
+  KonfirmasiTerima,
 } from "@/components/kongsi/DealTukar";
 import { getSessionUser } from "@/lib/auth";
-import { getDealDetail } from "@/lib/queries";
+import { getDealDetail, type DealPaket } from "@/lib/queries";
 import { kodeKetemu } from "@/lib/domain/tukar";
+import { alamatSaya } from "@/lib/domain/alamat";
 import { labelStatus, titikAmanLabel } from "@/lib/domain/tukar-aturan";
 import { formatKeping } from "@/lib/utils";
 
@@ -22,13 +26,47 @@ const QR_WARNA = { dark: "#3A2417", light: "#FBEDD2" };
 const statusPill: Record<string, "gold" | "sage" | "indigo" | "live"> = {
   proposed: "gold",
   agreed: "live",
+  dikirim: "live",
+  diterima: "gold",
   done: "sage",
   resolved: "sage",
   disputed: "live",
 };
 
+const statusPaket: Record<string, string> = {
+  quoted: "belum dibayar",
+  paid: "ongkir lunas",
+  requested: "order dibuat",
+  shipped: "dibawa kurir",
+  delivered: "sampai",
+  canceled: "dibatalkan",
+  returned: "diretur",
+  problem: "bermasalah",
+  failed: "gagal dibuat",
+};
+
 const kartu = "rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-5 shadow-hard";
 const judul = "mb-3 font-fraunces text-lg font-black text-kongsi-indigo";
+
+function KartuPaket({ p, mine, theirs }: { p: DealPaket; mine: string; theirs: string }) {
+  return (
+    <div className="rounded-[4px] border-[1.5px] border-kongsi-ink/30 bg-kongsi-parchment-3 p-3 text-[13px]">
+      <div className="flex items-center justify-between gap-2">
+        <b>{p.iReceive ? `${theirs} → aku` : `${mine} → dia`}</b>
+        <Pill variant={p.status === "delivered" ? "sage" : ["problem", "failed", "canceled", "returned"].includes(p.status) ? "live" : "gold"}>
+          {statusPaket[p.status] ?? p.status}
+        </Pill>
+      </div>
+      <div className="mt-1 text-kongsi-ink-soft">
+        {p.serviceName}
+        {p.etd ? ` · ${p.etd} hari` : ""} · ongkir {formatKeping(p.ongkir)}
+        {p.iReceive ? " (aku bayar)" : " (dia bayar)"}
+      </div>
+      {p.awb ? <div className="mt-1">Resi: <b className="font-fraunces tracking-[1px]">{p.awb}</b></div> : null}
+      {p.statusText ? <div className="mt-1 text-[12px]">{p.statusText}</div> : null}
+    </div>
+  );
+}
 
 export default async function DealPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -37,17 +75,24 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
   const d = await getDealDetail(id, user.id);
   if (!d) notFound();
 
-  const myCode = d.status === "agreed" && d.agreedAt ? kodeKetemu(d.id, d.me, d.agreedAt) : null;
+  const kirim = d.mode === "kirim";
+  const myCode = !kirim && d.status === "agreed" && d.agreedAt ? kodeKetemu(d.id, d.me, d.agreedAt) : null;
   const qrSvg = myCode
     ? await QRCode.toString(`KDT:${d.id}:${myCode}`, { type: "svg", margin: 1, color: QR_WARNA })
     : null;
+  const alamat = kirim && d.status === "proposed" && d.me === "b" ? await alamatSaya(user.id) : [];
+  const paketKu = d.paket.find((p) => p.iReceive);
+  const adaGagal = d.paket.some((p) => p.status === "failed");
+  const ditahanAwal = d.myFee + (d.iPayTopup ? d.topup : 0) + d.myDeposit;
   const row = "flex justify-between gap-3 py-[3px]";
 
   return (
     <section className="py-[34px]">
       <div className="mx-auto max-w-[720px] space-y-5 px-5">
         <div className="text-center">
-          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Tukar Guling</div>
+          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">
+            Tukar Guling · {kirim ? "Kirim kurir" : "COD"}
+          </div>
           <h2 className="mt-1 font-fraunces text-[28px] font-black leading-tight text-kongsi-indigo">
             {d.mine.title} ⇄ {d.theirs.title}
           </h2>
@@ -79,12 +124,26 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
               <span>Bea Tukar-ku</span>
               <b>{formatKeping(d.myFee)}</b>
             </div>
+            {d.myDeposit > 0 ? (
+              <div className={row}>
+                <span>Deposit Kirim-ku (kembali saat selesai)</span>
+                <b>{formatKeping(d.myDeposit)}</b>
+              </div>
+            ) : null}
+            {paketKu ? (
+              <div className={row}>
+                <span>Ongkir barang yang kuterima</span>
+                <b>{formatKeping(paketKu.ongkir)}</b>
+              </div>
+            ) : null}
             <div className={`${row} font-bold`}>
-              <span>Keteng-ku yang ditahan Kongsi</span>
-              <span>{formatKeping(d.myFee + (d.iPayTopup ? d.topup : 0))}</span>
+              <span>Keteng-ku yang ditahan / dipakai</span>
+              <span>{formatKeping(ditahanAwal + (paketKu && paketKu.status !== "quoted" ? paketKu.ongkir : 0))}</span>
             </div>
             <p className="mt-2 text-[12px] text-kongsi-ink-soft">
-              Rekber dilepas saat kedua pihak saling memindai kode di Titik Aman. Batal / kedaluwarsa → kembali utuh.
+              {kirim
+                ? "Bea diambil & deposit kembali setelah kedua paket sampai dan dikonfirmasi. Batal sebelum paket dibuat → semua kembali."
+                : "Rekber dilepas saat kedua pihak saling memindai kode di Titik Aman. Batal / kedaluwarsa → kembali utuh."}
             </p>
           </div>
         </div>
@@ -96,9 +155,15 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
                 <h3 className={judul}>{d.counterparty.name} mengajak tukar</h3>
                 <p className="mb-3 text-[13px] text-kongsi-ink-soft">
                   Terima = bea Tukar-mu ({formatKeping(d.myFee)})
-                  {d.iPayTopup ? ` + tambahan ${formatKeping(d.topup)}` : ""} ditahan, lalu atur ketemuan.
+                  {d.iPayTopup ? ` + tambahan ${formatKeping(d.topup)}` : ""}
+                  {d.myDeposit ? ` + deposit ${formatKeping(d.myDeposit)}` : ""} ditahan
+                  {kirim ? ", plus ongkir barang yang kamu terima." : ", lalu atur ketemuan."}
                 </p>
-                <TerimaTawaran dealId={d.id} />
+                <TerimaTawaran
+                  dealId={d.id}
+                  mode={d.mode}
+                  alamat={alamat.map((a) => ({ id: a.id, label: a.label, area: a.area }))}
+                />
               </>
             ) : (
               <>
@@ -114,7 +179,8 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
           </div>
         ) : null}
 
-        {d.status === "agreed" ? (
+        {/* ---------- COD ---------- */}
+        {!kirim && d.status === "agreed" ? (
           <>
             <div className={kartu}>
               <h3 className={judul}>Ketemuan di Titik Aman</h3>
@@ -165,6 +231,94 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
               <BatalAtauSengketa dealId={d.id} />
             </div>
           </>
+        ) : null}
+
+        {/* ---------- Kirim ---------- */}
+        {kirim && ["agreed", "dikirim", "diterima"].includes(d.status) ? (
+          <div className={kartu}>
+            <h3 className={judul}>Pengiriman</h3>
+            <div className="space-y-3">
+              {d.paket.map((p) => (
+                <KartuPaket key={p.leg} p={p} mine={d.mine.title} theirs={d.theirs.title} />
+              ))}
+            </div>
+            <div className="mt-3 text-[13px]">
+              Kontak {d.counterparty.name}: <b>{d.counterparty.email}</b>
+            </div>
+
+            {d.status === "agreed" ? (
+              <div className="mt-4 space-y-3">
+                {paketKu?.status === "quoted" ? (
+                  <>
+                    <p className="text-[13px]">
+                      Lunasi ongkir barang yang kamu terima agar kedua paket bisa dijemput kurir.
+                      {d.expiresAt ? (
+                        <>
+                          {" "}
+                          Batas: <b><HitungMundur until={d.expiresAt} /></b>
+                        </>
+                      ) : null}
+                    </p>
+                    <BayarOngkir dealId={d.id} amount={paketKu.ongkir} />
+                  </>
+                ) : adaGagal ? (
+                  <>
+                    <p className="text-[13px] text-kongsi-bad">Order kurir gagal dibuat. Keteng-mu aman di rekber.</p>
+                    <CobaKirimLagi dealId={d.id} />
+                  </>
+                ) : (
+                  <p className="text-[13px] text-kongsi-ink-soft">
+                    Menunggu {d.counterparty.name} melunasi ongkir
+                    {d.expiresAt ? (
+                      <>
+                        {" "}
+                        (<HitungMundur until={d.expiresAt} />)
+                      </>
+                    ) : null}
+                    .
+                  </p>
+                )}
+              </div>
+            ) : null}
+
+            {d.status === "dikirim" ? (
+              <p className="mt-4 text-[13px] text-kongsi-ink-soft">
+                Siapkan & kemas barangmu — kurir menjemput sesuai jadwal. Bila satu pihak tidak menyerahkan paket
+                2×24 jam setelah pihak lain mengirim, Syahbandar turun tangan.
+              </p>
+            ) : null}
+
+            {d.status === "diterima" ? (
+              <div className="mt-4 space-y-2">
+                {d.myConfirmed ? (
+                  <p className="font-bold text-kongsi-ok">✓ Kamu sudah mengonfirmasi. Menunggu {d.counterparty.name}.</p>
+                ) : (
+                  <>
+                    <p className="text-[13px]">
+                      Kedua paket sudah sampai. Periksa barangnya (rekam video unboxing!) lalu konfirmasi.
+                    </p>
+                    <KonfirmasiTerima dealId={d.id} />
+                  </>
+                )}
+                {d.expiresAt ? (
+                  <p className="text-[12px] text-kongsi-ink-soft">
+                    Konfirmasi otomatis: <HitungMundur until={d.expiresAt} />
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {kirim && ["agreed", "dikirim", "diterima"].includes(d.status) ? (
+          <div className={kartu}>
+            <h3 className={judul}>Ada masalah?</h3>
+            <BatalAtauSengketa
+              dealId={d.id}
+              bolehBatal={d.status === "agreed" && !d.hasCourierOrder}
+              labelBatal="Batalkan sebelum dikirim"
+            />
+          </div>
         ) : null}
 
         {d.status === "done" || d.status === "resolved" ? (

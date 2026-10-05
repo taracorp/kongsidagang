@@ -422,10 +422,28 @@ export async function getMyBarter(userId: string): Promise<{
   }
 }
 
+export type DealPaket = {
+  leg: "a_to_b" | "b_to_a";
+  iReceive: boolean; // paket ini menuju aku (aku pembayar ongkirnya)
+  courier: string;
+  serviceName: string;
+  etd: string | null;
+  ongkir: number; // ongkir + asuransi
+  status: string;
+  statusText: string | null;
+  awb: string | null;
+};
+
 export type DealDetail = {
   id: string;
   status: string;
+  mode: "cod" | "kirim";
   me: "a" | "b";
+  myDeposit: number;
+  paket: DealPaket[];
+  myConfirmed: boolean;
+  theirConfirmed: boolean;
+  hasCourierOrder: boolean;
   mine: { title: string; value: number; photo_url: string | null };
   theirs: { title: string; value: number; photo_url: string | null };
   myFee: number;
@@ -452,6 +470,7 @@ export async function getDealDetail(dealId: string, userId: string): Promise<Dea
       itemA: { select: { title: true, user_id: true, city: true, photo_url: true, user: { select: { name: true, email: true } } } },
       itemB: { select: { title: true, user_id: true, city: true, photo_url: true, user: { select: { name: true, email: true } } } },
       ratings: { where: { rater_id: userId }, select: { id: true } },
+      shipments: { orderBy: { leg: "asc" } },
     },
   });
   if (!d) return null;
@@ -459,11 +478,27 @@ export async function getDealDetail(dealId: string, userId: string): Promise<Dea
   if (!me) return null;
   const [mi, ti] = me === "a" ? [d.itemA, d.itemB] : [d.itemB, d.itemA];
   const [mv, tv] = me === "a" ? [d.value_a, d.value_b] : [d.value_b, d.value_a];
-  const kontakTerbuka = ["agreed", "done", "disputed", "resolved"].includes(d.status);
+  const kontakTerbuka = ["agreed", "dikirim", "diterima", "done", "disputed", "resolved"].includes(d.status);
   return {
     id: d.id,
     status: d.status,
+    mode: d.mode === "kirim" ? "kirim" : "cod",
     me,
+    myDeposit: me === "a" ? d.deposit_a : d.deposit_b,
+    paket: d.shipments.map((s) => ({
+      leg: s.leg === "a_to_b" ? "a_to_b" : "b_to_a",
+      iReceive: s.payer_id === userId,
+      courier: s.courier,
+      serviceName: s.service_name,
+      etd: s.etd,
+      ongkir: s.shipping_cost + s.insurance,
+      status: s.status,
+      statusText: s.status_text,
+      awb: s.awb,
+    })),
+    myConfirmed: Boolean(me === "a" ? d.confirmed_a_at : d.confirmed_b_at),
+    theirConfirmed: Boolean(me === "a" ? d.confirmed_b_at : d.confirmed_a_at),
+    hasCourierOrder: d.shipments.some((s) => s.order_id && s.status !== "failed"),
     mine: { title: mi.title, value: mv ?? 0, photo_url: mi.photo_url },
     theirs: { title: ti.title, value: tv ?? 0, photo_url: ti.photo_url },
     myFee: me === "a" ? d.fee_a : d.fee_b,
@@ -496,6 +531,9 @@ export type DisputeDeal = {
   topup: number;
   itemA: string;
   itemB: string;
+  mode: string;
+  reason: string | null;
+  fault: string | null;
 };
 
 export async function getDisputedDeals(): Promise<DisputeDeal[]> {
@@ -508,6 +546,9 @@ export async function getDisputedDeals(): Promise<DisputeDeal[]> {
       select: {
         id: true,
         topup_keping: true,
+        mode: true,
+        cancel_reason: true,
+        fault_party: true,
         itemA: { select: { title: true } },
         itemB: { select: { title: true } },
       },
@@ -518,6 +559,9 @@ export async function getDisputedDeals(): Promise<DisputeDeal[]> {
       topup: d.topup_keping,
       itemA: d.itemA.title,
       itemB: d.itemB.title,
+      mode: d.mode,
+      reason: d.cancel_reason,
+      fault: d.fault_party,
     }));
   } catch {
     return [];

@@ -48,9 +48,9 @@ async function main() {
     const c0 = await bal(C);
     const d3 = await T.ajukan(C, hp.id, sepeda.id, 900_000);
 
-    ok(await gagal(() => T.terima(A, d1, "minimarket", "Indomaret Kaliurang")), "pengaju tidak bisa menerima sendiri");
-    ok(await gagal(() => T.terima(B, d1, "rumah", "Rumahku")), "Titik Aman wajib dari daftar");
-    await T.terima(B, d1, "minimarket", "Indomaret Kaliurang km 5");
+    ok(await gagal(() => T.terima(A, d1, { meetType: "minimarket", meetPlace: "Indomaret Kaliurang" })), "pengaju tidak bisa menerima sendiri");
+    ok(await gagal(() => T.terima(B, d1, { meetType: "rumah", meetPlace: "Rumahku" })), "Titik Aman wajib dari daftar");
+    await T.terima(B, d1, { meetType: "minimarket", meetPlace: "Indomaret Kaliurang km 5" });
     ok((await bal(B)) === 106_000 - 10_000, "B menahan bea 10rb saat menerima");
     ok((await deal(d3)).status === "rejected" && (await bal(C)) === c0, "tawaran C otomatis ditolak, rekber C kembali");
     ok((await prisma.barterItem.findUniqueOrThrow({ where: { id: sepeda.id } })).status === "dalam_tukar", "barang terkunci dalam_tukar");
@@ -78,7 +78,7 @@ async function main() {
     const kaos = await item(C, "Kaos", 20_000);
     const a0 = await bal(A), cc0 = await bal(C);
     const d4 = await T.ajukan(A, buku.id, kaos.id, 0);
-    await T.terima(C, d4, "kedai", "Kopi Kenangan Seturan");
+    await T.terima(C, d4, { meetType: "kedai", meetPlace: "Kopi Kenangan Seturan" });
     ok((await bal(A)) === a0 - 2_000 && (await bal(C)) === cc0 - 2_000, "barang 20rb → bea 2rb tiap pihak");
     await T.batalDiTempat(C, d4, "barang tidak sesuai");
     ok((await bal(A)) === a0 && (await bal(C)) === cc0, "batal di tempat → bea kembali");
@@ -86,14 +86,14 @@ async function main() {
 
     // Kedaluwarsa
     const d5 = await T.ajukan(A, buku.id, kaos.id, 0);
-    await T.terima(C, d5, "polisi", "Polsek Depok Barat");
+    await T.terima(C, d5, { meetType: "polisi", meetPlace: "Polsek Depok Barat" });
     await prisma.barterDeal.update({ where: { id: d5 }, data: { expires_at: new Date(Date.now() - 1000) } });
-    const n = await T.kedaluwarsakan();
+    const n = (await T.majukanTukar()).kedaluwarsa;
     ok(n >= 1 && (await deal(d5)).status === "expired" && (await bal(A)) === a0, "lewat 72 jam → kedaluwarsa, rekber kembali");
 
     // Sengketa → putus selesai
     const d6 = await T.ajukan(A, buku.id, kaos.id, 0);
-    await T.terima(C, d6, "mal", "Plaza Ambarrukmo");
+    await T.terima(C, d6, { meetType: "mal", meetPlace: "Plaza Ambarrukmo" });
     await T.sengketa(A, d6, "Tidak datang dan minta transfer di luar aplikasi");
     ok((await deal(d6)).status === "disputed", "sengketa tercatat, rekber tetap ditahan");
     await T.putus(d6, "batal");

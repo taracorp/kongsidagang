@@ -127,6 +127,14 @@ if (!SKIP_AUTH && EMAIL && PASSWORD) {
     console.log("SKIP  tebak (lelang bukan fase tebak saat ini)");
   }
 
+  // Isi Pundi dulu agar uji bayar tidak bergantung pada sisa saldo (butuh ENABLE_TOPUP_DEMO=true).
+  await p2.goto(`${BASE}/pakhuis`, { waitUntil: "networkidle" });
+  await p2.waitForTimeout(800);
+  await p2.waitForTimeout(700);
+  await p2.click('button:has-text("Juragan")');
+  await p2.click('button:has-text("Isi 270.000 Keteng")');
+  await p2.waitForTimeout(2000);
+
   // Bayar dengan Keteng (keranjang masih berisi 2 barang dari langkah guest)
   await p2.goto(`${BASE}/bayar`, { waitUntil: "domcontentloaded" });
   await p2.waitForTimeout(1000);
