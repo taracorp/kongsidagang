@@ -77,3 +77,22 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - Bug yang ketemu & diperbaiki: `router.refresh()` setelah `router.push()` membatalkan navigasi
   sesudah unggah Tukar; seed penguji ber-level `tuan_kecil` tanpa `total_spend` (turun level setelah belanja).
 - **Rollback:** `kd-pre-vps` (kode Supabase). Untuk VPS: `docker rm -f kongsi-db` (+ `docker volume rm kongsi-db-data`).
+
+### Ch 8.9 — P7 Live di VPS: https://kongsidagang.store
+`tag kd-vps-live` · 2026-10-05
+- **Aplikasi:** `/var/www/kongsidagang` (clone `taracorp/kongsidagang`), `.env` produksi (chmod 600, secret dibuat
+  di VPS; `ENABLE_TOPUP_DEMO=false`, `UPLOAD_DIR=/var/www/kongsidagang-uploads`). pm2 `kongsidagang` (port 3020, sudah `pm2 save`).
+- **DB produksi** `kongsi`: `prisma migrate deploy` (init + checks) + seed katalog. Akun Ketua Kongsi:
+  `taradfworkspace@gmail.com` (sandi awal ada di `.env` VPS → `SEED_ADMIN_PASSWORD`; ganti setelah masuk).
+- **Route:** `/data/coolify/proxy/dynamic/kongsidagang.yml`. Entrypoint proxy ini bernama `http`/`https`
+  (bukan `web`/`websecure`). Gateway host yang terjangkau dari `coolify-proxy` = **172.16.0.1** (bukan 172.17.0.1).
+  `http://` dan `www.` di-redirect 308 ke `https://kongsidagang.store`. Sertifikat Let's Encrypt aktif.
+- **Crontab root:** `* * * * * /root/kongsi-cron.sh` (timer lelang → `/api/cron/advance-auctions`) dan
+  `15 3 * * * /root/kongsi-backup.sh` (`pg_dump` + tar unggahan → `/root/backups/kongsi`, simpan 7 hari). Backup pertama sudah dibuat.
+- **Update berikutnya:** push ke GitHub, lalu di VPS `bash /var/www/kongsidagang/scripts/deploy.sh`.
+- **Verifikasi produksi:** `npm run flow` dengan `SHOT_BASE=https://kongsidagang.store KD_SKIP_AUTH=1` → 10/10 PASS
+  (alur tamu, gate bayar, harga rahasia aman, Vendu terkunci, cron 401). Login Ketua → `/pakhuis`; `/admin`, `/admin/lelang`,
+  `/admin/peran` 200. SSE lewat Traefik menerima event dari crontab. halobugar/beautifio/berkampanye tetap 200/307.
+- **Belum:** login Google (menunggu `GOOGLE_CLIENT_ID/SECRET`; client lama di Supabase = project Google Cloud nomor `247112782471`).
+- **Rollback:** `pm2 delete kongsidagang && pm2 save`, hapus `kongsidagang.yml` dan dua baris crontab kongsi.
+  Kode Supabase tetap ada di tag `kd-pre-vps`.

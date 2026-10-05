@@ -25,6 +25,7 @@ Titik rollback = **git tag annotated** `kd-*`. Lihat semua: `git tag -l 'kd-*' -
 | `kd-buku-kongsi` | 3b31848 | 2026-10-05 | Buku Kongsi + tag rollback | 0001–0016 |
 | `kd-pre-vps` | 47d4119 | 2026-10-05 | **Versi Supabase terakhir** (sebelum VPS/Prisma) | 0001–0016 (Supabase) |
 | `kd-prisma` | e437565 | 2026-10-05 | Prisma + Better Auth, lulus tes lokal | Prisma: init, checks |
+| `kd-vps-live` | (commit Ch 8.9) | 2026-10-05 | **Live di https://kongsidagang.store** (pm2 :3020, Traefik, crontab) | Prisma: init, checks |
 
 ## Prosedur
 

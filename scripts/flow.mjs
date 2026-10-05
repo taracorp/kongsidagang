@@ -19,6 +19,8 @@ const local = envLocal();
 
 const BASE = process.env.SHOT_BASE ?? "http://localhost:3939";
 const EMAIL = process.env.KD_TEST_EMAIL ?? local.SEED_TESTER_EMAIL;
+// KD_SKIP_AUTH=1 untuk uji produksi tanpa akun penguji.
+const SKIP_AUTH = process.env.KD_SKIP_AUTH === "1";
 const PASSWORD = process.env.KD_TEST_PASSWORD ?? local.SEED_TESTER_PASSWORD;
 
 const browser = await chromium.launch({
@@ -98,7 +100,7 @@ check(
 const cronRes = await fetch(`${BASE}/api/cron/advance-auctions`, { method: "POST" });
 check("cron tanpa CRON_SECRET → 401", cronRes.status === 401);
 
-if (EMAIL && PASSWORD) {
+if (!SKIP_AUTH && EMAIL && PASSWORD) {
   const p2 = await ctx.newPage();
   await p2.goto(`${BASE}/masuk`, { waitUntil: "domcontentloaded" });
   await p2.fill("#email", EMAIL);
