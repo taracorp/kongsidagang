@@ -564,3 +564,21 @@ Traefik yang sudah ada di VPS, cukup atur port.
     lonceng 2 → 0 setelah dibaca; petugas menebus, tebus ulang ditolak; `/loji` 308.
   - tsc + eslint lolos; screenshot desktop & mobile.
 - **Rollback:** restore backup pra-deploy + `git revert kd-lapak-evoucher`, lalu `deploy.sh`.
+
+### Ch 8.22 — Deploy produksi: Lapak & e-voucher
+2026-10-06
+- **Backup:** `/root/backup-kongsi/kongsi-20261006-120156-pre-lapak-evoucher.sql.gz` (30 tabel). Produksi belum punya
+  voucher atau transaksi belanja lama, jadi tidak ada data yang perlu dipindahkan.
+- **Deploy:**
+  - Percobaan pertama macet di `git pull` (SSH VPS → GitHub tergantung 10 menit). Dihentikan, `git fetch`
+    diulang dengan `ConnectTimeout`, lalu `deploy.sh` dijalankan via `nohup` (log `/root/deploy-lapak.log`).
+  - Migrasi `20261006120000_lapak_evoucher_notifikasi` diterapkan; build; pm2 reload; HTTP 200.
+- **Data:** `scripts/data/tenant-asli.ts` di produksi:
+  - pemilik lapak = akun Superadmin Tara;
+  - dihapus 7 loji, 10 harga Neraca, 3 lelang, 6 barang tukar contoh, 5 artikel;
+  - Beauty Center 10 cabang + 38 e-voucher, logo ✓; DRW Studio segera hadir; 6 artikel terbit.
+- **Verifikasi:**
+  - `npm run flow` (tamu) terhadap https://kongsidagang.store: 17/17.
+  - `/loji` → 308 `/lapak`; logo `/uploads/lapak/*` 200.
+  - Saldo Tara 10.000 Keteng (Isi Pundi 10rb) kini juga tampil di TopBar.
+- **Rollback:** restore backup di atas + `git revert kd-lapak-evoucher`, lalu `deploy.sh`.
