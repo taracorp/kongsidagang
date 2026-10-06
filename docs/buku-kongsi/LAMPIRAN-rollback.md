@@ -34,7 +34,7 @@ Titik rollback = **git tag annotated** `kd-*`. Lihat semua: `git tag -l 'kd-*' -
 | `kd-prod-tukar-v2` | c76f4f3 | 2026-10-06 | **Live di produksi**: Tukar Guling v2 (COD) + Isi Pundi DOKU | 7 migrasi Prisma (s/d topup_doku), diterapkan ke `kongsi` |
 | `kd-juru-taksir` | d04de82 | 2026-10-06 | Juru Taksir gratis (BigGo + SearXNG) + rumus taksiran baru + tombol sesuai pakem | + 20261006040057_juru_taksir (dev saja) |
 | `kd-isi-nominal` | ceab51d | 2026-10-06 | Isi Pundi: nominal favorit + bebas (s/d 50jt) + saran dari kekurangan saldo | (tanpa migrasi) |
-| `kd-lapak-evoucher` | (lihat tag) | 2026-10-06 | Tenant asli + e-voucher berkode + Loji→Lapak + notifikasi + Kabar berisi | migrasi `20261006120000_lapak_evoucher_notifikasi` |
+| `kd-lapak-evoucher` | 34607e7 | 2026-10-06 | Tenant asli + e-voucher berkode + Loji→Lapak + notifikasi + Kabar berisi | migrasi `20261006120000_lapak_evoucher_notifikasi` |
 
 ## Prosedur
 
