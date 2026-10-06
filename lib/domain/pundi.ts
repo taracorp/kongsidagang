@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import type { Prisma, UserLevel } from "@/lib/generated/prisma/client";
 import { randomBytes } from "node:crypto";
-import { findPackage } from "@/lib/pundi-paket";
+import { findPackage, rincianIsi } from "@/lib/pundi-paket";
 import { doku } from "@/lib/payment/doku";
 
 // Port dari plpgsql spend/topup/redeem/checkout/recompute_level (migrasi Supabase 0014 & 0015).
@@ -113,20 +113,24 @@ export async function refundHold(tx: Tx, holdId: string, note: string) {
 // Isi Pundi
 // ============================================================
 
-/** Isi Pundi paket (DEMO — ganti DOKU di M6). Hanya aktif bila ENABLE_TOPUP_DEMO=true. */
-export async function topupDemo(userId: string, packageId: string): Promise<number> {
+/**
+ * Isi Pundi DEMO (tanpa pembayaran). Hanya aktif bila ENABLE_TOPUP_DEMO=true.
+ * `pilihan` = id paket ("pedagang") atau nominal rupiah ("1500000").
+ */
+export async function topupDemo(userId: string, pilihan: string): Promise<number> {
   if (process.env.ENABLE_TOPUP_DEMO !== "true") {
     throw new Error("Isi Pundi belum tersedia.");
   }
-  const pkg = findPackage(packageId);
-  if (!pkg) throw new Error("Paket tidak dikenal");
+  const r = rincianIsi(pilihan);
   return prisma.$transaction(async (tx) => {
-    let bal = await credit(tx, userId, pkg.price, "isi", `Isi Pundi paket ${pkg.name} (demo)`);
-    const bonus = pkg.keteng - pkg.price;
-    if (bonus > 0) bal = await credit(tx, userId, bonus, "bonus", `Bonus paket ${pkg.name}`);
+    let bal = await credit(tx, userId, r.price, "isi", `Isi Pundi ${labelIsi(r)} (demo)`);
+    const bonus = r.keteng - r.price;
+    if (bonus > 0) bal = await credit(tx, userId, bonus, "bonus", `Bonus paket ${r.name}`);
     return bal;
   });
 }
+
+const labelIsi = (r: { packageId: string; name: string }) => (r.packageId === "nominal" ? r.name : `paket ${r.name}`);
 
 // ============================================================
 // Isi Pundi lewat DOKU Checkout
@@ -148,13 +152,12 @@ function invoiceBaru() {
 /** Buat pesanan Isi Pundi + sesi DOKU Checkout. Keteng BELUM masuk sampai pembayaran sukses. */
 export async function mulaiIsiPundi(
   user: { id: string; name: string; email: string },
-  packageId: string,
+  pilihan: string,
   siteUrl: string,
 ): Promise<{ url: string; invoice: string }> {
   const drv = doku();
   if (!drv) throw new Error("Pembayaran DOKU belum tersedia.");
-  const pkg = findPackage(packageId);
-  if (!pkg) throw new Error("Paket tidak dikenal");
+  const pkg = rincianIsi(pilihan);
   const pending = await prisma.topupOrder.count({
     where: { user_id: user.id, status: "pending", created_at: { gt: new Date(Date.now() - 3600_000) } },
   });
@@ -164,7 +167,7 @@ export async function mulaiIsiPundi(
   const sesi = await drv.buatCheckout({
     invoice,
     amount: pkg.price,
-    itemName: `Isi Pundi ${pkg.name} (${pkg.keteng.toLocaleString("id-ID")} Keteng)`,
+    itemName: `Isi Pundi ${labelIsi(pkg)} (${pkg.keteng.toLocaleString("id-ID")} Keteng)`,
     customer: { id: user.id, name: user.name || user.email, email: user.email },
     callbackUrl: `${siteUrl.replace(/\/$/, "")}/pakhuis?isi=${encodeURIComponent(invoice)}`,
     dueMinutes: MENIT_BAYAR,
@@ -173,7 +176,7 @@ export async function mulaiIsiPundi(
     data: {
       user_id: user.id,
       invoice_number: invoice,
-      package_id: pkg.id,
+      package_id: pkg.packageId,
       price: pkg.price,
       keteng: pkg.keteng,
       provider: drv.nama,
@@ -200,9 +203,9 @@ export async function lunasiIsiPundi(invoice: string, amount: number, channel: s
     });
     if (res.count !== 1) return "sudah";
     const pkg = findPackage(o.package_id);
-    const nama = pkg?.name ?? o.package_id;
-    await credit(tx, o.user_id, o.price, "isi", `Isi Pundi paket ${nama} (DOKU${channel ? ` ${channel}` : ""})`);
-    if (o.keteng > o.price) await credit(tx, o.user_id, o.keteng - o.price, "bonus", `Bonus paket ${nama}`);
+    const nama = pkg ? `paket ${pkg.name}` : `Rp ${o.price.toLocaleString("id-ID")}`;
+    await credit(tx, o.user_id, o.price, "isi", `Isi Pundi ${nama} (DOKU${channel ? ` ${channel}` : ""})`);
+    if (o.keteng > o.price) await credit(tx, o.user_id, o.keteng - o.price, "bonus", `Bonus ${nama}`);
     return "lunas";
   });
 }

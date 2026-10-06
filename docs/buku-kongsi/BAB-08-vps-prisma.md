@@ -466,3 +466,44 @@ Traefik yang sudah ada di VPS, cukup atur port.
     Diulang dengan tunnel yang tersambung otomatis → lulus.
 - **Rollback:** `git revert kd-juru-taksir`. Untuk mematikan SearXNG: `docker rm -f kongsi-searxng`.
   Kolom baru boleh dibiarkan.
+
+### Ch 8.19 — Deploy produksi: Juru Taksir
+2026-10-06
+- Atas perintah Tara ("deploy").
+- **Langkah:**
+  1. Backup DB `kongsi`: `/root/backup-kongsi/kongsi-20261006-045821-pre-juru-taksir.sql.gz` (29 tabel).
+  2. `git push`, lalu `deploy.sh`: migrasi `20261006040057_juru_taksir` diterapkan, build, pm2 reload, HTTP 200.
+  3. SearXNG `kongsi-searxng` sudah berjalan di VPS (Ch 8.18). App memakai default `http://127.0.0.1:8888`.
+- **Verifikasi produksi:**
+  - BigGo terjangkau dari IP VPS (`ssrData` ada); SearXNG 200.
+  - `/tukar` menampilkan label akurasi; barang lama berlabel "taksiran lama".
+  - `/tukar/tawarkan` untuk tamu → `/masuk`.
+- **Rollback:** restore backup di atas + `git revert kd-juru-taksir`, lalu `deploy.sh`.
+
+### Ch 8.20 — Isi Pundi: nominal favorit, nominal bebas, saran dari kekurangan saldo
+2026-10-06
+- **Masalah (Tara):** paket maksimal 250rb (270rb Keteng). Untuk menutup selisih tukar 1,5jt atau 10jt, user harus
+  mengisi berkali-kali.
+- **Perubahan** (`lib/pundi-paket.ts`, ditulis ulang):
+  - **Paket hemat** berbonus tetap (Eceran–Juragan).
+  - **Nominal favorit** tanpa bonus: 500rb, 1jt, 2jt, 5jt.
+  - **Nominal lain** bebas: Rp10.000–Rp50.000.000, kelipatan Rp1.000.
+  - `rincianIsi()` = validasi tunggal yang dipakai client dan server. Nominal bebas dicatat `package_id = "nominal"`
+    di `topup_orders`, dengan keteng = harga.
+- **Saran nominal:** `tautanIsi(kurang)` → `/pakhuis?isi_nominal=…#isi-pundi` (dibulatkan ke atas ke Rp1.000).
+  Dipakai di:
+  - lembar Ajukan Tukar (kekurangan = ditahan − saldo),
+  - halaman deal (terima / bayar ongkir, saldo dihitung di server),
+  - halaman bayar keranjang.
+  Pakhuis menampilkan pemberitahuan dan nominal terisi otomatis.
+- **UI:** tetap di kartu Pundi merah, dengan gaya kartu pilihan yang sama (paket hemat, nominal favorit, input
+  nominal lain). Tidak ada gaya baru.
+- **Verifikasi:**
+  - `scripts/uji/isi-nominal.ts` 11/11.
+  - `isi-pundi` 17/17 (+ nominal 1,5jt lewat notifikasi DOKU tiruan, tanpa bonus); `pundi` 10/10.
+  - `npm run flow` 21/21; tsc + eslint lolos.
+  - Uji browser: dari tautan kekurangan 1.432.150 → tombol "Isi 1.433.000 Keteng"; favorit 2jt; 1.500.500 ditolak
+    (kelipatan); 1.500.000 → halaman bayar tiruan → "Pembayaran diterima — 1.500.000 Keteng masuk Pundi".
+- **Catatan:** batas per transaksi tiap metode DOKU (QRIS/VA/gerai) berbeda; DOKU sendiri menyembunyikan metode
+  yang tidak sanggup menampung nominal.
+- **Rollback:** `git revert kd-isi-nominal`.

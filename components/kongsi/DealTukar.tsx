@@ -15,6 +15,7 @@ import {
   konfirmasiTerima,
 } from "@/app/actions/tukar";
 import { TITIK_AMAN } from "@/lib/domain/tukar-aturan";
+import { saranIsi, tautanIsi } from "@/lib/pundi-paket";
 import { cn, formatKeping } from "@/lib/utils";
 import { KongsiButton } from "./KongsiButton";
 
@@ -22,10 +23,19 @@ const input =
   "w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-3 py-[10px] font-work text-sm focus:outline-2 focus:outline-kongsi-beeswax";
 const label = "mb-[5px] block text-[13px] font-bold";
 
-function Pesan({ m }: { m: string | null }) {
+/** Pesan galat; bila saldo kurang, sertakan tautan Isi Pundi dengan nominal kekurangan. */
+function Pesan({ m, kurang }: { m: string | null; kurang?: number }) {
   return m ? (
     <p className="mt-2 rounded-[4px] border-2 border-kongsi-grenadine bg-kongsi-parchment-3 px-3 py-2 text-[13px] text-kongsi-grenadine-dark">
       {m}
+      {/saldo/i.test(m) ? (
+        <>
+          {" "}
+          <a href={tautanIsi(kurang ?? 0)} className="font-bold underline">
+            Isi Pundi{kurang ? ` ${formatKeping(saranIsi(kurang))}` : ""}
+          </a>
+        </>
+      ) : null}
     </p>
   ) : null;
 }
@@ -52,10 +62,12 @@ export function TerimaTawaran({
   dealId,
   mode,
   alamat = [],
+  kurang = 0,
 }: {
   dealId: string;
   mode: "cod" | "kirim";
   alamat?: AlamatPilihan[];
+  kurang?: number; // kekurangan saldo untuk rekber saat menerima (perkiraan)
 }) {
   const { busy, err, jalankan } = useAksi();
   const [type, setType] = useState<string>(TITIK_AMAN[0].key);
@@ -106,7 +118,7 @@ export function TerimaTawaran({
           Ongkir dihitung otomatis (kurir termurah + asuransi). Kamu membayar ongkir barang yang <b>kamu terima</b>.
         </p>
         {tombol}
-        <Pesan m={err} />
+        <Pesan m={err} kurang={kurang} />
       </div>
     );
   }
@@ -138,19 +150,19 @@ export function TerimaTawaran({
         Tempat umum, terang, ramai / ber-CCTV. Jangan ketemuan di rumah.
       </p>
       {tombol}
-      <Pesan m={err} />
+      <Pesan m={err} kurang={kurang} />
     </div>
   );
 }
 
-export function BayarOngkir({ dealId, amount }: { dealId: string; amount: number }) {
+export function BayarOngkir({ dealId, amount, kurang = 0 }: { dealId: string; amount: number; kurang?: number }) {
   const { busy, err, jalankan } = useAksi();
   return (
     <div>
       <KongsiButton type="button" block disabled={busy} onClick={() => jalankan(() => bayarOngkirTukar(dealId))}>
         {busy ? "Memproses…" : `Bayar ongkir ${formatKeping(amount)} dari Pundi`}
       </KongsiButton>
-      <Pesan m={err} />
+      <Pesan m={err} kurang={kurang} />
     </div>
   );
 }

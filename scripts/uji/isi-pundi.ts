@@ -59,6 +59,14 @@ async function main() {
     await Promise.all(Array.from({ length: 5 }, () => P.lunasiIsiPundi(c.invoice, 10_000, "VA").catch(() => "galat")));
     ok((await bal()) === 62_000, "5 pelunasan bersamaan → kredit sekali");
 
+    // Nominal bebas (mis. menutup selisih tukar 1,5jt): tanpa bonus, nominal wajib cocok.
+    const nb = await P.mulaiIsiPundi(user, "1500000", "https://kongsidagang.store");
+    const ob = await prisma.topupOrder.findUniqueOrThrow({ where: { invoice_number: nb.invoice } });
+    ok(ob.package_id === "nominal" && ob.price === 1_500_000 && ob.keteng === 1_500_000, "pesanan nominal bebas 1,5jt dibuat");
+    const sebelum = await bal();
+    await notif({ order: { invoice_number: nb.invoice, amount: 1500000 }, transaction: { status: "SUCCESS" } });
+    ok((await bal()) === sebelum + 1_500_000, "nominal 1,5jt masuk tepat (tanpa bonus)");
+
     // Semua pesanan sebelumnya sudah lunas/gagal → 3 pending baru boleh, yang ke-4 ditolak.
     for (let i = 0; i < 3; i++) await P.mulaiIsiPundi(user, "eceran", "https://x");
     const ke4 = await P.mulaiIsiPundi(user, "eceran", "https://x").then(() => "lolos", (e: Error) => e.message);

@@ -14,7 +14,7 @@ import {
   KonfirmasiTerima,
 } from "@/components/kongsi/DealTukar";
 import { getSessionUser } from "@/lib/auth";
-import { getDealDetail, type DealBarang, type DealPaket } from "@/lib/queries";
+import { getDealDetail, getWalletBalance, type DealBarang, type DealPaket } from "@/lib/queries";
 import { kodeKetemu } from "@/lib/domain/tukar";
 import { alamatSaya } from "@/lib/domain/alamat";
 import { labelStatus, titikAmanLabel } from "@/lib/domain/tukar-aturan";
@@ -105,7 +105,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const user = await getSessionUser();
   if (!user) redirect("/masuk");
-  const d = await getDealDetail(id, user.id);
+  const [d, saldo] = await Promise.all([getDealDetail(id, user.id), getWalletBalance(user.id)]);
   if (!d) notFound();
 
   const kirim = d.mode === "kirim";
@@ -199,6 +199,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
                 <TerimaTawaran
                   dealId={d.id}
                   mode={d.mode}
+                  kurang={Math.max(0, ditahanAwal - saldo)}
                   alamat={alamat.map((a) => ({ id: a.id, label: a.label, area: a.area }))}
                 />
               </>
@@ -296,7 +297,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
                         </>
                       ) : null}
                     </p>
-                    <BayarOngkir dealId={d.id} amount={paketKu.ongkir} />
+                    <BayarOngkir dealId={d.id} amount={paketKu.ongkir} kurang={Math.max(0, paketKu.ongkir - saldo)} />
                   </>
                 ) : adaGagal ? (
                   <>

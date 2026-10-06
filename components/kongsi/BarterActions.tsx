@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ajukanTukar, tutupBarang, mintaTera } from "@/app/actions/tukar";
 import { beaTukar, depositKirim, hitungSelisih } from "@/lib/domain/tukar-aturan";
+import { tautanIsi } from "@/lib/pundi-paket";
 import { cn, formatKeping } from "@/lib/utils";
 
 type MyItem = { id: string; title: string; value: number; kirimOk: boolean };
@@ -251,7 +252,7 @@ export function AjukanTukar({
                 </div>
 
                 {kurang ? (
-                  <a href="/pakhuis" className={cn(small, "block bg-kongsi-beeswax")}>
+                  <a href={tautanIsi(ditahan - balance)} className={cn(small, "block bg-kongsi-beeswax")}>
                     Saldo {formatKeping(balance)} kurang — Isi Pundi
                   </a>
                 ) : (

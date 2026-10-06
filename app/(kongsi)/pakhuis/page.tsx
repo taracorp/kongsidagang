@@ -6,6 +6,7 @@ import { IsiPundiPaket, VoucherRedeem } from "@/components/kongsi/PundiActions";
 import { getPakhuis } from "@/lib/queries";
 import { getSessionUser } from "@/lib/auth";
 import { isiPundiTersedia, rekonsiliasiIsiPundi } from "@/lib/domain/pundi";
+import { saranIsi } from "@/lib/pundi-paket";
 import { cn, formatKeping } from "@/lib/utils";
 import { levelTangga } from "@/lib/data-e";
 
@@ -20,9 +21,10 @@ const levelOrder = [
 export default async function PakhuisPage({
   searchParams,
 }: {
-  searchParams: Promise<{ isi?: string }>;
+  searchParams: Promise<{ isi?: string; isi_nominal?: string }>;
 }) {
-  const { isi } = await searchParams;
+  const { isi, isi_nominal } = await searchParams;
+  const saran = isi_nominal ? saranIsi(Number(String(isi_nominal).replace(/\D/g, ""))) : null;
   // Kembali dari DOKU: cocokkan status dulu (notifikasi bisa terlambat) sebelum saldo dibaca.
   const user = isi ? await getSessionUser() : null;
   const pesanan = user && isi ? await rekonsiliasiIsiPundi(user.id, String(isi)) : null;
@@ -119,7 +121,7 @@ export default async function PakhuisPage({
               Keteng (= {formatKeping(data.balance)})
             </small>
           </div>
-          <IsiPundiPaket mode={modeIsi} />
+          <IsiPundiPaket mode={modeIsi} saran={saran} />
           <CompassRose
             size={90}
             className="absolute -bottom-2 -right-2 text-kongsi-parchment opacity-15"

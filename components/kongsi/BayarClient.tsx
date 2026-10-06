@@ -9,6 +9,7 @@ import { KongsiButton, KongsiLinkButton } from "@/components/kongsi/KongsiButton
 import { useCart } from "@/components/kongsi/cart";
 import { GoogleButton } from "@/components/kongsi/GoogleButton";
 import { cn, formatKeping } from "@/lib/utils";
+import { tautanIsi } from "@/lib/pundi-paket";
 
 const BEA = 2000;
 const ONGKIR = 9000;
@@ -210,7 +211,7 @@ export function BayarClient({
                   {pay.k === "error" ? (
                     <p className="mt-3 rounded-[4px] border-2 border-kongsi-grenadine bg-[#FBE3D5] px-3 py-2 text-[13px] text-kongsi-grenadine-dark">
                       {pay.m}{" "}
-                      <Link href="/pakhuis" className="font-bold underline">
+                      <Link href={tautanIsi(total)} className="font-bold underline">
                         Isi Pundi
                       </Link>
                     </p>

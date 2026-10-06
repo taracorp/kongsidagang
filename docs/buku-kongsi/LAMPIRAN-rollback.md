@@ -33,6 +33,7 @@ Titik rollback = **git tag annotated** `kd-*`. Lihat semua: `git tag -l 'kd-*' -
 | `kd-isi-doku` | 4814041 | 2026-10-06 | Isi Pundi lewat DOKU Checkout (produksi) | + 20261006090000_topup_doku |
 | `kd-prod-tukar-v2` | c76f4f3 | 2026-10-06 | **Live di produksi**: Tukar Guling v2 (COD) + Isi Pundi DOKU | 7 migrasi Prisma (s/d topup_doku), diterapkan ke `kongsi` |
 | `kd-juru-taksir` | d04de82 | 2026-10-06 | Juru Taksir gratis (BigGo + SearXNG) + rumus taksiran baru + tombol sesuai pakem | + 20261006040057_juru_taksir (dev saja) |
+| `kd-isi-nominal` | (lihat tag) | 2026-10-06 | Isi Pundi: nominal favorit + bebas (s/d 50jt) + saran dari kekurangan saldo | (tanpa migrasi) |
 
 ## Prosedur
 
