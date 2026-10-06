@@ -31,6 +31,7 @@ Titik rollback = **git tag annotated** `kd-*`. Lihat semua: `git tag -l 'kd-*' -
 | `kd-tukar-m3` | 00045f7 | 2026-10-05 | Tukar v2 M3: kesepakatan, bea, rekber, COD QR | + 20261005140117_tukar_deal (dev saja) |
 | `kd-tukar-m4` | 8b6b1ec | 2026-10-06 | Tukar v2 M4: mode Kirim via KiriminAja | + 20261005170606_tukar_kirim (dev saja) |
 | `kd-isi-doku` | 4814041 | 2026-10-06 | Isi Pundi lewat DOKU Checkout (produksi) | + 20261006090000_topup_doku |
+| `kd-prod-tukar-v2` | (lihat tag) | 2026-10-06 | **Live di produksi**: Tukar Guling v2 (COD) + Isi Pundi DOKU | 7 migrasi Prisma (s/d topup_doku), diterapkan ke `kongsi` |
 
 ## Prosedur
 

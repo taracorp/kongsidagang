@@ -367,3 +367,37 @@ Traefik yang sudah ada di VPS, cukup atur port.
     - Langkah bayar menunggu kondisi, tidak lagi jeda tetap; sebelumnya kadang gagal saat dev server mengompilasi.
 - **Rollback:** `git revert kd-isi-doku`. Kosongkan `DOKU_*` di `.env` VPS untuk kembali ke mode demo/mati.
   Tabel `topup_orders` boleh dibiarkan.
+
+### Ch 8.17 — Deploy produksi: Tukar Guling v2 (M1–M4) + Isi Pundi DOKU
+2026-10-06
+- **Atas permintaan Tara** ("pastikan update terbaru publish"). Produksi sebelumnya masih di `df7fb2d` (Ch 8.11),
+  jadi semua pekerjaan M1–M4 + DOKU belum tayang.
+- **Langkah:**
+  1. Backup DB produksi: `/root/backup-kongsi/kongsi-20261006-015631-pre-tukar-v2.sql.gz` (23 tabel).
+  2. `.env` VPS dibackup (`.env.bak-*`), lalu ditambah `DOKU_BASE_URL`, `DOKU_CLIENT_ID`, `DOKU_SECRET_KEY`,
+     `BARTER_QR_SECRET` (acak). **Tidak** ada `*_MOCK` di produksi. KiriminAja belum diisi, jadi mode Kirim
+     tersembunyi dan hanya COD yang tampil.
+  3. `git push origin main --tags`, lalu `bash scripts/deploy.sh` di VPS: migrasi `wallet_holds`, `taksiran`,
+     `tukar_deal`, `tukar_kirim`, `topup_doku` diterapkan ke DB `kongsi`; build; pm2 reload. Hasil:
+     "Database schema is up to date!", HTTP 200.
+  4. `/root/kongsi-cron.sh` (dibackup `.bak-*`) kini juga memanggil `/api/cron/advance-barter` tiap 10 menit.
+     Uji manual hasilnya `{"kedaluwarsa":0,"selesai":0,"sengketa":0}`; tanpa kunci → 401.
+  5. Data lama di DB produksi: teks "tambahan keping" → "tambahan Keteng" (1 barang, 1 artikel).
+- **Verifikasi publik** (https://kongsidagang.store):
+  - `/tukar` menampilkan teks baru.
+  - `/tukar/tawarkan` untuk tamu → `/masuk`.
+  - `/api/doku/notifikasi` tanpa tanda tangan → 401; `/api/kiriminaja/webhook` tanpa token → 401.
+  - `/pakhuis/isi/tiruan` → 404.
+  - `npm run flow` mode tamu: 10/10 setelah cek harga rahasia diperhalus.
+    - Sebelumnya FAIL palsu: lelang produksi sedang berstatus `bayar`, sehingga `revealed_price` 470.000 tampil
+      **sesuai desain** (`REVEAL_STATUSES`).
+    - Cek kini memastikan `deal_price` (400.000) tidak pernah tampil.
+- **Belum:**
+  - Uji Isi Pundi sungguhan di produksi (bayar nominal kecil) menunggu Tara; yang sudah dibuktikan baru
+    pembuatan sesi.
+  - Aktifkan QRIS/VA di DOKU Back Office.
+  - KiriminAja (API key, KA Credit, PIN, `set_callback`).
+- **Rollback:**
+  - Kode: `git revert kd-isi-doku..HEAD` atau tag sebelumnya, lalu jalankan ulang `deploy.sh`.
+  - DB: restore backup di atas (`zcat … | docker exec -i kongsi-db psql -U kongsi -d kongsi`) bila migrasi perlu
+    dibatalkan total. Hati-hati: data sejak deploy akan hilang.

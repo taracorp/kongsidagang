@@ -73,11 +73,12 @@ check(
   (await p.locator("text=Masuk untuk Ikut Lelang").count()) > 0,
 );
 
-// Harga rahasia tidak boleh ada di HTML publik (set_price seed: 470000 / deal 400000)
+// Harga rahasia tidak boleh ada di HTML publik. deal_price (seed 400000) tidak pernah boleh tampil;
+// set_price (470000) SAH tampil sebagai revealed_price setelah fase pengungkapan, jadi tidak dicek angkanya.
 const html = await (await fetch(`${BASE}/lelang`)).text();
 check(
   "harga rahasia tidak bocor di /lelang",
-  !/set_price|deal_price|470\.?000/.test(html),
+  !/set_price|deal_price|400\.?000/.test(html),
 );
 
 await p.goto(`${BASE}/loji`, { waitUntil: "domcontentloaded" });
