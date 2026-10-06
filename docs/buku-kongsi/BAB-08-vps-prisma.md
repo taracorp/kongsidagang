@@ -388,7 +388,12 @@ Traefik yang sudah ada di VPS, cukup atur port.
   - `/tukar/tawarkan` untuk tamu → `/masuk`.
   - `/api/doku/notifikasi` tanpa tanda tangan → 401; `/api/kiriminaja/webhook` tanpa token → 401.
   - `/pakhuis/isi/tiruan` → 404.
-  - `npm run flow` mode tamu: 10/10 setelah cek harga rahasia diperhalus.
+  - `npm run flow` mode tamu: 8–9/10. Cek harga rahasia lulus setelah diperhalus.
+    - Yang gagal (berubah-ubah antar percobaan) hanya "lelang tampil auction" dan "ajakan Masuk untuk Ikut".
+      Keduanya bergantung pada fase lelang **live** di produksi: saat dicek, lelang hotel berstatus `bayar`
+      (tanpa tombol ikut) dan lelang spa `kumpul`.
+    - Tidak ada kode lelang yang berubah sejak `df7fb2d` (`git diff --stat` kosong), jadi bukan regresi deploy.
+      Cek flow ini perlu dibuat sadar-fase (catatan untuk Fase G).
     - Sebelumnya FAIL palsu: lelang produksi sedang berstatus `bayar`, sehingga `revealed_price` 470.000 tampil
       **sesuai desain** (`REVEAL_STATUSES`).
     - Cek kini memastikan `deal_price` (400.000) tidak pernah tampil.
