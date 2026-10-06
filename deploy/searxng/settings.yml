@@ -1,0 +1,36 @@
+# SearXNG untuk Juru Taksir Kongsi Dagang — layanan INTERNAL (127.0.0.1:8888), tidak publik.
+# Dipasang lewat scripts/searxng.sh. Secret diambil dari env SEARXNG_SECRET (bukan di repo).
+use_default_settings:
+  engines:
+    # Diuji 6 Okt 2026 dari VPS: bing/duckduckgo/yahoo andal; mojeek/startpage kadang kena batas.
+    # google (access denied), qwant (CAPTCHA), brave (rate limit) dibuang.
+    keep_only:
+      - bing
+      - duckduckgo
+      - yahoo
+      - mojeek
+      - startpage
+
+general:
+  instance_name: "kongsi-taksir"
+  enable_metrics: false
+
+search:
+  safe_search: 0
+  autocomplete: ""
+  default_lang: "id-ID"
+  formats:
+    - html
+    - json
+
+server:
+  limiter: false
+  image_proxy: false
+  public_instance: false
+  method: "GET"
+
+outgoing:
+  request_timeout: 6.0
+  max_request_timeout: 10.0
+  pool_connections: 50
+  pool_maxsize: 10

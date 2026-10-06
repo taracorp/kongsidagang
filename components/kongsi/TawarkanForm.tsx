@@ -2,49 +2,97 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { tawarkanBarang } from "@/app/actions/tukar";
+import { tawarkanBarang, cariHargaPasar } from "@/app/actions/tukar";
 import { taksir, type Taksiran, type TaksiranCategory } from "@/lib/domain/taksiran";
+import type { Pembanding, Statistik } from "@/lib/taksir/ekstrak";
 import { cn, formatKeping } from "@/lib/utils";
 import { KongsiButton } from "./KongsiButton";
+import { Pill } from "./Pill";
 
 const fieldLabel = "mb-[5px] block text-[13px] font-bold";
 const fieldInput =
   "w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-3 py-[10px] font-work text-sm focus:outline-2 focus:outline-kongsi-beeswax";
-const chip =
-  "cursor-pointer rounded-full border-[1.5px] border-kongsi-ink px-3 py-[6px] text-[13px] font-bold transition-transform hover:translate-x-[1px] hover:translate-y-[1px]";
-const chipOn = "bg-kongsi-grenadine text-kongsi-parchment";
-const chipOff = "bg-kongsi-parchment-3 text-kongsi-ink";
+// Tombol pilihan = pola .jt-chip (Juru Tunjuk): kotak, border tebal, bayangan keras.
+const pilihan =
+  "cursor-pointer rounded-[6px] border-2 border-kongsi-ink px-4 py-[10px] text-[14px] font-bold shadow-hard-sm transition-transform hover:translate-x-[1px] hover:translate-y-[1px]";
+const pilihanOn = "bg-kongsi-grenadine text-kongsi-parchment";
+const pilihanOff = "bg-kongsi-parchment text-kongsi-ink hover:bg-kongsi-beeswax";
 
 const tones = ["sage", "beeswax", "beeswax-dark", "grenadine", "grenadine-dark", "olive", "indigo"];
 const LANGKAH = ["Kategori", "Data barang", "Kondisi", "Foto & tukar"];
+const IKON: Record<string, string> = {
+  beras: "🌾",
+  gula: "🍬",
+  "minyak-goreng": "🛢️",
+  sepeda: "🚲",
+  hp: "📱",
+  laptop: "💻",
+  "elektronik-rumah": "📺",
+  buku: "📚",
+  fashion: "👕",
+  lainnya: "📦",
+};
+const CONTOH: Record<string, string> = {
+  sepeda: "cth. Sepeda Polygon Cascade 4 27.5",
+  hp: "cth. Samsung Galaxy A54 8/256",
+  laptop: "cth. Lenovo IdeaPad Slim 3 Ryzen 5",
+  "elektronik-rumah": "cth. TV LED Polytron PLD 32T1850 32 inch",
+  buku: "cth. Novel Bumi Manusia Pramoedya cetakan 1",
+  fashion: "cth. Sepatu Nike Air Force 1 ukuran 42",
+  lainnya: "cth. Kamera analog Canon AE-1",
+};
+const AKURASI: Record<string, { label: string; variant: "sage" | "gold" | "live" }> = {
+  tinggi: { label: "Akurasi tinggi", variant: "sage" },
+  sedang: { label: "Akurasi sedang", variant: "gold" },
+  rendah: { label: "Akurasi rendah", variant: "live" },
+};
 
-export function TawarkanForm({
-  categories,
-  nowYear,
-}: {
-  categories: TaksiranCategory[];
-  nowYear: number;
-}) {
+type Riset = {
+  id: string;
+  statistik: Statistik;
+  pembanding: Pembanding[];
+  jumlah: number;
+  sumberOk: string[];
+  dariCache: boolean;
+};
+
+export function TawarkanForm({ categories, nowYear }: { categories: TaksiranCategory[]; nowYear: number }) {
   const router = useRouter();
   const photoRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState(0);
   const [slug, setSlug] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [qty, setQty] = useState("");
+  const [bought, setBought] = useState<"baru" | "bekas" | null>(null);
   const [price, setPrice] = useState("");
   const [year, setYear] = useState("");
+  const [prodYear, setProdYear] = useState("");
+  const [koleksi, setKoleksi] = useState(false);
   const [serial, setSerial] = useState("");
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
   const [want, setWant] = useState("");
   const [city, setCity] = useState("");
   const [tone, setTone] = useState("sage");
+  const [riset, setRiset] = useState<Riset | null>(null);
+  const [mencari, setMencari] = useState(false);
+  const [errRiset, setErrRiset] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const cat = categories.find((c) => c.slug === slug) ?? null;
+  const aset = cat?.kind === "aset";
   const digits = (s: string) => Number(s.replace(/\D/g, ""));
 
-  // Pratinjau saja — server menghitung ulang saat disimpan.
+  // Data yang memengaruhi riset berubah → hasil riset lama tidak berlaku.
+  function ubahRiset<T>(set: (v: T) => void) {
+    return (v: T) => {
+      set(v);
+      setRiset(null);
+      setErrRiset(null);
+    };
+  }
+
+  // Pratinjau — server menghitung ulang saat disimpan.
   const preview = useMemo<{ t: Taksiran | null; why: string | null }>(() => {
     if (!cat) return { t: null, why: null };
     try {
@@ -52,26 +100,54 @@ export function TawarkanForm({
         qty: Number(qty.replace(",", ".")),
         purchasePrice: digits(price),
         purchaseYear: digits(year),
+        productionYear: digits(prodYear) || undefined,
+        boughtCondition: bought ?? "baru",
+        isCollectible: koleksi,
         answers,
         nowYear,
+        pasar: riset?.statistik ?? null,
       });
       return { t, why: null };
     } catch (e) {
       return { t: null, why: e instanceof Error ? e.message : null };
     }
-  }, [cat, qty, price, year, answers, nowYear]);
+  }, [cat, qty, price, year, prodYear, bought, koleksi, answers, nowYear, riset]);
 
   const allAnswered = !!cat && cat.checklist.every((c) => c.key in answers);
+
+  async function cariPasar() {
+    if (!cat) return;
+    if (title.trim().length < 4) {
+      setErrRiset("Tulis nama & tipe barang dulu.");
+      return;
+    }
+    setMencari(true);
+    setErrRiset(null);
+    const { data, error } = await cariHargaPasar(title.trim(), cat.slug, koleksi);
+    setMencari(false);
+    if (error) {
+      setErrRiset(error);
+      return;
+    }
+    setRiset(data ?? null);
+  }
 
   function validate(s: number): string | null {
     if (s === 0 && !cat) return "Pilih kategori dulu.";
     if (s === 1) {
-      if (!title.trim()) return "Isi nama barang.";
+      if (!title.trim()) return "Isi nama & tipe barang.";
+      if (aset && !bought) return "Pilih kondisi saat kamu membeli: baru atau bekas.";
+      if (aset && !riset) return "Tekan \"Cari harga pasar\" dulu supaya taksiran berdasar harga nyata.";
       if (preview.why) return preview.why;
       if (cat?.needs_serial && !serial.trim()) return `Isi ${cat.serial_label ?? "nomor seri"}.`;
     }
     if (s === 2 && !allAnswered) return "Jawab semua pertanyaan kondisi — ini jadi patokan bila ada sengketa.";
     return null;
+  }
+
+  function pindah(ke: number) {
+    setErr(null);
+    setStep(ke);
   }
 
   function next() {
@@ -97,6 +173,10 @@ export function TawarkanForm({
     f.set("qty", qty);
     f.set("purchase_price", price);
     f.set("purchase_year", year);
+    f.set("production_year", prodYear);
+    f.set("bought_condition", bought ?? "baru");
+    f.set("is_collectible", koleksi ? "true" : "false");
+    f.set("research_id", riset?.id ?? "");
     f.set("serial_number", serial);
     f.set("answers", JSON.stringify(answers));
     f.set("want_text", want);
@@ -115,35 +195,28 @@ export function TawarkanForm({
 
   return (
     <div className="rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-5 shadow-hard">
-      {/* Penanda langkah */}
-      <ol className="mb-4 flex flex-wrap gap-[6px]">
+      {/* Penanda langkah — pola bar Juru Tunjuk */}
+      <div className="mb-[6px] flex justify-center gap-[6px]">
         {LANGKAH.map((l, i) => (
-          <li key={l}>
-            <button
-              type="button"
-              onClick={() => {
-                if (i < step) {
-                  setErr(null);
-                  setStep(i);
-                }
-              }}
-              className={cn(
-                "rounded-full border-[1.5px] border-kongsi-ink px-[9px] py-1 text-[11px] font-bold",
-                i === step && "bg-kongsi-indigo text-kongsi-parchment",
-                i < step && "cursor-pointer bg-kongsi-sage text-kongsi-ink",
-                i > step && "bg-kongsi-parchment-3 text-kongsi-ink-soft",
-              )}
-            >
-              {i + 1}. {l}
-            </button>
-          </li>
+          <i
+            key={l}
+            className={cn(
+              "h-[6px] w-9 rounded-[3px] border-[1.5px] border-kongsi-ink",
+              i <= step ? "bg-kongsi-grenadine" : "bg-kongsi-parchment-2",
+            )}
+          />
         ))}
-      </ol>
+      </div>
+      <div className="mb-4 text-center text-[12px] font-bold text-kongsi-ink-soft">
+        Langkah {step + 1} dari {LANGKAH.length} · {LANGKAH[step]}
+      </div>
 
       {step === 0 ? (
         <div>
-          <div className={fieldLabel}>Barang apa yang mau kamu tukar?</div>
-          <div className="flex flex-wrap gap-2">
+          <div className="mb-3 text-center font-fraunces text-[22px] font-black text-kongsi-indigo">
+            Barang apa yang mau kamu tukar?
+          </div>
+          <div className="flex flex-wrap justify-center gap-3">
             {categories.map((c) => (
               <button
                 key={c.slug}
@@ -153,21 +226,24 @@ export function TawarkanForm({
                   setErr(null);
                   setSlug(c.slug);
                   setAnswers({});
+                  setRiset(null);
+                  setErrRiset(null);
                 }}
-                className={cn(chip, slug === c.slug ? chipOn : chipOff)}
+                className={cn(
+                  "flex min-w-[104px] cursor-pointer flex-col items-center gap-[6px] rounded-[6px] border-2 border-kongsi-ink px-4 py-3 text-[14px] font-bold shadow-hard-sm transition-transform hover:translate-x-[1px] hover:translate-y-[1px]",
+                  slug === c.slug ? pilihanOn : pilihanOff,
+                )}
               >
+                <span className="text-[24px]">{IKON[c.slug] ?? "📦"}</span>
                 {c.name}
               </button>
             ))}
           </div>
-          {cat?.kind === "komoditas" ? (
-            <p className="mt-3 text-[12px] text-kongsi-ink-soft">
-              Komoditas ditaksir dari harga pasar terkini
-              {cat.price_per_unit ? ` (${formatKeping(cat.price_per_unit)}/${cat.unit})` : ""}.
-            </p>
-          ) : cat ? (
-            <p className="mt-3 text-[12px] text-kongsi-ink-soft">
-              Ditaksir dari harga beli, umur, dan kondisi barang.
+          {cat ? (
+            <p className="mt-4 text-center text-[12px] text-kongsi-ink-soft">
+              {aset
+                ? "Juru Taksir akan membandingkan harga barang serupa di Tokopedia, Shopee, Lazada, Blibli, OLX & toko lain."
+                : `Ditaksir dari harga pasar terkini${cat.price_per_unit ? ` (${formatKeping(cat.price_per_unit)}/${cat.unit})` : ""}.`}
             </p>
           ) : null}
         </div>
@@ -177,16 +253,17 @@ export function TawarkanForm({
         <div>
           <div className="mb-[14px]">
             <label className={fieldLabel} htmlFor="title">
-              Nama barang
+              {aset ? "Nama & tipe lengkap (merek, seri, ukuran)" : "Nama barang"}
             </label>
             <input
               id="title"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => ubahRiset(setTitle)(e.target.value)}
               className={fieldInput}
-              placeholder={cat.kind === "komoditas" ? `cth. ${cat.name} 1 karung` : "cth. Sepeda Polygon Cascade"}
+              placeholder={aset ? (CONTOH[cat.slug] ?? "cth. merek + seri") : `cth. ${cat.name} 1 karung`}
             />
           </div>
+
           {cat.kind === "komoditas" ? (
             <div className="mb-[14px]">
               <label className={fieldLabel} htmlFor="qty">
@@ -202,10 +279,60 @@ export function TawarkanForm({
               />
             </div>
           ) : (
-            <div className="mb-[14px] grid grid-cols-2 gap-3">
-              <div>
+            <>
+              <div className="mb-[14px]">
+                <div className={fieldLabel}>Saat kamu membeli, barangnya…</div>
+                <div className="flex gap-3">
+                  {(["baru", "bekas"] as const).map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      aria-pressed={bought === k}
+                      onClick={() => {
+                        setErr(null);
+                        setBought(k);
+                      }}
+                      className={cn(pilihan, "flex-1", bought === k ? pilihanOn : pilihanOff)}
+                    >
+                      {k === "baru" ? "Baru" : "Bekas / second"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="mb-[14px] grid grid-cols-2 gap-3">
+                <div>
+                  <label className={fieldLabel} htmlFor="year">
+                    Tahun beli
+                  </label>
+                  <input
+                    id="year"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={year}
+                    onChange={(e) => setYear(e.target.value.replace(/\D/g, ""))}
+                    className={fieldInput}
+                    placeholder={`cth. ${nowYear - 2}`}
+                  />
+                </div>
+                <div>
+                  <label className={fieldLabel} htmlFor="prod">
+                    Tahun rilis/produksi <span className="font-normal text-kongsi-ink-soft">(opsional)</span>
+                  </label>
+                  <input
+                    id="prod"
+                    inputMode="numeric"
+                    maxLength={4}
+                    value={prodYear}
+                    onChange={(e) => setProdYear(e.target.value.replace(/\D/g, ""))}
+                    className={fieldInput}
+                    placeholder="bila tahu"
+                  />
+                </div>
+              </div>
+              <div className="mb-[14px]">
                 <label className={fieldLabel} htmlFor="price">
-                  Harga beli (Rp)
+                  Harga beli dulu (Rp){" "}
+                  <span className="font-normal text-kongsi-ink-soft">(opsional bila harga pasar ditemukan)</span>
                 </label>
                 <input
                   id="price"
@@ -213,39 +340,40 @@ export function TawarkanForm({
                   value={price ? digits(price).toLocaleString("id-ID") : ""}
                   onChange={(e) => setPrice(e.target.value.replace(/\D/g, ""))}
                   className={fieldInput}
-                  placeholder="cth. 3.500.000"
+                  placeholder="cth. 2.500.000"
                 />
               </div>
-              <div>
-                <label className={fieldLabel} htmlFor="year">
-                  Tahun beli
-                </label>
-                <input
-                  id="year"
-                  inputMode="numeric"
-                  maxLength={4}
-                  value={year}
-                  onChange={(e) => setYear(e.target.value.replace(/\D/g, ""))}
-                  className={fieldInput}
-                  placeholder={`cth. ${nowYear - 3}`}
-                />
+              <div className="mb-[14px]">
+                <button
+                  type="button"
+                  aria-pressed={koleksi}
+                  onClick={() => ubahRiset(setKoleksi)(!koleksi)}
+                  className={cn(pilihan, "w-full text-left", koleksi ? pilihanOn : pilihanOff)}
+                >
+                  {koleksi ? "☑" : "☐"} Barang koleksi / klasik / antik{" "}
+                  <span className="font-normal">— nilainya bisa naik, tidak disusutkan</span>
+                </button>
               </div>
-            </div>
+              {cat.needs_serial ? (
+                <div className="mb-[14px]">
+                  <label className={fieldLabel} htmlFor="serial">
+                    {cat.serial_label ?? "Nomor seri"}
+                  </label>
+                  <input
+                    id="serial"
+                    value={serial}
+                    onChange={(e) => setSerial(e.target.value)}
+                    className={fieldInput}
+                    placeholder="wajib — mencegah barang curian"
+                  />
+                </div>
+              ) : null}
+              <KongsiButton type="button" variant="gold" block disabled={mencari} onClick={cariPasar}>
+                {mencari ? "Menelusuri harga di toko & marketplace…" : riset ? "🔎 Cari ulang harga pasar" : "🔎 Cari harga pasar"}
+              </KongsiButton>
+              {errRiset ? <p className="mt-2 text-[13px] font-semibold text-kongsi-bad">{errRiset}</p> : null}
+            </>
           )}
-          {cat.needs_serial ? (
-            <div className="mb-[14px]">
-              <label className={fieldLabel} htmlFor="serial">
-                {cat.serial_label ?? "Nomor seri"}
-              </label>
-              <input
-                id="serial"
-                value={serial}
-                onChange={(e) => setSerial(e.target.value)}
-                className={fieldInput}
-                placeholder="wajib — mencegah barang curian"
-              />
-            </div>
-          ) : null}
         </div>
       ) : null}
 
@@ -272,7 +400,7 @@ export function TawarkanForm({
                         setErr(null);
                         setAnswers((a) => ({ ...a, [c.key]: o.v }));
                       }}
-                      className={cn(chip, "px-4", answers[c.key] === o.v ? chipOn : chipOff)}
+                      className={cn(pilihan, "px-4 py-[6px]", answers[c.key] === o.v ? pilihanOn : pilihanOff)}
                     >
                       {o.l}
                     </button>
@@ -290,14 +418,7 @@ export function TawarkanForm({
             <label className={fieldLabel} htmlFor="photo">
               Foto barang (kamera langsung)
             </label>
-            <input
-              id="photo"
-              ref={photoRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="w-full text-sm"
-            />
+            <input id="photo" ref={photoRef} type="file" accept="image/*" capture="environment" className="w-full text-sm" />
           </div>
           <div className="mb-[14px]">
             <label className={fieldLabel} htmlFor="want_text">
@@ -316,13 +437,7 @@ export function TawarkanForm({
               <label className={fieldLabel} htmlFor="city">
                 Kota
               </label>
-              <input
-                id="city"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-                className={fieldInput}
-                placeholder="cth. Sleman"
-              />
+              <input id="city" value={city} onChange={(e) => setCity(e.target.value)} className={fieldInput} placeholder="cth. Sleman" />
             </div>
             <div>
               <label className={fieldLabel} htmlFor="tone">
@@ -340,15 +455,18 @@ export function TawarkanForm({
         </div>
       ) : null}
 
-      {/* Pratinjau taksiran */}
-      {cat && step > 0 ? (
+      {/* Taksiran Kongsi */}
+      {cat && step > 0 && (!aset || riset || preview.t) ? (
         <div className="mt-4 rounded-[6px] border-2 border-kongsi-ink bg-kongsi-indigo p-4 text-kongsi-parchment">
-          <div className="text-[11px] font-bold uppercase tracking-[1.5px] opacity-85">Taksiran Kongsi</div>
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[11px] font-bold uppercase tracking-[1.5px] opacity-85">Taksiran Kongsi</div>
+            {preview.t && AKURASI[preview.t.akurasi] ? (
+              <Pill variant={AKURASI[preview.t.akurasi].variant}>{AKURASI[preview.t.akurasi].label}</Pill>
+            ) : null}
+          </div>
           {preview.t ? (
             <>
-              <div className="mt-1 font-fraunces text-[26px] font-black leading-tight">
-                {formatKeping(preview.t.mid)}
-              </div>
+              <div className="mt-1 font-fraunces text-[26px] font-black leading-tight">{formatKeping(preview.t.mid)}</div>
               <div className="text-[12px] opacity-85">
                 rentang wajar {formatKeping(preview.t.low)} – {formatKeping(preview.t.high)}
                 {step >= 2 && !allAnswered ? " · lengkapi kondisi" : ""}
@@ -362,6 +480,35 @@ export function TawarkanForm({
           ) : (
             <div className="mt-1 text-[13px] opacity-85">{preview.why ?? "Lengkapi data barang."}</div>
           )}
+          {riset ? (
+            <div className="mt-3 border-t-[1.5px] border-dashed border-kongsi-parchment/40 pt-2">
+              <div className="mb-1 text-[11px] font-bold uppercase tracking-[1.5px] opacity-85">
+                Pembanding ({riset.jumlah}) · {riset.sumberOk.join(", ") || "tanpa sumber"}
+                {riset.dariCache ? " · data ≤7 hari" : ""}
+              </div>
+              {riset.pembanding.length ? (
+                <ul className="space-y-[3px] text-[12px]">
+                  {riset.pembanding.slice(0, 8).map((p) => (
+                    <li key={p.url} className="flex items-baseline justify-between gap-2">
+                      <a
+                        href={p.url}
+                        target="_blank"
+                        rel="noopener noreferrer nofollow"
+                        className="min-w-0 flex-1 truncate underline decoration-kongsi-parchment/40 underline-offset-2"
+                      >
+                        {p.sumber} · {p.kondisi} · {p.judul}
+                      </a>
+                      <b className="flex-none font-fraunces">{formatKeping(p.harga)}</b>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[12px] opacity-85">
+                  Belum ada barang serupa di pasar. Taksiran memakai harga beli; setelah tayang kamu bisa minta tera Penaksir.
+                </p>
+              )}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -373,10 +520,7 @@ export function TawarkanForm({
 
       <div className="mt-4 flex gap-3">
         {step > 0 ? (
-          <KongsiButton type="button" variant="ghost" onClick={() => {
-              setErr(null);
-              setStep((s) => s - 1);
-            }}>
+          <KongsiButton type="button" variant="ghost" onClick={() => pindah(step - 1)}>
             ← Kembali
           </KongsiButton>
         ) : null}

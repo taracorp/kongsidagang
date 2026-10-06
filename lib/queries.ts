@@ -317,6 +317,9 @@ export type BarterRow = {
   est_low: number | null;
   est_high: number | null;
   categoryName: string | null;
+  accuracy: string | null; // tinggi | sedang | rendah | ditera | null (taksiran lama)
+  appraisalStatus: string; // none | diminta | ditera
+  jumlahPembanding: number;
 };
 
 const BARTER_ROW_SELECT = {
@@ -330,15 +333,26 @@ const BARTER_ROW_SELECT = {
   photo_url: true,
   est_low: true,
   est_high: true,
+  accuracy: true,
+  appraisal_status: true,
   categoryRef: { select: { name: true } },
+  research: { select: { pembanding: true } },
 } as const;
 
-function toBarterRow({ categoryRef, ...b }: {
+function toBarterRow({ categoryRef, research, accuracy, appraisal_status, ...b }: {
   id: string; user_id: string; title: string; est_value: number; want_text: string | null;
   city: string | null; tone: string; photo_url: string | null; est_low: number | null;
-  est_high: number | null; categoryRef: { name: string } | null;
+  est_high: number | null; categoryRef: { name: string } | null; accuracy: string | null;
+  appraisal_status: string; research: { pembanding: unknown } | null;
 }): BarterRow {
-  return { ...b, tone: asTone(b.tone), categoryName: categoryRef?.name ?? null };
+  return {
+    ...b,
+    tone: asTone(b.tone),
+    categoryName: categoryRef?.name ?? null,
+    accuracy,
+    appraisalStatus: appraisal_status,
+    jumlahPembanding: Array.isArray(research?.pembanding) ? research.pembanding.length : 0,
+  };
 }
 
 export async function getBarterRows(): Promise<BarterRow[]> {
@@ -434,6 +448,14 @@ export type DealPaket = {
   awb: string | null;
 };
 
+export type DealBarang = {
+  title: string;
+  value: number;
+  photo_url: string | null;
+  accuracy: string | null;
+  pembanding: { sumber: string; judul: string; harga: number; kondisi: string; url: string }[];
+};
+
 export type DealDetail = {
   id: string;
   status: string;
@@ -444,8 +466,8 @@ export type DealDetail = {
   myConfirmed: boolean;
   theirConfirmed: boolean;
   hasCourierOrder: boolean;
-  mine: { title: string; value: number; photo_url: string | null };
-  theirs: { title: string; value: number; photo_url: string | null };
+  mine: DealBarang;
+  theirs: DealBarang;
   myFee: number;
   theirFee: number;
   topup: number;
@@ -461,14 +483,37 @@ export type DealDetail = {
   ratedByMe: boolean;
 };
 
+const DEAL_ITEM_SELECT = {
+  title: true,
+  user_id: true,
+  city: true,
+  photo_url: true,
+  accuracy: true,
+  user: { select: { name: true, email: true } },
+  research: { select: { pembanding: true } },
+} as const;
+
+function keDealBarang(
+  it: { title: string; photo_url: string | null; accuracy: string | null; research: { pembanding: unknown } | null },
+  value: number | null,
+): DealBarang {
+  return {
+    title: it.title,
+    value: value ?? 0,
+    photo_url: it.photo_url,
+    accuracy: it.accuracy,
+    pembanding: (Array.isArray(it.research?.pembanding) ? it.research.pembanding : []).slice(0, 10) as DealBarang["pembanding"],
+  };
+}
+
 /** Detail satu tawaran — hanya untuk dua pihaknya. Kontak lawan dibuka setelah sepakat. */
 export async function getDealDetail(dealId: string, userId: string): Promise<DealDetail | null> {
   await connection();
   const d = await prisma.barterDeal.findUnique({
     where: { id: dealId },
     include: {
-      itemA: { select: { title: true, user_id: true, city: true, photo_url: true, user: { select: { name: true, email: true } } } },
-      itemB: { select: { title: true, user_id: true, city: true, photo_url: true, user: { select: { name: true, email: true } } } },
+      itemA: { select: DEAL_ITEM_SELECT },
+      itemB: { select: DEAL_ITEM_SELECT },
       ratings: { where: { rater_id: userId }, select: { id: true } },
       shipments: { orderBy: { leg: "asc" } },
     },
@@ -499,8 +544,8 @@ export async function getDealDetail(dealId: string, userId: string): Promise<Dea
     myConfirmed: Boolean(me === "a" ? d.confirmed_a_at : d.confirmed_b_at),
     theirConfirmed: Boolean(me === "a" ? d.confirmed_b_at : d.confirmed_a_at),
     hasCourierOrder: d.shipments.some((s) => s.order_id && s.status !== "failed"),
-    mine: { title: mi.title, value: mv ?? 0, photo_url: mi.photo_url },
-    theirs: { title: ti.title, value: tv ?? 0, photo_url: ti.photo_url },
+    mine: keDealBarang(mi, mv),
+    theirs: keDealBarang(ti, tv),
     myFee: me === "a" ? d.fee_a : d.fee_b,
     theirFee: me === "a" ? d.fee_b : d.fee_a,
     topup: d.topup_keping,
@@ -566,6 +611,61 @@ export async function getDisputedDeals(): Promise<DisputeDeal[]> {
   } catch {
     return [];
   }
+}
+
+export type TeraItem = {
+  id: string;
+  title: string;
+  owner: string;
+  categoryName: string | null;
+  est_value: number;
+  accuracy: string | null;
+  note: string | null;
+  boughtCondition: string | null;
+  purchasePrice: number | null;
+  purchaseYear: number | null;
+  isCollectible: boolean;
+  pembanding: { sumber: string; judul: string; harga: number; kondisi: string; url: string }[];
+};
+
+/** Antrean barang yang minta ditera Penaksir (admin saja). */
+export async function getTeraQueue(): Promise<TeraItem[]> {
+  await connection();
+  const { role } = await getStaffSession();
+  if (!isAdminUp(role)) return [];
+  const rows = await prisma.barterItem.findMany({
+    where: { appraisal_status: "diminta", status: "aktif" },
+    select: {
+      id: true,
+      title: true,
+      est_value: true,
+      accuracy: true,
+      appraisal_note: true,
+      bought_condition: true,
+      purchase_price: true,
+      purchase_year: true,
+      is_collectible: true,
+      user: { select: { name: true, email: true } },
+      categoryRef: { select: { name: true } },
+      research: { select: { pembanding: true } },
+    },
+    orderBy: { created_at: "asc" },
+    take: 50,
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    owner: r.user.name || r.user.email,
+    categoryName: r.categoryRef?.name ?? null,
+    est_value: r.est_value,
+    accuracy: r.accuracy,
+    note: r.appraisal_note,
+    boughtCondition: r.bought_condition,
+    purchasePrice: r.purchase_price,
+    purchaseYear: r.purchase_year,
+    isCollectible: r.is_collectible,
+    pembanding: (Array.isArray(r.research?.pembanding) ? r.research.pembanding : []).slice(0, 8) as TeraItem["pembanding"],
+  }));
 }
 
 export async function getArticles(): Promise<Artikel[]> {

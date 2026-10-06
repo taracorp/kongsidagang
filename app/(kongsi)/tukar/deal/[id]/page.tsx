@@ -14,7 +14,7 @@ import {
   KonfirmasiTerima,
 } from "@/components/kongsi/DealTukar";
 import { getSessionUser } from "@/lib/auth";
-import { getDealDetail, type DealPaket } from "@/lib/queries";
+import { getDealDetail, type DealBarang, type DealPaket } from "@/lib/queries";
 import { kodeKetemu } from "@/lib/domain/tukar";
 import { alamatSaya } from "@/lib/domain/alamat";
 import { labelStatus, titikAmanLabel } from "@/lib/domain/tukar-aturan";
@@ -47,6 +47,39 @@ const statusPaket: Record<string, string> = {
 
 const kartu = "rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-5 shadow-hard";
 const judul = "mb-3 font-fraunces text-lg font-black text-kongsi-indigo";
+
+const LABEL_AKURASI: Record<string, string> = {
+  tinggi: "akurasi tinggi",
+  sedang: "akurasi sedang",
+  rendah: "akurasi rendah",
+  ditera: "ditera Penaksir",
+};
+
+/** Dasar taksiran (pembanding pasar) — bisa dibuka kedua pihak. */
+function DasarTaksiran({ b }: { b: DealBarang }) {
+  return (
+    <details className="mb-1 text-[12px]">
+      <summary className="cursor-pointer font-bold text-kongsi-grenadine">
+        Dasar taksiran {b.title}: {LABEL_AKURASI[b.accuracy ?? ""] ?? "taksiran lama"}
+        {b.pembanding.length ? ` · ${b.pembanding.length} pembanding` : ""}
+      </summary>
+      {b.pembanding.length ? (
+        <ul className="mt-1 space-y-[2px] pl-3">
+          {b.pembanding.map((p) => (
+            <li key={p.url} className="flex justify-between gap-2">
+              <a href={p.url} target="_blank" rel="noopener noreferrer nofollow" className="min-w-0 flex-1 truncate underline">
+                {p.sumber} · {p.kondisi} · {p.judul}
+              </a>
+              <b>{formatKeping(p.harga)}</b>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-1 pl-3 text-kongsi-ink-soft">Tanpa pembanding pasar — nilai dari harga beli / Penaksir.</p>
+      )}
+    </details>
+  );
+}
 
 function KartuPaket({ p, mine, theirs }: { p: DealPaket; mine: string; theirs: string }) {
   return (
@@ -119,6 +152,10 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
                 <b className="text-kongsi-grenadine">{formatKeping(d.topup)}</b>
               </div>
             ) : null}
+            <div className="mt-2">
+              <DasarTaksiran b={d.mine} />
+              <DasarTaksiran b={d.theirs} />
+            </div>
             <div className="my-2 border-t-[1.5px] border-dashed border-kongsi-ink/25" />
             <div className={row}>
               <span>Bea Tukar-ku</span>

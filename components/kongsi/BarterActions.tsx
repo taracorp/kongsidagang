@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { ajukanTukar, tutupBarang } from "@/app/actions/tukar";
+import { ajukanTukar, tutupBarang, mintaTera } from "@/app/actions/tukar";
 import { beaTukar, depositKirim, hitungSelisih } from "@/lib/domain/tukar-aturan";
 import { cn, formatKeping } from "@/lib/utils";
 
@@ -154,8 +154,8 @@ export function AjukanTukar({
                           disabled={o.v === "kirim" && !bisaKirim}
                           onClick={() => setMode(o.v)}
                           className={cn(
-                            "flex-1 cursor-pointer rounded-full border-[1.5px] border-kongsi-ink px-3 py-[6px] font-bold disabled:cursor-not-allowed disabled:opacity-50",
-                            modeAktif === o.v ? "bg-kongsi-grenadine text-kongsi-parchment" : "bg-kongsi-parchment",
+                            "flex-1 cursor-pointer rounded-[6px] border-2 border-kongsi-ink px-3 py-2 font-bold shadow-hard-sm transition-transform hover:translate-x-[1px] hover:translate-y-[1px] disabled:cursor-not-allowed disabled:opacity-50",
+                            modeAktif === o.v ? "bg-kongsi-grenadine text-kongsi-parchment" : "bg-kongsi-parchment hover:bg-kongsi-beeswax",
                           )}
                         >
                           {o.l}
@@ -297,5 +297,58 @@ export function TutupBarang({ id }: { id: string }) {
       </button>
       {msg ? <p className="mt-1 text-[11px] text-kongsi-bad">{msg}</p> : null}
     </>
+  );
+}
+
+/** Pemilik minta nilai barangnya ditera Penaksir (bila merasa taksiran kurang tepat). */
+export function MintaTera({ id }: { id: string }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className={cn(small, "mt-2 w-full cursor-pointer bg-kongsi-parchment-3")}>
+        Minta tera Penaksir
+      </button>
+    );
+  }
+  async function kirim() {
+    setBusy(true);
+    setMsg(null);
+    const { error } = await mintaTera(id, note);
+    setBusy(false);
+    if (error) setMsg(error);
+    else router.refresh();
+  }
+  return (
+    <div className="mt-2 space-y-2">
+      <label className="block text-[12px] font-bold" htmlFor={`tera-${id}`}>
+        Kenapa taksiran kurang tepat? (sertakan link pembanding bila ada)
+      </label>
+      <textarea
+        id={`tera-${id}`}
+        rows={3}
+        maxLength={500}
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        className="w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-2 py-1 text-[12px]"
+      />
+      <div className="flex gap-2">
+        <button type="button" onClick={() => setOpen(false)} className={cn(small, "cursor-pointer bg-kongsi-parchment")}>
+          Batal
+        </button>
+        <button
+          type="button"
+          disabled={busy}
+          onClick={kirim}
+          className={cn(small, "flex-1 cursor-pointer bg-kongsi-grenadine text-kongsi-parchment disabled:opacity-60")}
+        >
+          {busy ? "Mengirim…" : "Kirim ke Penaksir"}
+        </button>
+      </div>
+      {msg ? <p className="text-[11px] text-kongsi-bad">{msg}</p> : null}
+    </div>
   );
 }

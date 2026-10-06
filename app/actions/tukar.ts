@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { saveUpload } from "@/lib/uploads";
 import { loadCategory } from "@/lib/domain/kategori";
 import { taksir } from "@/lib/domain/taksiran";
+import { risetHarga, bacaRiset } from "@/lib/taksir/riset";
 import * as Tukar from "@/lib/domain/tukar";
 import * as Kirim from "@/lib/domain/tukar-kirim";
 import * as Alamat from "@/lib/domain/alamat";
@@ -36,7 +37,24 @@ export async function tawarkanBarang(form: FormData) {
     const qty = Number(String(form.get("qty") ?? "").replace(",", "."));
     const purchasePrice = toInt(form.get("purchase_price"));
     const purchaseYear = toInt(form.get("purchase_year"));
-    const t = taksir(cat, { qty, purchasePrice, purchaseYear, answers, nowYear: new Date().getFullYear() });
+    const productionYear = toInt(form.get("production_year")) || undefined;
+    const boughtCondition = form.get("bought_condition") === "bekas" ? "bekas" : "baru";
+    const isCollectible = cat.kind === "aset" && form.get("is_collectible") === "true";
+    // Data pasar hanya dari riset tersimpan di DB (angka dari client diabaikan).
+    const researchId = String(form.get("research_id") ?? "") || null;
+    const riset = researchId ? await bacaRiset(researchId) : null;
+    if (researchId && (!riset || riset.kategori !== cat.slug)) throw new Error("Hasil riset harga tidak cocok, cari ulang.");
+    const t = taksir(cat, {
+      qty,
+      purchasePrice,
+      purchaseYear,
+      productionYear,
+      boughtCondition,
+      isCollectible,
+      answers,
+      nowYear: new Date().getFullYear(),
+      pasar: riset?.statistik ?? null,
+    });
 
     const serial = String(form.get("serial_number") ?? "").replace(/\s+/g, "").toUpperCase() || null;
     if (cat.needs_serial && !serial) throw new Error(`Isi ${cat.serial_label ?? "nomor seri"}.`);
@@ -68,6 +86,12 @@ export async function tawarkanBarang(form: FormData) {
         est_low: t.low,
         est_high: t.high,
         ship_weight_kg: t.shipWeightKg,
+        bought_condition: cat.kind === "aset" ? boughtCondition : null,
+        production_year: cat.kind === "aset" ? (productionYear ?? null) : null,
+        is_collectible: isCollectible,
+        research_id: riset?.id ?? null,
+        valuation_method: t.metode,
+        accuracy: t.akurasi,
         want_text: String(form.get("want_text") ?? "").trim() || null,
         city: String(form.get("city") ?? "").trim() || null,
         tone: String(form.get("tone") ?? "sage"),
@@ -75,6 +99,61 @@ export async function tawarkanBarang(form: FormData) {
         status: "aktif",
       },
     });
+  });
+}
+
+/** Juru Taksir: riset harga pasar (BigGo + mesin pencari + loji mitra). Hasil di-cache 7 hari. */
+export async function cariHargaPasar(kueri: string, kategori: string, koleksi: boolean) {
+  return run(async () => {
+    const user = await requireUser();
+    const cat = await loadCategory(String(kategori ?? ""));
+    if (!cat || cat.kind !== "aset") throw new Error("Pilih kategori barang dulu.");
+    const r = await risetHarga(user.id, String(kueri ?? ""), cat.slug, { koleksi: Boolean(koleksi) });
+    return {
+      id: r.id,
+      statistik: r.statistik,
+      pembanding: r.pembanding.slice(0, 12),
+      jumlah: r.pembanding.length,
+      sumberOk: r.sumberOk,
+      dariCache: r.dariCache,
+    };
+  });
+}
+
+/** Pemilik minta nilai barangnya ditera Penaksir (admin), dengan catatan/bukti. */
+export async function mintaTera(itemId: string, catatan: string) {
+  return run(async () => {
+    const user = await requireUser();
+    const note = String(catatan ?? "").trim().slice(0, 500);
+    if (note.length < 5) throw new Error("Tulis alasan / bukti pembanding (min. 5 huruf).");
+    const res = await prisma.barterItem.updateMany({
+      where: { id: String(itemId), user_id: user.id, status: "aktif", appraisal_status: { not: "diminta" } },
+      data: { appraisal_status: "diminta", appraisal_note: note },
+    });
+    if (res.count === 0) throw new Error("Barang tidak bisa diajukan (sedang dalam tukar, sudah diajukan, atau bukan milikmu).");
+  });
+}
+
+/** Penaksir (admin) menetapkan nilai barang. Hanya untuk barang aktif (tidak sedang dalam tukar). */
+export async function teraPenaksir(itemId: string, nilai: number, catatan: string) {
+  return run(async () => {
+    await requireAdminUp();
+    if (!Number.isInteger(nilai) || nilai < 1_000 || nilai > 10_000_000_000) throw new Error("Nilai tidak valid.");
+    const note = String(catatan ?? "").trim().slice(0, 500);
+    if (note.length < 5) throw new Error("Tulis dasar penilaian (min. 5 huruf).");
+    const res = await prisma.barterItem.updateMany({
+      where: { id: String(itemId), status: "aktif" },
+      data: {
+        est_value: nilai,
+        est_low: Math.round(nilai * 0.95),
+        est_high: Math.round(nilai * 1.05),
+        accuracy: "ditera",
+        valuation_method: "penaksir",
+        appraisal_status: "ditera",
+        appraisal_note: note,
+      },
+    });
+    if (res.count === 0) throw new Error("Barang tidak aktif atau sedang dalam tukar.");
   });
 }
 

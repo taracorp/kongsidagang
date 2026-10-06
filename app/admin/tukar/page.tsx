@@ -1,15 +1,16 @@
 import { redirect } from "next/navigation";
 import { DisputeResolve } from "@/components/admin/DisputeResolve";
 import { HargaKomoditas } from "@/components/admin/HargaKomoditas";
+import { TeraPenaksir } from "@/components/admin/TeraPenaksir";
 import { loadCategories } from "@/lib/domain/kategori";
-import { getDisputedDeals } from "@/lib/queries";
+import { getDisputedDeals, getTeraQueue } from "@/lib/queries";
 import { getStaffSession, isAdminUp } from "@/lib/roles";
 import { formatKeping } from "@/lib/utils";
 
 export default async function AdminTukar() {
   const { role } = await getStaffSession();
   if (!isAdminUp(role)) redirect("/admin");
-  const [disputes, categories] = await Promise.all([getDisputedDeals(), loadCategories()]);
+  const [disputes, categories, tera] = await Promise.all([getDisputedDeals(), loadCategories(), getTeraQueue()]);
   const komoditas = categories
     .filter((c) => c.kind === "komoditas")
     .map((c) => ({ slug: c.slug, name: c.name, unit: c.unit, price: c.price_per_unit }));
@@ -64,6 +65,15 @@ export default async function AdminTukar() {
           </table>
         </div>
       )}
+      <h3 className="pt-4 font-fraunces text-lg font-black text-kongsi-indigo">
+        Antrean Tera Penaksir ({tera.length})
+      </h3>
+      <p className="text-[13px] text-kongsi-ink-soft">
+        Pemilik merasa taksiran Juru Taksir kurang tepat. Tetapkan nilai dengan dasar yang jelas — barang lalu berlabel
+        &ldquo;ditera Penaksir&rdquo;.
+      </p>
+      <TeraPenaksir items={tera} />
+
       <h3 className="pt-4 font-fraunces text-lg font-black text-kongsi-indigo">
         Harga Komoditas — patokan Taksiran
       </h3>

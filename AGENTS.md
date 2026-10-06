@@ -198,7 +198,11 @@ Enum `user_level`. Ambang (rupiah akumulasi) ditentukan Tara — tanya dulu sebe
 ## BAGIAN 6: FITUR — SPEK RINGKAS
 
 ### 6.1 Tukar Guling (barter) — v2 (disetujui Tara, 5 Okt 2026)
-- Nilai barang **ditaksir sistem** (`lib/domain/taksiran.ts`), bukan angka bebas user.
+- Nilai barang **ditaksir sistem**, bukan angka bebas user. **Juru Taksir** (gratis, tanpa API berbayar):
+  riset harga di BigGo + SearXNG self-hosted (`kongsi-searxng`, 127.0.0.1:8888) + loji mitra → `lib/taksir/*`;
+  rumus di `lib/domain/taksiran.ts` (pasar bekas → harga baru × susut → nilai buku; dibeli bekas tidak disusutkan
+  dua kali; koleksi tanpa susut). Label akurasi tampil ke semua pihak; banding lewat **tera Penaksir** (admin).
+  Tombol pilihan WAJIB pola `.jt-chip` (kotak), bukan bulat.
 - Ajukan tukar; selisih nilai ditutup dengan **tambah Keteng** dari pihak bernilai lebih rendah.
 - **Bea Tukar** = 10% taksiran barang sendiri, maks 10.000 Keteng, ditanggung **kedua pihak**.
 - **Rekber diizinkan**: bea, tambah Keteng, deposit, ongkir ditahan di `wallet_holds` saat deal disepakati.

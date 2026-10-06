@@ -287,6 +287,17 @@ model BarterItem {
   est_high       Int?
   ship_weight_kg Float? // dikunci dari kategori
 
+  // Juru Taksir v2 (riset harga pasar)
+  bought_condition String? // baru | bekas — kondisi saat dibeli
+  production_year  Int? // tahun rilis/produksi
+  is_collectible   Boolean        @default(false) // koleksi/klasik/antik: tanpa penyusutan
+  research_id      String?
+  research         PriceResearch? @relation(fields: [research_id], references: [id], onDelete: SetNull)
+  valuation_method String? // pasar | baru | buku | koleksi | komoditas | penaksir
+  accuracy         String? // tinggi | sedang | rendah | ditera
+  appraisal_status String         @default("none") // none | diminta | ditera
+  appraisal_note   String?
+
   dealsAsA BarterDeal[] @relation("DealItemA")
   dealsAsB BarterDeal[] @relation("DealItemB")
 
@@ -350,6 +361,23 @@ model BarterShipment {
 
   @@unique([deal_id, leg])
   @@map("barter_shipments")
+}
+
+// Hasil riset harga pasar Juru Taksir (cache 7 hari per kueri+kategori, dipakai bersama antar user).
+model PriceResearch {
+  id         String   @id @default(uuid())
+  query_key  String   @unique
+  query_text String
+  category   String
+  pembanding Json     @default("[]") // [{sumber, judul, harga, kondisi, url, asal}]
+  statistik  Json     @default("{}") // {baru: Ringkas|null, bekas: Ringkas|null}
+  sumber_ok  String[] @default([]) // sumber yang berhasil dihubungi
+  created_at DateTime @default(now())
+  expires_at DateTime
+
+  items BarterItem[]
+
+  @@map("price_research")
 }
 
 // Kategori taksiran. kind: komoditas (qty × harga) | aset (penyusutan × kondisi).

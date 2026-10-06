@@ -406,3 +406,63 @@ Traefik yang sudah ada di VPS, cukup atur port.
   - Kode: `git revert kd-isi-doku..HEAD` atau tag sebelumnya, lalu jalankan ulang `deploy.sh`.
   - DB: restore backup di atas (`zcat … | docker exec -i kongsi-db psql -U kongsi -d kongsi`) bila migrasi perlu
     dibatalkan total. Hati-hati: data sejak deploy akan hilang.
+
+### Ch 8.18 — Juru Taksir: riset harga pasar gratis + rumus taksiran diperbaiki
+2026-10-06
+- **Latar:** Tara menilai taksiran versi M2 **2/10**:
+  - tidak menanyakan barang dibeli baru atau bekas,
+  - hanya menghitung penyusutan (barang koleksi bisa naik, merek berpengaruh),
+  - tombol pilihan **bulat** menyalahi pakem.
+  Tara ingin mesin semacam *search engine* yang membandingkan harga di berbagai platform, dan **wajib gratis**.
+  Usulan Claude API berbayar ditolak.
+- **Sumber harga (semua gratis):**
+  1. **BigGo** (biggo.id, situs perbandingan harga). Data terstruktur dari Tokopedia/Shopee/Lazada/Blibli.
+     - Kepatuhan: robots.txt `Allow: /` (kecuali `/r/`), ketentuan tanpa larangan akses otomatis.
+     - Cara pakai: hanya halaman pencarian `/s/`, jeda 1,5 dtk antarpermintaan, User-Agent `KongsiTaksir`, cache 7 hari.
+  2. **SearXNG self-hosted** (open source, container `kongsi-searxng` di VPS, hanya `127.0.0.1:8888`, ±85 MB RAM).
+     - Kegunaan: cuplikan hasil Bing/DuckDuckGo/Yahoo/Mojeek/Startpage. Google (access denied), Qwant (CAPTCHA),
+       dan Brave (rate limit) dibuang setelah diuji.
+     - Konfigurasi `deploy/searxng/settings.yml`, pasang dengan `scripts/searxng.sh`. Lisensi AGPL aman
+       (layanan internal, tidak dimodifikasi).
+  3. **Loji mitra** (`price_listings`).
+  - Marketplace (Tokopedia/OLX/Shopee) **tidak** di-crawl langsung, karena ketentuannya umumnya melarang (Bagian 7).
+- **Mesin** (`lib/taksir/`):
+  - `ekstrak.ts` (murni): pembaca harga Indonesia (Rp/jt/rb, cicilan/diskon dibuang per klausa), pencocok
+    produk (token kuat = merek/kode model/ukuran; aksesoris dibuang), deteksi baru/bekas, statistik IQR.
+  - `sumber.ts`: BigGo (urai `ssrData`), SearXNG, data tiruan.
+  - `riset.ts`: gabung, cocokkan, simpan ke `price_research` (cache 7 hari, dipakai bersama antar user),
+    batas 20 riset/user/hari.
+- **Rumus** (`lib/domain/taksiran.ts`, ditulis ulang):
+  - Bobot sumber: pasar bekas (n≥3, bobot 55–65%) + harga baru *sekarang* × susut + nilai buku.
+  - Input baru: kondisi saat dibeli, tahun rilis, tanda koleksi.
+  - **Dibeli bekas** → harga × f(umur kini)/f(umur saat beli), tidak disusutkan dua kali.
+  - **Koleksi** → tanpa susut, ikut pasar (boleh naik).
+  - Akurasi: tinggi/sedang/rendah/ditera.
+- **Penaksir:** pemilik bisa "Minta tera" (catatan + bukti). Antrean di `/admin/tukar`; admin menetapkan nilai,
+  lalu barang berlabel "ditera Penaksir".
+- **UI** (pakem `.jt-chip`):
+  - `TawarkanForm` ditulis ulang: kartu kategori kotak ala Juru Tunjuk, penanda langkah bar, [Baru]/[Bekas],
+    tombol "Cari harga pasar", kartu Taksiran Kongsi + label akurasi + daftar pembanding (toko, kondisi, harga, link).
+  - Tombol bulat di pilihan COD/Kirim dan "Pakai lokasiku" diganti kotak. Tombol "Tebus" tetap pill sesuai mockup
+    (`pill pill-gold`).
+  - Kartu `/tukar`: label akurasi + jumlah pembanding.
+  - Halaman deal: "Dasar taksiran" kedua barang bisa dibuka.
+- **Skema:** migrasi `20261006040057_juru_taksir` (`price_research` + kolom `bought_condition, production_year, is_collectible,
+  research_id, valuation_method, accuracy, appraisal_status, appraisal_note` + CHECK).
+  Sudah di-apply ke `kongsi_dev`. **Produksi: belum.**
+- **Hasil riset nyata** (dari VPS/WSL):
+  - TV Polytron PLD 32T1850: baru median Rp2,67jt (8 toko).
+  - Polygon Cascade 4: baru Rp4,72jt (26), bekas Rp2,8jt (9).
+  - Canon AE-1 (koleksi): ±Rp2jt (23).
+  - Waktu: 3–7,5 dtk; dari cache 0,3 dtk.
+- **Verifikasi:**
+  - Uji `ekstrak` 22, `sumber` 5 (fixture halaman BigGo asli), `taksiran` 20, `juru-taksir` 10.
+  - Uji lama tetap lulus: doku 8, pundi 10, isi-pundi 15, tukar 32, kirim 30.
+  - `npm run flow` 21/21, dua kali.
+  - tsc + eslint lolos.
+  - E2E browser (mobile+desktop): TV dibeli baru 2024 Rp2,9jt → Rp1.725.000 (sedang, 10 pembanding) →
+    tayang → minta tera → admin tera → antrean kosong.
+  - Catatan lingkungan: tunnel WSL↔VPS sempat putus berulang, sehingga flow gagal di bagian yang butuh DB.
+    Diulang dengan tunnel yang tersambung otomatis → lulus.
+- **Rollback:** `git revert kd-juru-taksir`. Untuk mematikan SearXNG: `docker rm -f kongsi-searxng`.
+  Kolom baru boleh dibiarkan.

@@ -150,8 +150,8 @@ export function AlamatForm() {
           type="button"
           onClick={lokasiku}
           className={cn(
-            "cursor-pointer rounded-full border-[1.5px] border-kongsi-ink px-3 py-[6px] text-[13px] font-bold",
-            geo ? "bg-kongsi-sage" : "bg-kongsi-parchment-3",
+            "cursor-pointer rounded-[6px] border-2 border-kongsi-ink px-4 py-[10px] text-[13px] font-bold shadow-hard-sm transition-transform hover:translate-x-[1px] hover:translate-y-[1px]",
+            geo ? "bg-kongsi-sage" : "bg-kongsi-parchment hover:bg-kongsi-beeswax",
           )}
         >
           {geo ? `✓ Lokasi tersimpan (${geo.lat.toFixed(4)}, ${geo.lng.toFixed(4)})` : "📍 Pakai lokasiku"}

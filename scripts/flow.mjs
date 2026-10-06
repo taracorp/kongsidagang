@@ -168,8 +168,12 @@ if (!SKIP_AUTH && EMAIL && PASSWORD) {
   await p2.click('button:has-text("Lainnya")');
   await p2.click('button:has-text("Lanjut")');
   await p2.fill("#title", judul);
+  await p2.click('button:has-text("Baru")');
   await p2.fill("#price", "200000");
   await p2.fill("#year", String(new Date().getFullYear() - 1));
+  await p2.click('button:has-text("Cari harga pasar")');
+  await p2.locator("text=Pembanding (").waitFor({ timeout: 60000 }).catch(() => {});
+  check("tukar: Juru Taksir riset harga pasar", (await p2.locator("text=Pembanding (").count()) > 0);
   await p2.click('button:has-text("Lanjut")');
   for (const t of await p2.locator('button:text-is("Tidak")').all()) await t.click();
   check("tukar: taksiran sistem tampil", (await p2.locator("text=Taksiran Kongsi").count()) > 0);

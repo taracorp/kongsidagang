@@ -3,7 +3,7 @@ import { KongsiLinkButton } from "@/components/kongsi/KongsiButton";
 import { Pill } from "@/components/kongsi/Pill";
 import { RowHead } from "@/components/kongsi/RowHead";
 import Link from "next/link";
-import { AjukanTukar, TutupBarang } from "@/components/kongsi/BarterActions";
+import { AjukanTukar, TutupBarang, MintaTera } from "@/components/kongsi/BarterActions";
 import { getSessionUser } from "@/lib/auth";
 import { getBarterRows, getMyBarter, getWalletBalance, type BarterRow } from "@/lib/queries";
 import { labelStatus, STATUS_AKHIR } from "@/lib/domain/tukar-aturan";
@@ -62,6 +62,14 @@ function BarterCard({
             {formatKeping(item.est_low)}–{formatKeping(item.est_high)}
           </div>
         ) : null}
+        <div className="mt-1 flex flex-wrap items-center gap-1">
+          <Pill variant={akurasiPill[item.accuracy ?? ""]?.variant ?? "indigo"}>
+            {akurasiPill[item.accuracy ?? ""]?.label ?? "taksiran lama"}
+          </Pill>
+          {item.jumlahPembanding > 0 ? (
+            <span className="text-[11px] text-kongsi-ink-soft">{item.jumlahPembanding} pembanding pasar</span>
+          ) : null}
+        </div>
         {item.want_text ? (
           <div className="mt-[6px] border-t-[1.5px] border-dashed border-kongsi-ink/20 pt-[6px] text-[12px] text-kongsi-ink-soft">
             Mau ditukar: <b className="text-kongsi-indigo">{item.want_text}</b>
@@ -72,6 +80,13 @@ function BarterCard({
     </div>
   );
 }
+
+const akurasiPill: Record<string, { label: string; variant: "gold" | "sage" | "indigo" | "live" }> = {
+  tinggi: { label: "akurasi tinggi", variant: "sage" },
+  sedang: { label: "akurasi sedang", variant: "gold" },
+  rendah: { label: "akurasi rendah", variant: "live" },
+  ditera: { label: "ditera Penaksir", variant: "indigo" },
+};
 
 const dealStatusPill: Record<string, "gold" | "sage" | "indigo" | "live"> = {
   proposed: "gold",
@@ -145,6 +160,10 @@ export default async function TukarPage() {
             <div className="mb-6 grid grid-cols-2 gap-4">
               {mine.map((it) => (
                 <BarterCard key={it.id} item={it}>
+                  {it.appraisalStatus === "none" && it.accuracy !== "tinggi" ? <MintaTera id={it.id} /> : null}
+                  {it.appraisalStatus === "diminta" ? (
+                    <div className="mt-2 text-[11px] font-bold text-kongsi-olive">⏳ Menunggu tera Penaksir</div>
+                  ) : null}
                   <TutupBarang id={it.id} />
                 </BarterCard>
               ))}
