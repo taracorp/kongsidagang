@@ -51,7 +51,7 @@ async function kodeUnik(tx: Tx): Promise<string> {
   throw new Error("Gagal membuat kode voucher, coba lagi.");
 }
 
-export async function belanja(userId: string, baris: BarisBelanja[]) {
+function cekBaris(baris: BarisBelanja[]) {
   if (!Array.isArray(baris) || baris.length === 0) throw new Error("Keranjang kosong.");
   if (baris.length > MAKS_BARIS) throw new Error(`Maksimal ${MAKS_BARIS} jenis barang per transaksi.`);
   for (const b of baris) {
@@ -59,44 +59,55 @@ export async function belanja(userId: string, baris: BarisBelanja[]) {
       throw new Error(`Jumlah tiap barang 1–${MAKS_QTY}.`);
     }
   }
+}
 
+/**
+ * Validasi keranjang + harga dari DB + bea, tanpa menulis apa pun (kecuali upsert profil kosong).
+ * Dipakai oleh `belanja()` dan oleh Bayar Langsung untuk menghitung nominal.
+ */
+export async function siapkanBelanja(tx: Tx, userId: string, baris: BarisBelanja[]) {
+  cekBaris(baris);
+  // Harga & status diambil dari DB (berurutan: satu koneksi transaksi).
+  const siap: {
+    product: { id: string; name: string; price: number; valid_days: number; kind: string };
+    merchant: { id: string; name: string; owner_id: string | null };
+    branch: { id: string; name: string } | null;
+    qty: number;
+  }[] = [];
+  for (const b of baris) {
+    const p = await tx.merchantProduct.findUnique({
+      where: { id: b.productId },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        valid_days: true,
+        kind: true,
+        is_active: true,
+        merchant: { select: { id: true, name: true, owner_id: true, is_active: true, status: true } },
+      },
+    });
+    if (!p || !p.is_active || !p.merchant.is_active) throw new Error("Ada barang yang sudah tidak tersedia. Muat ulang keranjang.");
+    if (p.merchant.status === "tutup" || p.merchant.status === "segera") throw new Error(`Lapak ${p.merchant.name} belum menerima pesanan.`);
+    if (p.kind !== "evoucher") throw new Error(`${p.name} belum bisa dibeli lewat Kongsi.`);
+    if (!b.branchId) throw new Error(`Pilih cabang untuk ${p.name}.`);
+    const branch = await tx.merchantBranch.findFirst({
+      where: { id: b.branchId, merchant_id: p.merchant.id, is_active: true },
+      select: { id: true, name: true },
+    });
+    if (!branch) throw new Error(`Cabang untuk ${p.name} tidak tersedia. Pilih ulang cabang.`);
+    siap.push({ product: p, merchant: p.merchant, branch, qty: b.qty });
+  }
+  const subtotal = siap.reduce((s, x) => s + x.product.price * x.qty, 0);
+  const { prof, bea, pakaiCap } = await hitungBea(tx, userId);
+  return { siap, subtotal, bea, total: subtotal + bea, prof, pakaiCap };
+}
+
+export async function belanja(userId: string, baris: BarisBelanja[]) {
+  cekBaris(baris);
   return prisma.$transaction(
     async (tx) => {
-      // Harga & status diambil dari DB (berurutan: satu koneksi transaksi).
-      const siap: {
-        product: { id: string; name: string; price: number; valid_days: number; kind: string };
-        merchant: { id: string; name: string; owner_id: string | null };
-        branch: { id: string; name: string } | null;
-        qty: number;
-      }[] = [];
-      for (const b of baris) {
-        const p = await tx.merchantProduct.findUnique({
-          where: { id: b.productId },
-          select: {
-            id: true,
-            name: true,
-            price: true,
-            valid_days: true,
-            kind: true,
-            is_active: true,
-            merchant: { select: { id: true, name: true, owner_id: true, is_active: true, status: true } },
-          },
-        });
-        if (!p || !p.is_active || !p.merchant.is_active) throw new Error("Ada barang yang sudah tidak tersedia. Muat ulang keranjang.");
-        if (p.merchant.status === "tutup" || p.merchant.status === "segera") throw new Error(`Lapak ${p.merchant.name} belum menerima pesanan.`);
-        if (p.kind !== "evoucher") throw new Error(`${p.name} belum bisa dibeli lewat Kongsi.`);
-        if (!b.branchId) throw new Error(`Pilih cabang untuk ${p.name}.`);
-        const branch = await tx.merchantBranch.findFirst({
-          where: { id: b.branchId, merchant_id: p.merchant.id, is_active: true },
-          select: { id: true, name: true },
-        });
-        if (!branch) throw new Error(`Cabang untuk ${p.name} tidak tersedia. Pilih ulang cabang.`);
-        siap.push({ product: p, merchant: p.merchant, branch, qty: b.qty });
-      }
-
-      const subtotal = siap.reduce((s, x) => s + x.product.price * x.qty, 0);
-      const { prof, bea, pakaiCap } = await hitungBea(tx, userId);
-      const total = subtotal + bea;
+      const { siap, subtotal, bea, total, prof, pakaiCap } = await siapkanBelanja(tx, userId, baris);
       await debit(tx, userId, total, "belanja", `Belanja e-voucher (${siap.reduce((s, x) => s + x.qty, 0)} voucher)`);
 
       const order = await tx.order.create({ data: { user_id: userId, subtotal, bea, total } });

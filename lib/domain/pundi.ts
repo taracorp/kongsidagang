@@ -145,19 +145,25 @@ export function isiPundiTersedia(): "doku" | "demo" | null {
   return null;
 }
 
-function invoiceBaru() {
+export function invoiceBaru() {
   return `KD-ISI-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
 }
 
-/** Buat pesanan Isi Pundi + sesi DOKU Checkout. Keteng BELUM masuk sampai pembayaran sukses. */
-export async function mulaiIsiPundi(
+export type TujuanBayar = "isi" | "belanja" | "tukar_ajukan" | "tukar_terima" | "tukar_ongkir";
+
+/**
+ * Buat pesanan pembayaran + sesi DOKU Checkout (Isi Pundi biasa maupun Bayar Langsung).
+ * Keteng BELUM masuk sampai pembayaran sukses.
+ */
+export async function buatPesananBayar(
   user: { id: string; name: string; email: string },
-  pilihan: string,
+  r: { packageId: string; price: number; keteng: number; itemName: string },
+  callbackPath: (invoice: string) => string,
   siteUrl: string,
+  tujuan: { tujuan: TujuanBayar; muatan?: Prisma.InputJsonValue } = { tujuan: "isi" },
 ): Promise<{ url: string; invoice: string }> {
   const drv = doku();
   if (!drv) throw new Error("Pembayaran DOKU belum tersedia.");
-  const pkg = rincianIsi(pilihan);
   const pending = await prisma.topupOrder.count({
     where: { user_id: user.id, status: "pending", created_at: { gt: new Date(Date.now() - 3600_000) } },
   });
@@ -166,25 +172,43 @@ export async function mulaiIsiPundi(
   const invoice = invoiceBaru();
   const sesi = await drv.buatCheckout({
     invoice,
-    amount: pkg.price,
-    itemName: `Isi Pundi ${labelIsi(pkg)} (${pkg.keteng.toLocaleString("id-ID")} Keteng)`,
+    amount: r.price,
+    itemName: r.itemName,
     customer: { id: user.id, name: user.name || user.email, email: user.email },
-    callbackUrl: `${siteUrl.replace(/\/$/, "")}/pakhuis?isi=${encodeURIComponent(invoice)}`,
+    callbackUrl: `${siteUrl.replace(/\/$/, "")}${callbackPath(invoice)}`,
     dueMinutes: MENIT_BAYAR,
   });
   await prisma.topupOrder.create({
     data: {
       user_id: user.id,
       invoice_number: invoice,
-      package_id: pkg.packageId,
-      price: pkg.price,
-      keteng: pkg.keteng,
+      package_id: r.packageId,
+      price: r.price,
+      keteng: r.keteng,
       provider: drv.nama,
       payment_url: sesi.url,
       expires_at: sesi.expiresAt,
+      tujuan: tujuan.tujuan,
+      muatan: tujuan.muatan,
+      tujuan_status: tujuan.tujuan === "isi" ? null : "menunggu",
     },
   });
   return { url: sesi.url, invoice };
+}
+
+/** Buat pesanan Isi Pundi + sesi DOKU Checkout. Keteng BELUM masuk sampai pembayaran sukses. */
+export async function mulaiIsiPundi(
+  user: { id: string; name: string; email: string },
+  pilihan: string,
+  siteUrl: string,
+): Promise<{ url: string; invoice: string }> {
+  const pkg = rincianIsi(pilihan);
+  return buatPesananBayar(
+    user,
+    { ...pkg, itemName: `Isi Pundi ${labelIsi(pkg)} (${pkg.keteng.toLocaleString("id-ID")} Keteng)` },
+    (inv) => `/pakhuis?isi=${encodeURIComponent(inv)}`,
+    siteUrl,
+  );
 }
 
 /**
@@ -204,7 +228,13 @@ export async function lunasiIsiPundi(invoice: string, amount: number, channel: s
     if (res.count !== 1) return "sudah";
     const pkg = findPackage(o.package_id);
     const nama = pkg ? `paket ${pkg.name}` : `Rp ${o.price.toLocaleString("id-ID")}`;
-    await credit(tx, o.user_id, o.price, "isi", `Isi Pundi ${nama} (DOKU${channel ? ` ${channel}` : ""})`);
+    const via = `${o.provider === "demo" ? "demo" : "DOKU"}${channel ? ` ${channel}` : ""}`;
+    if (o.tujuan !== "isi") {
+      // Bayar Langsung: Keteng masuk, lalu tujuannya dijalankan oleh jalankanTujuan (kabar dikirim di sana).
+      await credit(tx, o.user_id, o.price, "isi", `Bayar langsung Rp ${o.price.toLocaleString("id-ID")} (${via})`);
+      return "lunas";
+    }
+    await credit(tx, o.user_id, o.price, "isi", `Isi Pundi ${nama} (${via})`);
     if (o.keteng > o.price) await credit(tx, o.user_id, o.keteng - o.price, "bonus", `Bonus ${nama}`);
     await beriKabar(tx, o.user_id, {
       kind: "pundi",

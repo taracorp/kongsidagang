@@ -19,6 +19,7 @@ import { kodeKetemu } from "@/lib/domain/tukar";
 import { alamatSaya } from "@/lib/domain/alamat";
 import { labelStatus, titikAmanLabel } from "@/lib/domain/tukar-aturan";
 import { formatKeping } from "@/lib/utils";
+import { isiPundiTersedia } from "@/lib/domain/pundi";
 
 // Warna QR = token ink & parchment-3 (SVG butuh nilai literal).
 const QR_WARNA = { dark: "#3A2417", light: "#FBEDD2" };
@@ -117,6 +118,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
   const paketKu = d.paket.find((p) => p.iReceive);
   const adaGagal = d.paket.some((p) => p.status === "failed");
   const ditahanAwal = d.myFee + (d.iPayTopup ? d.topup : 0) + d.myDeposit;
+  const langsung = isiPundiTersedia() !== null;
   const row = "flex justify-between gap-3 py-[3px]";
 
   return (
@@ -200,6 +202,9 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
                   dealId={d.id}
                   mode={d.mode}
                   kurang={Math.max(0, ditahanAwal - saldo)}
+                  saldo={saldo}
+                  kebutuhan={kirim ? null : ditahanAwal}
+                  langsung={langsung}
                   alamat={alamat.map((a) => ({ id: a.id, label: a.label, area: a.area }))}
                 />
               </>
@@ -297,7 +302,13 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
                         </>
                       ) : null}
                     </p>
-                    <BayarOngkir dealId={d.id} amount={paketKu.ongkir} kurang={Math.max(0, paketKu.ongkir - saldo)} />
+                    <BayarOngkir
+                      dealId={d.id}
+                      amount={paketKu.ongkir}
+                      kurang={Math.max(0, paketKu.ongkir - saldo)}
+                      saldo={saldo}
+                      langsung={langsung}
+                    />
                   </>
                 ) : adaGagal ? (
                   <>

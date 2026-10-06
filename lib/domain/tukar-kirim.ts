@@ -131,6 +131,23 @@ function tambahEvent(lama: Prisma.JsonValue, ev: Record<string, string | null>):
 
 const ongkirDari = (t: { shipping_cost: number; insurance: number }) => t.shipping_cost + t.insurance;
 
+/** Ongkir yang ditahan dari B saat menerima mode Kirim (kutipan kurir terkini). */
+export async function hitungOngkirTerima(userId: string, dealId: string, addressId: string): Promise<number> {
+  const kutipan = await kutipDuaArah(userId, dealId, addressId);
+  return kutipan.filter((k) => k.payer_id === userId).reduce((s, k) => s + k.tarif.cost + k.tarif.insurance, 0);
+}
+
+/** Ongkir yang belum dilunasi user pada deal ini (untuk Bayar Langsung). */
+export async function hitungBayarOngkir(userId: string, dealId: string): Promise<number> {
+  const d = await prisma.barterDeal.findUnique({ where: { id: dealId }, include: { shipments: true, itemA: { select: { user_id: true } }, itemB: { select: { user_id: true } } } });
+  if (!d) throw new Error("Tawaran tidak ditemukan.");
+  pastikanBoleh(d.status, pihakDari(d, userId), "bayar_ongkir", d.mode);
+  const s = d.shipments.find((x) => x.payer_id === userId);
+  if (!s) throw new Error("Paket tidak ditemukan.");
+  if (s.status !== "quoted") throw new Error("Ongkir sudah dilunasi.");
+  return ongkirDari(s);
+}
+
 /** B menerima tawaran mode Kirim. */
 export async function terimaKirim(userId: string, dealId: string, addressId: string) {
   const kutipan = await kutipDuaArah(userId, dealId, addressId);

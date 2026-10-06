@@ -18,17 +18,18 @@ import { TITIK_AMAN } from "@/lib/domain/tukar-aturan";
 import { saranIsi, tautanIsi } from "@/lib/pundi-paket";
 import { cn, formatKeping } from "@/lib/utils";
 import { KongsiButton } from "./KongsiButton";
+import { BayarLangsung } from "./BayarLangsung";
 
 const input =
   "w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-3 py-[10px] font-work text-sm focus:outline-2 focus:outline-kongsi-beeswax";
 const label = "mb-[5px] block text-[13px] font-bold";
 
 /** Pesan galat; bila saldo kurang, sertakan tautan Isi Pundi dengan nominal kekurangan. */
-function Pesan({ m, kurang }: { m: string | null; kurang?: number }) {
+function Pesan({ m, kurang, tanpaIsi }: { m: string | null; kurang?: number; tanpaIsi?: boolean }) {
   return m ? (
     <p className="mt-2 rounded-[4px] border-2 border-kongsi-grenadine bg-kongsi-parchment-3 px-3 py-2 text-[13px] text-kongsi-grenadine-dark">
       {m}
-      {/saldo/i.test(m) ? (
+      {/saldo/i.test(m) && !tanpaIsi ? (
         <>
           {" "}
           <a href={tautanIsi(kurang ?? 0)} className="font-bold underline">
@@ -63,18 +64,40 @@ export function TerimaTawaran({
   mode,
   alamat = [],
   kurang = 0,
+  saldo = 0,
+  kebutuhan = null,
+  langsung = false,
 }: {
   dealId: string;
   mode: "cod" | "kirim";
   alamat?: AlamatPilihan[];
   kurang?: number; // kekurangan saldo untuk rekber saat menerima (perkiraan)
+  saldo?: number;
+  kebutuhan?: number | null; // Keteng yang ditahan saat menerima (null = ada ongkir yang belum diketahui)
+  langsung?: boolean; // Bayar Langsung (DOKU) tersedia
 }) {
   const { busy, err, jalankan } = useAksi();
   const [type, setType] = useState<string>(TITIK_AMAN[0].key);
   const [place, setPlace] = useState("");
   const [addressId, setAddressId] = useState(alamat[0]?.id ?? "");
 
-  const tombol = (
+  // Saldo kurang (perkiraan, atau ditolak server karena ongkir) → bayar langsung, terima dijalankan setelah lunas.
+  const pakaiLangsung = langsung && (kurang > 0 || /saldo/i.test(err ?? ""));
+  const muatan = mode === "kirim" ? { dealId, addressId } : { dealId, meetType: type, meetPlace: place };
+  const tombol = pakaiLangsung ? (
+    <div className="mt-3 space-y-2">
+      <BayarLangsung
+        tujuan="tukar_terima"
+        muatan={muatan}
+        kebutuhan={kebutuhan}
+        saldo={saldo}
+        disabled={busy || (mode === "kirim" && !addressId)}
+      />
+      <KongsiButton type="button" variant="ghost" block disabled={busy} onClick={() => jalankan(() => tolakTukar(dealId))}>
+        Tolak
+      </KongsiButton>
+    </div>
+  ) : (
     <div className="mt-3 flex gap-3">
       <KongsiButton type="button" variant="ghost" disabled={busy} onClick={() => jalankan(() => tolakTukar(dealId))}>
         Tolak
@@ -118,7 +141,7 @@ export function TerimaTawaran({
           Ongkir dihitung otomatis (kurir termurah + asuransi). Kamu membayar ongkir barang yang <b>kamu terima</b>.
         </p>
         {tombol}
-        <Pesan m={err} kurang={kurang} />
+        <Pesan m={err} kurang={kurang} tanpaIsi={langsung} />
       </div>
     );
   }
@@ -150,13 +173,28 @@ export function TerimaTawaran({
         Tempat umum, terang, ramai / ber-CCTV. Jangan ketemuan di rumah.
       </p>
       {tombol}
-      <Pesan m={err} kurang={kurang} />
+      <Pesan m={err} kurang={kurang} tanpaIsi={langsung} />
     </div>
   );
 }
 
-export function BayarOngkir({ dealId, amount, kurang = 0 }: { dealId: string; amount: number; kurang?: number }) {
+export function BayarOngkir({
+  dealId,
+  amount,
+  kurang = 0,
+  saldo = 0,
+  langsung = false,
+}: {
+  dealId: string;
+  amount: number;
+  kurang?: number;
+  saldo?: number;
+  langsung?: boolean;
+}) {
   const { busy, err, jalankan } = useAksi();
+  if (langsung && kurang > 0) {
+    return <BayarLangsung tujuan="tukar_ongkir" muatan={{ dealId }} kebutuhan={amount} saldo={saldo} />;
+  }
   return (
     <div>
       <KongsiButton type="button" block disabled={busy} onClick={() => jalankan(() => bayarOngkirTukar(dealId))}>

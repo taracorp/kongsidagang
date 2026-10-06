@@ -21,7 +21,7 @@ export const ARTIKEL: ArtikelData[] = [
       "Di Kongsi Dagang, perawatan dari lapak mitra dijual dalam bentuk e-voucher. Kamu membayar di aplikasi, lalu datang ke klinik membawa kode Surat Jalan. Tidak perlu membawa uang tunai atau mencetak apa pun.",
       "Langkah pertama: buka Lapak, pilih lapak yang kamu suka, lalu pilih perawatannya. Saat menekan tombol + Keranjang, kamu akan diminta memilih cabang. Pilih dengan teliti, karena e-voucher hanya berlaku di cabang yang kamu pilih saat membeli.",
       "Keranjang boleh diisi tanpa akun. Akun baru diminta ketika kamu mau menebus di Gerbang Tebus. Daftarnya cukup dengan surel dan kata sandi, atau tombol Masuk dengan Google.",
-      "Pembayaran memakai Keteng dari Pundi. 1 Keteng sama dengan Rp 1. Kalau saldomu kurang, Gerbang Tebus langsung menunjukkan berapa kekurangannya dan tombol Isi Pundi akan membawa nominal itu ke halaman pembayaran DOKU, jadi kamu cukup mengisi sekali.",
+      "Pembayaran memakai Keteng dari Pundi. 1 Keteng sama dengan Rp 1. Belum punya Keteng? Tidak perlu Isi Pundi dulu: di Gerbang Tebus pilih Bayar Langsung (QRIS, virtual account, atau e-wallet lewat DOKU). Uang yang kamu bayar otomatis jadi Keteng lalu langsung dipakai, dan Surat Jalan terbit begitu pembayaran diterima.",
       "Setiap transaksi dikenai bea layanan Rp 2.000. Bea ini gratis untuk pelanggan tingkat Tuan Besar dan Juragan, atau bisa ditukar dengan 10 Cap yang terkumpul dari belanja sebelumnya. Harga perawatan sendiri sama dengan harga menu resmi klinik.",
       "Begitu pembayaran berhasil, satu Surat Jalan terbit untuk setiap voucher yang kamu beli. Kalau kamu membeli dua kali Facial Acne, akan ada dua Surat Jalan dengan kode yang berbeda. Semuanya tersimpan di Pakhuis, bagian Surat Jalan, lengkap dengan kode, QR, alamat cabang, dan tanggal berlaku.",
       "Saat datang ke cabang, tunjukkan QR atau sebutkan kode 10 karakter di Surat Jalan kepada petugas. Petugas memindai atau mengetik kode itu di halaman validasi lapak. Begitu disahkan, status voucher berubah menjadi ditebus dan kamu menerima kabar di lonceng Kongsi.",
@@ -105,7 +105,8 @@ export const ARTIKEL: ArtikelData[] = [
       "Pembayaran dilakukan di halaman aman DOKU. Pilih metode yang tersedia di sana, seperti transfer Virtual Account berbagai bank atau pembayaran di gerai. Begitu pembayaran dikonfirmasi DOKU, Keteng langsung masuk dan kamu mendapat kabar di lonceng.",
       "Keteng dipakai untuk membeli e-voucher di lapak, membayar Bea Tukar dan selisih di Tukar Guling, serta keperluan lain di Kongsi. Kalau saldo kurang saat menebus atau bertukar, Kongsi akan menyarankan nominal yang pas untuk menutup kekurangannya.",
       "Satu hal penting: Keteng tidak dapat diuangkan kembali. Isilah sesuai kebutuhanmu.",
-      "Semua mutasi Keteng — isi, bonus, belanja, dan rekber Tukar Guling — tercatat di Riwayat Pundi, sehingga kamu selalu bisa melihat ke mana saja Keteng-mu pergi.",
+      "Kamu juga tidak wajib mengisi Pundi sebelum bertransaksi. Saat belanja atau Tukar Guling, kalau saldo kurang, pilih Bayar Langsung. Kalau saldomu ada sebagian, kamu boleh memilih: pakai saldo lalu bayar kekurangannya, atau bayar penuh dan biarkan saldo tetap utuh. Uang yang kamu bayar masuk 1:1 sebagai Keteng — bayar Rp 1.000.000 berarti 1.000.000 Keteng — lalu langsung dipakai. Pembayaran minimal Rp 10.000; kalau kekurangannya lebih kecil, sisanya tetap tersimpan di Pundi.",
+      "Semua mutasi Keteng — isi, bayar langsung, bonus, belanja, dan rekber Tukar Guling — tercatat di Riwayat Pundi, sehingga kamu selalu bisa melihat ke mana saja Keteng-mu pergi.",
     ],
   },
 ];

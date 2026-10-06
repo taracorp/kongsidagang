@@ -57,3 +57,15 @@ export function saranIsi(kurang: number): number {
 export function tautanIsi(kurang: number): string {
   return `/pakhuis?isi_nominal=${saranIsi(kurang)}#isi-pundi`;
 }
+
+/**
+ * Nominal Bayar Langsung (dipakai client untuk label & server untuk tagihan).
+ * - "penuh": seluruh kebutuhan.
+ * - "kurang": kebutuhan dikurangi saldo.
+ * Keduanya dibulatkan ke atas ke Rp1.000 dan minimal Rp10.000; kelebihannya tetap jadi Keteng di Pundi.
+ */
+export function nominalLangsung(kebutuhan: number, saldo: number, cara: "kurang" | "penuh"): number {
+  const dasar = cara === "penuh" ? kebutuhan : kebutuhan - Math.max(0, saldo);
+  if (dasar <= 0) return 0;
+  return saranIsi(dasar);
+}

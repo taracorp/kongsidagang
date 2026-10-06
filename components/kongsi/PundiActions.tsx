@@ -152,7 +152,7 @@ export function IsiPundiPaket({ mode, saran }: { mode: "doku" | "demo" | null; s
 }
 
 /** Tombol di halaman bayar tiruan (DOKU_MOCK=true). */
-export function BayarTiruan({ invoice }: { invoice: string }) {
+export function BayarTiruan({ invoice, kembali }: { invoice: string; kembali: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -166,7 +166,7 @@ export function BayarTiruan({ invoice }: { invoice: string }) {
           const { error } = await bayarTiruan(invoice);
           setBusy(false);
           if (error) setErr(error);
-          else router.push(`/pakhuis?isi=${encodeURIComponent(invoice)}`);
+          else router.push(kembali);
         }}
         className="inline-block cursor-pointer rounded-[3px] border-2 border-kongsi-ink bg-kongsi-grenadine px-[22px] py-3 text-sm font-bold text-kongsi-parchment shadow-hard disabled:opacity-60"
       >

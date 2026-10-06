@@ -7,6 +7,7 @@ import { ajukanTukar, tutupBarang, mintaTera } from "@/app/actions/tukar";
 import { beaTukar, depositKirim, hitungSelisih } from "@/lib/domain/tukar-aturan";
 import { tautanIsi } from "@/lib/pundi-paket";
 import { cn, formatKeping } from "@/lib/utils";
+import { BayarLangsung } from "./BayarLangsung";
 
 type MyItem = { id: string; title: string; value: number; kirimOk: boolean };
 type AlamatPilihan = { id: string; label: string; area: string };
@@ -22,6 +23,7 @@ export function AjukanTukar({
   balance,
   kirimAktif,
   alamat,
+  langsung = false,
 }: {
   targetId: string;
   targetValue: number;
@@ -31,6 +33,7 @@ export function AjukanTukar({
   balance: number;
   kirimAktif: boolean;
   alamat: AlamatPilihan[];
+  langsung?: boolean; // Bayar Langsung (DOKU) tersedia
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -251,7 +254,22 @@ export function AjukanTukar({
                   </p>
                 </div>
 
-                {kurang ? (
+                {kurang && langsung ? (
+                  <BayarLangsung
+                    kecil
+                    tujuan="tukar_ajukan"
+                    muatan={{
+                      myItemId: mine.id,
+                      targetId,
+                      topup: sel.from ? topup : 0,
+                      mode: modeAktif,
+                      addressId: modeAktif === "kirim" ? addressId : null,
+                    }}
+                    kebutuhan={ditahan}
+                    saldo={balance}
+                    disabled={butuhAlamat}
+                  />
+                ) : kurang ? (
                   <a href={tautanIsi(ditahan - balance)} className={cn(small, "block bg-kongsi-beeswax")}>
                     Saldo {formatKeping(balance)} kurang — Isi Pundi
                   </a>

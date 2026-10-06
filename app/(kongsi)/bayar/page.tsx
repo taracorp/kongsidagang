@@ -1,4 +1,5 @@
 import { BayarClient } from "@/components/kongsi/BayarClient";
+import { isiPundiTersedia } from "@/lib/domain/pundi";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 
@@ -18,5 +19,5 @@ export default async function BayarPage() {
     saldo = wallet?.balance ?? 0;
   }
 
-  return <BayarClient loggedIn={Boolean(user)} level={level} stamps={stamps} saldo={saldo} />;
+  return <BayarClient loggedIn={Boolean(user)} level={level} stamps={stamps} saldo={saldo} langsung={isiPundiTersedia() !== null} />;
 }

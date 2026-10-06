@@ -3,6 +3,7 @@ import { BayarTiruan } from "@/components/kongsi/PundiActions";
 import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatKeping } from "@/lib/utils";
+import { tautanHasil } from "@/lib/domain/bayar-langsung";
 
 /** Halaman bayar tiruan pengganti DOKU (hanya DOKU_MOCK=true, untuk dev/uji). */
 export default async function BayarTiruanPage({ searchParams }: { searchParams: Promise<{ invoice?: string }> }) {
@@ -24,7 +25,10 @@ export default async function BayarTiruanPage({ searchParams }: { searchParams: 
           <p className="mb-4 text-[13px] text-kongsi-ink-soft">
             Invoice {o.invoice_number} · {o.keteng.toLocaleString("id-ID")} Keteng · status {o.status}
           </p>
-          <BayarTiruan invoice={o.invoice_number} />
+          <BayarTiruan
+            invoice={o.invoice_number}
+            kembali={o.tujuan === "isi" ? `/pakhuis?isi=${encodeURIComponent(o.invoice_number)}` : tautanHasil(o.invoice_number)}
+          />
         </div>
       </div>
     </section>

@@ -179,37 +179,56 @@ async function pastikanAlamat(tx: Tx, userId: string, addressId: string | null |
 
 export type AjukanOpsi = { mode?: ModeTukar; addressId?: string | null };
 
-export async function ajukan(userId: string, myItemId: string, targetId: string, topup: number, opsi: AjukanOpsi = {}) {
+/** Validasi + hitungan tawaran (tanpa menulis). Dipakai `ajukan` dan Bayar Langsung. */
+async function siapkanAjukan(tx: Tx, userId: string, myItemId: string, targetId: string, topup: number, opsi: AjukanOpsi) {
   const mode: ModeTukar = opsi.mode === "kirim" ? "kirim" : "cod";
-  return prisma.$transaction(async (tx) => {
-    // Berurutan: satu koneksi transaksi tidak boleh menjalankan query paralel.
-    const mine = await tx.barterItem.findUnique({ where: { id: myItemId } });
-    const target = await tx.barterItem.findUnique({ where: { id: targetId } });
-    if (!mine || mine.user_id !== userId) throw new Error("Pilih barangmu sendiri.");
-    if (mine.status !== "aktif") throw new Error("Barangmu sedang tidak tersedia.");
-    if (!target || target.status !== "aktif") throw new Error("Barang tujuan tidak tersedia.");
-    if (target.user_id === userId) throw new Error("Tidak bisa menukar dengan barang sendiri.");
-    if (mode === "kirim" && (!mine.category || !target.category)) {
-      throw new Error("Barang tanpa kategori taksiran hanya bisa COD.");
-    }
-    const dobel = await tx.barterDeal.findFirst({
-      where: {
-        item_a: myItemId,
-        item_b: targetId,
-        status: { in: ["proposed", "agreed", "dikirim", "diterima", "disputed"] },
-      },
-      select: { id: true },
-    });
-    if (dobel) throw new Error("Kamu sudah mengajukan tukar untuk pasangan barang ini.");
-    const addressId = mode === "kirim" ? await pastikanAlamat(tx, userId, opsi.addressId) : null;
+  // Berurutan: satu koneksi transaksi tidak boleh menjalankan query paralel.
+  const mine = await tx.barterItem.findUnique({ where: { id: myItemId } });
+  const target = await tx.barterItem.findUnique({ where: { id: targetId } });
+  if (!mine || mine.user_id !== userId) throw new Error("Pilih barangmu sendiri.");
+  if (mine.status !== "aktif") throw new Error("Barangmu sedang tidak tersedia.");
+  if (!target || target.status !== "aktif") throw new Error("Barang tujuan tidak tersedia.");
+  if (target.user_id === userId) throw new Error("Tidak bisa menukar dengan barang sendiri.");
+  if (mode === "kirim" && (!mine.category || !target.category)) {
+    throw new Error("Barang tanpa kategori taksiran hanya bisa COD.");
+  }
+  const dobel = await tx.barterDeal.findFirst({
+    where: {
+      item_a: myItemId,
+      item_b: targetId,
+      status: { in: ["proposed", "agreed", "dikirim", "diterima", "disputed"] },
+    },
+    select: { id: true },
+  });
+  if (dobel) throw new Error("Kamu sudah mengajukan tukar untuk pasangan barang ini.");
+  const addressId = mode === "kirim" ? await pastikanAlamat(tx, userId, opsi.addressId) : null;
 
-    const va = mine.est_value;
-    const vb = target.est_value;
-    const from = validasiTambah(va, vb, topup);
-    const fee_a = beaTukar(va);
-    const fee_b = beaTukar(vb);
-    const deposit_a = mode === "kirim" ? depositKirim(va) : 0;
-    const deposit_b = mode === "kirim" ? depositKirim(vb) : 0;
+  const va = mine.est_value;
+  const vb = target.est_value;
+  const from = validasiTambah(va, vb, topup);
+  const fee_a = beaTukar(va);
+  const fee_b = beaTukar(vb);
+  const deposit_a = mode === "kirim" ? depositKirim(va) : 0;
+  const deposit_b = mode === "kirim" ? depositKirim(vb) : 0;
+  const ditahan = fee_a + (from === "a" ? topup : 0) + deposit_a;
+  return { mode, mine, target, addressId, va, vb, from, fee_a, fee_b, deposit_a, deposit_b, ditahan };
+}
+
+/** Keteng yang akan ditahan dari pengaju (untuk Bayar Langsung). */
+export function hitungAjukan(userId: string, myItemId: string, targetId: string, topup: number, opsi: AjukanOpsi = {}) {
+  return prisma.$transaction((tx) => siapkanAjukan(tx, userId, myItemId, targetId, topup, opsi).then((r) => r.ditahan));
+}
+
+export async function ajukan(userId: string, myItemId: string, targetId: string, topup: number, opsi: AjukanOpsi = {}) {
+  return prisma.$transaction(async (tx) => {
+    const { mode, mine, target, addressId, va, vb, from, fee_a, fee_b, deposit_a, deposit_b } = await siapkanAjukan(
+      tx,
+      userId,
+      myItemId,
+      targetId,
+      topup,
+      opsi,
+    );
 
     const deal = await tx.barterDeal.create({
       data: {
@@ -246,6 +265,31 @@ export async function ajukan(userId: string, myItemId: string, targetId: string,
 
 export type TerimaOpsi = { meetType?: string; meetPlace?: string; addressId?: string | null };
 
+async function cekTerima(tx: Tx, d: DealRow, userId: string, opsi: TerimaOpsi) {
+  pastikanBoleh(d.status, pihakDari(d, userId), "terima");
+  let meet: { meet_type: string; meet_place: string } | null = null;
+  let addressB: string | null = null;
+  if (d.mode === "cod") {
+    if (!TITIK_AMAN.some((t) => t.key === opsi.meetType)) throw new Error("Pilih jenis Titik Aman.");
+    const place = (opsi.meetPlace ?? "").trim();
+    if (place.length < 3 || place.length > 80) throw new Error("Tulis nama tempat umum (3–80 huruf).");
+    meet = { meet_type: opsi.meetType!, meet_place: place };
+  } else {
+    addressB = await pastikanAlamat(tx, userId, opsi.addressId);
+  }
+  return { meet, addressB };
+}
+
+/** Keteng yang ditahan dari penerima saat menerima (tanpa ongkir; ongkir dihitung di tukar-kirim). */
+export function hitungTerima(userId: string, dealId: string, opsi: TerimaOpsi) {
+  return prisma.$transaction(async (tx) => {
+    const d = await bacaDeal(tx, dealId);
+    if (!d) throw new Error("Tawaran tidak ditemukan.");
+    await cekTerima(tx, d, userId, opsi);
+    return d.fee_b + (d.topup_from === "b" ? d.topup_keping : 0) + d.deposit_b;
+  });
+}
+
 /**
  * B menerima. COD: wajib Titik Aman. Kirim: wajib alamat; `siapkanKirim` (dalam transaksi yang sama)
  * membuat dua paket berstatus quoted dan menahan ongkir milik B.
@@ -259,18 +303,7 @@ export async function terima(
   return prisma.$transaction(
     async (tx) => {
       const d = await kunciDeal(tx, dealId);
-      pastikanBoleh(d.status, pihakDari(d, userId), "terima");
-
-      let meet: { meet_type: string; meet_place: string } | null = null;
-      let addressB: string | null = null;
-      if (d.mode === "cod") {
-        if (!TITIK_AMAN.some((t) => t.key === opsi.meetType)) throw new Error("Pilih jenis Titik Aman.");
-        const place = (opsi.meetPlace ?? "").trim();
-        if (place.length < 3 || place.length > 80) throw new Error("Tulis nama tempat umum (3–80 huruf).");
-        meet = { meet_type: opsi.meetType!, meet_place: place };
-      } else {
-        addressB = await pastikanAlamat(tx, userId, opsi.addressId);
-      }
+      const { meet, addressB } = await cekTerima(tx, d, userId, opsi);
 
       const kunci = await tx.barterItem.updateMany({
         where: { id: { in: [d.itemA.id, d.itemB.id] }, status: "aktif" },

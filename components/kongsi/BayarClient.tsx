@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { bayarKeranjang } from "@/app/actions/belanja";
+import { BayarLangsung } from "./BayarLangsung";
 import { KongsiButton, KongsiLinkButton } from "@/components/kongsi/KongsiButton";
 import { useCart } from "@/components/kongsi/cart";
 import { GoogleButton } from "@/components/kongsi/GoogleButton";
@@ -141,11 +142,13 @@ export function BayarClient({
   level,
   stamps,
   saldo,
+  langsung,
 }: {
   loggedIn: boolean;
   level: string;
   stamps: number;
   saldo: number;
+  langsung: boolean; // Bayar Langsung (DOKU) tersedia
 }) {
   const { items, subtotal, clear } = useCart();
   const [pay, setPay] = useState<
@@ -158,11 +161,11 @@ export function BayarClient({
   const total = subtotal + bea;
   const kurang = Math.max(0, total - saldo);
 
+  const baris = items.map((it) => ({ productId: it.productId, branchId: it.branchId, qty: it.qty }));
+
   async function bayarPundi() {
     setPay({ k: "paying" });
-    const { error, data } = await bayarKeranjang(
-      items.map((it) => ({ productId: it.productId, branchId: it.branchId, qty: it.qty })),
-    );
+    const { error, data } = await bayarKeranjang(baris);
     if (error) return setPay({ k: "error", m: error });
     clear();
     setPay({ k: "ok", voucher: data?.voucher ?? 0 });
@@ -198,22 +201,38 @@ export function BayarClient({
             {loggedIn ? (
               <div className="overflow-hidden rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment shadow-hard">
                 <div className="border-b-2 border-kongsi-ink bg-kongsi-sage/30 px-[18px] py-3 text-[13px]">
-                  🔑 Tebus pakai <b>Pundi</b> — saldomu <b>{saldo.toLocaleString("id-ID")} Keteng</b>.
+                  🔑 Saldo Pundi-mu <b>{saldo.toLocaleString("id-ID")} Keteng</b>.
                 </div>
                 <div className="p-[22px]">
                   {kurang > 0 ? (
                     <>
                       <p className="mb-3 text-[13px]">
-                        Saldo kurang <b>{formatKeping(kurang)}</b>. Isi Pundi dulu, lalu kembali ke sini.
+                        {saldo > 0 ? (
+                          <>
+                            Saldo kurang <b>{formatKeping(kurang)}</b>. Bayar langsung tanpa Isi Pundi dulu:
+                          </>
+                        ) : (
+                          "Bayar langsung tanpa Isi Pundi dulu:"
+                        )}
                       </p>
-                      <KongsiLinkButton href={tautanIsi(kurang)} variant="gold" block>
-                        Isi Pundi {formatKeping(kurang)}
-                      </KongsiLinkButton>
+                      <BayarLangsung tujuan="belanja" muatan={{ baris }} kebutuhan={total} saldo={saldo} tersedia={langsung} />
                     </>
                   ) : (
-                    <KongsiButton variant="primary" block onClick={bayarPundi} disabled={pay.k === "paying"}>
-                      {pay.k === "paying" ? "Memproses…" : `Bayar ${formatKeping(total)} dengan Keteng`}
-                    </KongsiButton>
+                    <>
+                      <KongsiButton variant="primary" block onClick={bayarPundi} disabled={pay.k === "paying"}>
+                        {pay.k === "paying" ? "Memproses…" : `Bayar ${formatKeping(total)} dengan Keteng`}
+                      </KongsiButton>
+                      {langsung ? (
+                        <details className="mt-3 text-[13px]">
+                          <summary className="cursor-pointer font-bold text-kongsi-grenadine">
+                            Atau bayar langsung (QRIS / VA / e-wallet)
+                          </summary>
+                          <div className="mt-2">
+                            <BayarLangsung tujuan="belanja" muatan={{ baris }} kebutuhan={total} saldo={0} />
+                          </div>
+                        </details>
+                      ) : null}
+                    </>
                   )}
                   {pay.k === "error" ? (
                     <p className="mt-3 rounded-[4px] border-2 border-kongsi-grenadine bg-kongsi-parchment-3 px-3 py-2 text-[13px] text-kongsi-grenadine-dark">

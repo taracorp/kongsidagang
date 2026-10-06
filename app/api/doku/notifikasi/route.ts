@@ -1,4 +1,5 @@
 import { gagalkanIsiPundi, lunasiIsiPundi } from "@/lib/domain/pundi";
+import { jalankanTujuan } from "@/lib/domain/bayar-langsung";
 import { dokuConfig, verifikasiNotifikasi, PATH_NOTIFIKASI } from "@/lib/payment/doku";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,8 @@ export async function POST(req: Request) {
   if (status === "SUCCESS") {
     const hasil = await lunasiIsiPundi(invoice, Number(body.order?.amount), body.channel?.id ?? null);
     if (hasil === "tolak") console.error(`[doku] notifikasi ditolak: ${invoice} nominal/pesanan tidak cocok`);
+    // Bayar Langsung: jalankan aksi tujuannya (idempoten; galat tujuan dicatat, Keteng tetap di Pundi).
+    else await jalankanTujuan(invoice).catch((e) => console.error(`[doku] tujuan ${invoice} gagal:`, e));
   } else if (status === "FAILED" || status === "EXPIRED") {
     await gagalkanIsiPundi(invoice, status === "FAILED" ? "failed" : "expired");
   }

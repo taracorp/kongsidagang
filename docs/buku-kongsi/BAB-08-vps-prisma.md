@@ -588,3 +588,56 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - TopBar ("Masuk" / Pakhuis-ku + saldo, lonceng → `/kabar-saya`), Neraca (membaca `merchant_products`), Juru Taksir
   & sourcing Neraca memakai "lapak mitra". Baris Fase C dibiarkan sebagai catatan sejarah.
 - Rollback: `git revert` commit ini.
+
+### Ch 8.24 — Bayar Langsung: transfer → otomatis jadi Keteng → transaksi langsung jalan
+2026-10-07
+- **Masukan Tara:** "apakah semua transaksi harus pakai Keteng? Kalau harus top up dulu rasanya ribet. Kalau tidak
+  punya Keteng bisa langsung transfer, nanti terkonversi langsung — transfer 1 juta dapat 1 juta Keteng."
+- **Keputusan Tara:**
+  - berlaku untuk belanja keranjang + Tukar Guling (ajukan, terima, bayar ongkir);
+  - bila saldo ada sebagian, **user memilih**: "pakai saldo + bayar kekurangan" atau "bayar penuh".
+- **Desain:** Keteng tetap satu-satunya buku besar (rekber, bea, dan riwayat utuh). Pembayaran DOKU kini membawa
+  **tujuan**. Setelah lunas, uang dikredit 1:1 sebagai Keteng ("Bayar langsung Rp … (DOKU QRIS)"), lalu aksinya
+  dijalankan otomatis.
+- **Migrasi `20261007090000_bayar_langsung`** (aditif) — kolom `topup_orders`:
+  - `tujuan` (default `isi`) + CHECK;
+  - `muatan` (jsonb);
+  - `tujuan_status` (`menunggu|diproses|berhasil|gagal`) + CHECK;
+  - `tujuan_hasil`, `tujuan_ref`.
+  - Batal: `ALTER TABLE topup_orders DROP COLUMN tujuan, DROP COLUMN muatan, DROP COLUMN tujuan_status,
+    DROP COLUMN tujuan_hasil, DROP COLUMN tujuan_ref;`
+- **Kode:**
+  - `lib/domain/bayar-langsung.ts`:
+    - `hitungKebutuhan` → nominal dihitung server **dan** input divalidasi sebelum tagihan dibuat;
+    - `mulaiBayarLangsung`;
+    - `jalankanTujuan` (idempoten, klaim atomik `menunggu → diproses`).
+  - `lib/domain/pundi.ts`: `buatPesananBayar` (helper sesi DOKU bersama Isi Pundi). `lunasiIsiPundi` mencatat
+    "Bayar langsung" untuk tujuan non-isi.
+  - Fungsi validasi/hitungan diekstrak tanpa mengubah perilaku lama:
+    - `siapkanBelanja` (`lib/domain/belanja.ts`);
+    - `siapkanAjukan` / `hitungAjukan`, `cekTerima` / `hitungTerima` (`lib/domain/tukar.ts`);
+    - `hitungOngkirTerima`, `hitungBayarOngkir` (`lib/domain/tukar-kirim.ts`).
+  - `jalankanTujuan` dipanggil oleh notifikasi DOKU, bayar tiruan, dan halaman hasil (rekonsiliasi bila
+    notifikasi terlambat).
+  - `nominalLangsung` (`lib/pundi-paket.ts`): dibulatkan ke atas ke Rp1.000, minimal Rp10.000; kelebihan tetap
+    di Pundi.
+- **UI** (pola tombol yang sudah ada):
+  - `components/kongsi/BayarLangsung.tsx`: saldo 0 → "Bayar Rp X — QRIS / VA / e-wallet"; saldo sebagian →
+    "Pakai saldo Y + bayar Rp Z" / "Bayar penuh Rp X".
+  - Dipasang di Gerbang Tebus (saldo cukup → opsi lipat "Atau bayar langsung"), lembar Ajukan Tukar, Terima
+    Tawaran (juga muncul bila server menolak karena ongkir), dan Bayar Ongkir.
+  - Halaman hasil `/bayar/selesai?inv=` (menunggu → berhasil / gagal; keranjang dikosongkan setelah berhasil).
+  - Isi Pundi biasa (dengan bonus paket) tetap ada di Pakhuis.
+  - Artikel "Pundi & Keteng" dan "Cara beli e-voucher" diperbarui.
+- **Tujuan gagal** (mis. harga naik sebelum lunas): Keteng tetap di Pundi, status `gagal` + alasan, kabar lonceng
+  "Pembayaran masuk … Keteng-mu aman".
+- **Verifikasi:**
+  - `scripts/uji/bayar-langsung.ts` 24/24: validasi sebelum bayar, tagihan = harga DB + bea, lunas → voucher,
+    notifikasi ganda tidak dobel, kurang/penuh/minimum, saldo cukup ditolak, harga naik → gagal + Keteng aman +
+    kabar, tukar ajukan & terima COD otomatis, Σ transaksi = saldo.
+  - Uji lama lulus: belanja 24, pundi 10, isi-pundi 17, isi-nominal 11, tukar 32, kirim 30, doku 8.
+  - `npm run flow` 37/37 (+ bayar langsung tiruan → hasil berhasil → keranjang kosong → Surat Jalan +1).
+  - tsc + eslint lolos; screenshot mobile (saldo sebagian & nol).
+  - Ongkir tukar via bayar langsung belum diuji ujung-ke-ujung (butuh mode Kirim); jalurnya memakai
+    `bayarOngkir` yang sudah teruji di `kirim.ts`.
+- **Rollback:** `git revert kd-bayar-langsung` + drop kolom di atas (atau restore backup pra-deploy).

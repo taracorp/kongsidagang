@@ -666,6 +666,12 @@ model TopupOrder {
   paid_at        DateTime?
   expires_at     DateTime
   created_at     DateTime  @default(now())
+  // Bayar Langsung: setelah lunas, Keteng masuk lalu `tujuan` dijalankan otomatis (lib/domain/bayar-langsung.ts).
+  tujuan         String    @default("isi") // isi | belanja | tukar_ajukan | tukar_terima | tukar_ongkir
+  muatan         Json? // parameter aksi tujuan
+  tujuan_status  String? // menunggu | diproses | berhasil | gagal (null untuk isi)
+  tujuan_hasil   String? // ringkasan / alasan gagal
+  tujuan_ref     String? // orderId / dealId hasil
 
   @@index([user_id, created_at(sort: Desc)])
   @@map("topup_orders")

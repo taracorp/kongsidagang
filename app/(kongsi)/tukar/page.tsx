@@ -9,6 +9,7 @@ import { getBarterRows, getMyBarter, getWalletBalance, type BarterRow } from "@/
 import { labelStatus, STATUS_AKHIR } from "@/lib/domain/tukar-aturan";
 import { alamatSaya } from "@/lib/domain/alamat";
 import { kirimAktif } from "@/lib/shipping/kiriminaja";
+import { isiPundiTersedia } from "@/lib/domain/pundi";
 import { cn, formatKeping } from "@/lib/utils";
 import type { Tone } from "@/components/kongsi/ProdukCard";
 
@@ -104,6 +105,7 @@ export default async function TukarPage() {
     ? await Promise.all([getMyBarter(user.id), getWalletBalance(user.id), alamatSaya(user.id)])
     : [{ mine: [], deals: [] }, 0, []];
   const bisaKirim = kirimAktif();
+  const langsung = isiPundiTersedia() !== null;
   // Tawaran aktif di atas, yang sudah tutup di bawah.
   const sortedDeals = [...deals].sort(
     (x, y) => Number(STATUS_AKHIR.includes(x.status as never)) - Number(STATUS_AKHIR.includes(y.status as never)),
@@ -220,6 +222,7 @@ export default async function TukarPage() {
                   balance={balance}
                   kirimAktif={bisaKirim}
                   alamat={alamatPilihan}
+                  langsung={langsung}
                 />
               </BarterCard>
             ))}

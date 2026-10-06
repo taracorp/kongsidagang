@@ -236,6 +236,26 @@ if (!SKIP_AUTH && EMAIL && PASSWORD) {
     console.log("SKIP  validasi petugas (SEED_ADMIN_* tidak ada)");
   }
 
+  // Bayar Langsung (DOKU tiruan): beli 1 e-voucher tanpa memakai saldo → uang jadi Keteng → voucher terbit
+  await p2.goto(`${BASE}/lapak/${LAPAK}`, { waitUntil: "networkidle" });
+  await p2.locator('button:has-text("+ Keranjang")').first().click();
+  await p2.locator('[aria-label="Pilih cabang"] button').nth(1).click();
+  await p2.waitForTimeout(400);
+  const sjSebelum = (await kodeVoucher(p2)).length;
+  await p2.goto(`${BASE}/bayar`, { waitUntil: "networkidle" });
+  await p2.click("text=Atau bayar langsung");
+  await p2.click('button:has-text("QRIS / VA / e-wallet")');
+  await p2.waitForURL("**/pakhuis/isi/tiruan**", { timeout: 20000 }).catch(() => {});
+  check("bayar langsung → halaman bayar (tiruan)", p2.url().includes("/pakhuis/isi/tiruan"));
+  if (p2.url().includes("/pakhuis/isi/tiruan")) {
+    await p2.click('button:has-text("Bayar (simulasi sukses)")');
+    await p2.waitForURL("**/bayar/selesai**", { timeout: 20000 }).catch(() => {});
+    await p2.waitForTimeout(800);
+    check("bayar langsung → hasil: Pembayaran berhasil", (await p2.locator("text=Pembayaran berhasil").count()) > 0);
+    check("bayar langsung → keranjang dikosongkan", (await p2.locator('a[href="/keranjang"] span').filter({ hasText: /^\d+$/ }).count()) === 0);
+    check("bayar langsung → Surat Jalan bertambah 1", (await kodeVoucher(p2)).length === sjSebelum + 1);
+  }
+
   // Tukar Guling: unggah barang 4 langkah (taksiran sistem) + foto
   const png = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",

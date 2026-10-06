@@ -221,6 +221,14 @@ Enum `user_level`. Ambang (rupiah akumulasi) ditentukan Tara — tanya dulu sebe
 - Data tenant asli: `scripts/data/tenant-asli.ts` (idempoten). Jangan buat data contoh/dummy lagi.
 - Notifikasi: `beriKabar(tx, …)` di `lib/domain/kabar-user.ts`, dipanggil di dalam transaksi peristiwanya.
 
+### 6.1c Bayar Langsung (Okt 2026)
+- User tidak wajib Isi Pundi dulu. Saat saldo kurang (belanja, ajukan/terima tukar, ongkir), user membayar lewat DOKU;
+  uangnya masuk 1:1 sebagai Keteng lalu aksinya dijalankan otomatis (`lib/domain/bayar-langsung.ts`,
+  `topup_orders.tujuan/muatan`). Saldo sebagian → user memilih "pakai saldo + bayar kekurangan" atau "bayar penuh".
+- Nominal dihitung server (`nominalLangsung`: dibulatkan ke Rp1.000, minimal Rp10.000). Input divalidasi SEBELUM
+  tagihan dibuat. Tujuan gagal → Keteng tetap di Pundi + kabar lonceng. Idempoten (`tujuan_status`).
+- Komponen UI: `components/kongsi/BayarLangsung.tsx`; halaman hasil `/bayar/selesai?inv=`.
+
 ### 6.2 Juru Tunjuk (concierge) — kuis tap-tap
 - 3 langkah, jawaban chip (bukan ketik) — enak di HP.
 - Alur: kategori → selera/atribut → kisaran harga → hasil produk.
