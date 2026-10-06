@@ -3,7 +3,7 @@ import "server-only";
 // Klien KiriminAja Mitra API (express). Docs: github.com/kiriminaja/docs
 // Env:
 //   KIRIMINAJA_API_KEY   — Bearer token (dashboard → Integrasi). Kosong + KIRIMINAJA_MOCK=true → driver tiruan.
-//   KIRIMINAJA_BASE_URL  — default sandbox https://tdev.kiriminaja.com (produksi: https://client.kiriminaja.com)
+//   KIRIMINAJA_BASE_URL  — default produksi https://client.kiriminaja.com (sandbox: https://tdev.kiriminaja.com)
 //   KIRIMINAJA_PIN       — PIN KA Credit; divalidasi sebelum request_pickup agar ongkir dipotong dari KA Credit.
 // Ongkir dibayar platform dari KA Credit; ke user ditagih sebagai Keteng (rekber `ongkir`).
 
@@ -94,7 +94,7 @@ function fmtJakarta(d: Date) {
 class KiriminAjaError extends Error {}
 
 function driverAsli(apiKey: string): KurirDriver {
-  const base = (process.env.KIRIMINAJA_BASE_URL || "https://tdev.kiriminaja.com").replace(/\/$/, "");
+  const base = (process.env.KIRIMINAJA_BASE_URL || "https://client.kiriminaja.com").replace(/\/$/, "");
 
   async function call<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
     const res = await fetch(`${base}/${path}`, {

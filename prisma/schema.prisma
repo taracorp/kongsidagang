@@ -42,6 +42,7 @@ model User {
   walletTransactions  WalletTransaction[]
   walletHolds         WalletHold[]
   addresses           UserAddress[]
+  topupOrders         TopupOrder[]
   follows             Follow[]
 
   @@map("user")
@@ -523,6 +524,27 @@ model WalletHold {
   @@index([user_id, status])
   @@index([deal_id])
   @@map("wallet_holds")
+}
+
+// Isi Pundi lewat DOKU Checkout. Keteng dikredit sekali saat notifikasi/cek status SUCCESS.
+model TopupOrder {
+  id             String    @id @default(uuid())
+  user_id        String
+  user           User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  invoice_number String    @unique
+  package_id     String
+  price          Int // rupiah yang dibayar
+  keteng         Int // Keteng yang masuk (termasuk bonus)
+  status         String    @default("pending") // pending | paid | failed | expired
+  provider       String    @default("doku") // doku | tiruan
+  payment_url    String?
+  channel        String?
+  paid_at        DateTime?
+  expires_at     DateTime
+  created_at     DateTime  @default(now())
+
+  @@index([user_id, created_at(sort: Desc)])
+  @@map("topup_orders")
 }
 
 model Voucher {

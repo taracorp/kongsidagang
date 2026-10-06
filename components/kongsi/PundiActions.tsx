@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { isiPundiDemo, tebusSuratJalan } from "@/app/actions/pundi";
+import { isiPundi, tebusSuratJalan, bayarTiruan } from "@/app/actions/pundi";
 import { TOPUP_PACKAGES } from "@/lib/pundi-paket";
 import { cn } from "@/lib/utils";
 
 const rb = (n: number) => `${(n / 1000).toLocaleString("id-ID")}rb`;
 
-export function IsiPundiPaket() {
+export function IsiPundiPaket({ mode }: { mode: "doku" | "demo" | null }) {
   const router = useRouter();
   const [pick, setPick] = useState(TOPUP_PACKAGES[2].id);
   const [busy, setBusy] = useState(false);
@@ -18,12 +18,17 @@ export function IsiPundiPaket() {
   async function onClick() {
     setBusy(true);
     setErr(null);
-    const { error } = await isiPundiDemo(pick);
-    setBusy(false);
+    const { error, data } = await isiPundi(pick);
     if (error) {
+      setBusy(false);
       setErr(error);
       return;
     }
+    if (data?.url) {
+      window.location.href = data.url; // halaman bayar DOKU
+      return;
+    }
+    setBusy(false);
     router.refresh();
   }
 
@@ -63,15 +68,20 @@ export function IsiPundiPaket() {
       <button
         type="button"
         onClick={onClick}
-        disabled={busy}
+        disabled={busy || mode === null}
         className="mt-[12px] inline-block cursor-pointer rounded-[3px] border-2 border-kongsi-ink bg-kongsi-beeswax px-[22px] py-3 text-sm font-bold text-kongsi-ink shadow-hard transition-transform hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-hard-sm disabled:opacity-60"
       >
-        {busy
-          ? "Mengisi…"
-          : `Isi ${pkg.keteng.toLocaleString("id-ID")} Keteng — Rp ${pkg.price.toLocaleString("id-ID")} (demo)`}
+        {mode === null
+          ? "Isi Pundi belum tersedia"
+          : busy
+            ? mode === "doku"
+              ? "Membuka DOKU…"
+              : "Mengisi…"
+            : `Isi ${pkg.keteng.toLocaleString("id-ID")} Keteng — bayar Rp ${pkg.price.toLocaleString("id-ID")}${mode === "demo" ? " (demo)" : ""}`}
       </button>
       {err ? <div className="mt-2 text-[12px] font-semibold">{err}</div> : null}
       <p className="mt-2 text-[11px] opacity-80">
+        {mode === "doku" ? "Dibayar di halaman aman DOKU — pilih metode yang tersedia di sana. " : ""}
         Keteng tidak dapat diuangkan kembali — dipakai untuk belanja, bea Tukar Guling, & lelang.
       </p>
     </div>
@@ -106,6 +116,32 @@ export function VoucherRedeem({ id }: { id: string }) {
         {busy ? "…" : "Tebus"}
       </button>
       {err ? <div className="mt-1 text-[10px] text-kongsi-bad">{err}</div> : null}
+    </div>
+  );
+}
+
+/** Tombol di halaman bayar tiruan (DOKU_MOCK=true). */
+export function BayarTiruan({ invoice }: { invoice: string }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  return (
+    <div>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          const { error } = await bayarTiruan(invoice);
+          setBusy(false);
+          if (error) setErr(error);
+          else router.push(`/pakhuis?isi=${encodeURIComponent(invoice)}`);
+        }}
+        className="inline-block cursor-pointer rounded-[3px] border-2 border-kongsi-ink bg-kongsi-grenadine px-[22px] py-3 text-sm font-bold text-kongsi-parchment shadow-hard disabled:opacity-60"
+      >
+        {busy ? "Memproses…" : "Bayar (simulasi sukses)"}
+      </button>
+      {err ? <p className="mt-2 text-[12px] text-kongsi-bad">{err}</p> : null}
     </div>
   );
 }

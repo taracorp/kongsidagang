@@ -1,7 +1,9 @@
 import "server-only";
 import { prisma } from "@/lib/db";
 import type { Prisma, UserLevel } from "@/lib/generated/prisma/client";
+import { randomBytes } from "node:crypto";
 import { findPackage } from "@/lib/pundi-paket";
+import { doku } from "@/lib/payment/doku";
 
 // Port dari plpgsql spend/topup/redeem/checkout/recompute_level (migrasi Supabase 0014 & 0015).
 // Ambang level (akumulasi belanja, Rp): besar 250rb | tuan_kecil 1jt | tuan_besar 5jt | juragan 20jt.
@@ -123,6 +125,108 @@ export async function topupDemo(userId: string, packageId: string): Promise<numb
     const bonus = pkg.keteng - pkg.price;
     if (bonus > 0) bal = await credit(tx, userId, bonus, "bonus", `Bonus paket ${pkg.name}`);
     return bal;
+  });
+}
+
+// ============================================================
+// Isi Pundi lewat DOKU Checkout
+// ============================================================
+
+const MENIT_BAYAR = 60;
+const MAKS_PENDING_PER_JAM = 3;
+
+export function isiPundiTersedia(): "doku" | "demo" | null {
+  if (doku()) return "doku";
+  if (process.env.ENABLE_TOPUP_DEMO === "true") return "demo";
+  return null;
+}
+
+function invoiceBaru() {
+  return `KD-ISI-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
+}
+
+/** Buat pesanan Isi Pundi + sesi DOKU Checkout. Keteng BELUM masuk sampai pembayaran sukses. */
+export async function mulaiIsiPundi(
+  user: { id: string; name: string; email: string },
+  packageId: string,
+  siteUrl: string,
+): Promise<{ url: string; invoice: string }> {
+  const drv = doku();
+  if (!drv) throw new Error("Pembayaran DOKU belum tersedia.");
+  const pkg = findPackage(packageId);
+  if (!pkg) throw new Error("Paket tidak dikenal");
+  const pending = await prisma.topupOrder.count({
+    where: { user_id: user.id, status: "pending", created_at: { gt: new Date(Date.now() - 3600_000) } },
+  });
+  if (pending >= MAKS_PENDING_PER_JAM) throw new Error("Masih ada pembayaran yang menunggu. Selesaikan dulu atau tunggu 1 jam.");
+
+  const invoice = invoiceBaru();
+  const sesi = await drv.buatCheckout({
+    invoice,
+    amount: pkg.price,
+    itemName: `Isi Pundi ${pkg.name} (${pkg.keteng.toLocaleString("id-ID")} Keteng)`,
+    customer: { id: user.id, name: user.name || user.email, email: user.email },
+    callbackUrl: `${siteUrl.replace(/\/$/, "")}/pakhuis?isi=${encodeURIComponent(invoice)}`,
+    dueMinutes: MENIT_BAYAR,
+  });
+  await prisma.topupOrder.create({
+    data: {
+      user_id: user.id,
+      invoice_number: invoice,
+      package_id: pkg.id,
+      price: pkg.price,
+      keteng: pkg.keteng,
+      provider: drv.nama,
+      payment_url: sesi.url,
+      expires_at: sesi.expiresAt,
+    },
+  });
+  return { url: sesi.url, invoice };
+}
+
+/**
+ * Pembayaran sukses (notifikasi DOKU / cek status). Idempoten: status diubah atomik pending→paid,
+ * jadi notifikasi ganda tidak mengkredit dua kali. Nominal wajib sama dengan harga paket.
+ */
+export async function lunasiIsiPundi(invoice: string, amount: number, channel: string | null): Promise<"lunas" | "sudah" | "tolak"> {
+  return prisma.$transaction(async (tx) => {
+    const o = await tx.topupOrder.findUnique({ where: { invoice_number: invoice } });
+    if (!o) return "tolak";
+    if (o.status === "paid") return "sudah";
+    if (Math.round(amount) !== o.price) return "tolak";
+    const res = await tx.topupOrder.updateMany({
+      where: { id: o.id, status: { in: ["pending", "expired", "failed"] } },
+      data: { status: "paid", paid_at: new Date(), channel },
+    });
+    if (res.count !== 1) return "sudah";
+    const pkg = findPackage(o.package_id);
+    const nama = pkg?.name ?? o.package_id;
+    await credit(tx, o.user_id, o.price, "isi", `Isi Pundi paket ${nama} (DOKU${channel ? ` ${channel}` : ""})`);
+    if (o.keteng > o.price) await credit(tx, o.user_id, o.keteng - o.price, "bonus", `Bonus paket ${nama}`);
+    return "lunas";
+  });
+}
+
+export async function gagalkanIsiPundi(invoice: string, status: "failed" | "expired") {
+  await prisma.topupOrder.updateMany({ where: { invoice_number: invoice, status: "pending" }, data: { status } });
+}
+
+/** Cocokkan pesanan milik user dengan status di DOKU (bila notifikasi terlambat). */
+export async function rekonsiliasiIsiPundi(userId: string, invoice: string) {
+  const o = await prisma.topupOrder.findFirst({ where: { invoice_number: invoice, user_id: userId } });
+  if (!o) return null;
+  if (o.status === "pending") {
+    const drv = doku();
+    if (drv && drv.nama === o.provider) {
+      const st = await drv.cekStatus(invoice).catch(() => null);
+      if (st?.status === "SUCCESS" && st.amount != null) await lunasiIsiPundi(invoice, st.amount, st.channel);
+      else if (st?.status === "FAILED" || st?.status === "EXPIRED") await gagalkanIsiPundi(invoice, st.status === "FAILED" ? "failed" : "expired");
+      else if (o.expires_at < new Date()) await gagalkanIsiPundi(invoice, "expired");
+    }
+  }
+  return prisma.topupOrder.findUnique({
+    where: { id: o.id },
+    select: { invoice_number: true, status: true, price: true, keteng: true, package_id: true },
   });
 }
 

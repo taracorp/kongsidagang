@@ -4,6 +4,8 @@ import { Pill } from "@/components/kongsi/Pill";
 import { LogoutButton } from "@/components/kongsi/LogoutButton";
 import { IsiPundiPaket, VoucherRedeem } from "@/components/kongsi/PundiActions";
 import { getPakhuis } from "@/lib/queries";
+import { getSessionUser } from "@/lib/auth";
+import { isiPundiTersedia, rekonsiliasiIsiPundi } from "@/lib/domain/pundi";
 import { cn, formatKeping } from "@/lib/utils";
 import { levelTangga } from "@/lib/data-e";
 
@@ -15,9 +17,18 @@ const levelOrder = [
   "juragan",
 ];
 
-export default async function PakhuisPage() {
+export default async function PakhuisPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ isi?: string }>;
+}) {
+  const { isi } = await searchParams;
+  // Kembali dari DOKU: cocokkan status dulu (notifikasi bisa terlambat) sebelum saldo dibaca.
+  const user = isi ? await getSessionUser() : null;
+  const pesanan = user && isi ? await rekonsiliasiIsiPundi(user.id, String(isi)) : null;
   const data = await getPakhuis();
   if (!data) redirect("/masuk");
+  const modeIsi = isiPundiTersedia();
 
   const levelIndex = Math.max(0, levelOrder.indexOf(data.level));
   const capTotal = 10;
@@ -77,6 +88,26 @@ export default async function PakhuisPage() {
           <span className="text-[13px] font-bold text-kongsi-ink">→</span>
         </a>
 
+        {pesanan ? (
+          <div
+            className={cn(
+              "mb-[22px] rounded-[6px] border-2 border-kongsi-ink px-4 py-3 text-[13px] shadow-hard-sm",
+              pesanan.status === "paid" ? "bg-kongsi-sage" : pesanan.status === "pending" ? "bg-kongsi-beeswax" : "bg-kongsi-parchment-3",
+            )}
+          >
+            {pesanan.status === "paid" ? (
+              <b>✓ Pembayaran diterima — {pesanan.keteng.toLocaleString("id-ID")} Keteng masuk Pundi.</b>
+            ) : pesanan.status === "pending" ? (
+              <>
+                <b>Menunggu konfirmasi pembayaran…</b> Bila sudah bayar, muat ulang halaman ini sebentar lagi.
+              </>
+            ) : (
+              <b className="text-kongsi-bad">Pembayaran {pesanan.status === "expired" ? "kedaluwarsa" : "gagal"}. Keteng tidak berubah.</b>
+            )}
+            <div className="mt-1 text-[11px] text-kongsi-ink-soft">Invoice {pesanan.invoice_number}</div>
+          </div>
+        ) : null}
+
         {/* Pundi */}
         <div className="relative mb-[22px] overflow-hidden rounded-[8px] border-2 border-kongsi-ink bg-kongsi-grenadine p-[22px_24px] text-kongsi-parchment shadow-hard">
           <div className="text-[11px] font-bold uppercase tracking-[2px] opacity-85">
@@ -88,7 +119,7 @@ export default async function PakhuisPage() {
               Keteng (= {formatKeping(data.balance)})
             </small>
           </div>
-          <IsiPundiPaket />
+          <IsiPundiPaket mode={modeIsi} />
           <CompassRose
             size={90}
             className="absolute -bottom-2 -right-2 text-kongsi-parchment opacity-15"

@@ -322,3 +322,48 @@ Traefik yang sudah ada di VPS, cukup atur port.
   5. Tambah baris crontab `advance-barter`.
 - **Rollback:** `git revert kd-tukar-m4`. Tabel/kolom baru boleh dibiarkan. Kosongkan `KIRIMINAJA_*` untuk
   mematikan mode Kirim tanpa revert.
+
+### Ch 8.16 — Isi Pundi lewat DOKU Checkout (produksi)
+2026-10-06
+- **Keputusan Tara:** semua integrasi langsung ke **produksi** (tanpa sandbox).
+  - DOKU: `https://api.doku.com`.
+  - KiriminAja: `https://client.kiriminaja.com`. Nilai bawaan di kode ikut diganti.
+- **Kredensial:** `DOKU_CLIENT_ID` + `DOKU_SECRET_KEY` (`SK-…`) ada di `.env.local`/`.env` VPS, tidak di-commit.
+  - Kunci `doku_key_…` (label "API Key") **bukan** Secret Key Checkout; kunci itu ditolak `Invalid Header Signature`.
+  - Uji produksi dengan Secret Key benar membuat sesi Rp10.000 (tidak dibayar). Hasilnya HTTP 200 dan link
+    `checkout.doku.com`.
+  - Metode aktif di akun saat ini: Indomaret, Akulaku, DOKU e-money. QRIS/VA belum aktif dan perlu diaktifkan
+    di Back Office.
+- **Alur** (`lib/payment/doku.ts`, `lib/domain/pundi.ts`):
+  1. `mulaiIsiPundi` membuat `topup_orders` (pending) + sesi `POST /checkout/v1/payment`, berlaku 60 menit,
+     dengan maks 3 pending per jam per user. User diarahkan ke halaman DOKU.
+  2. DOKU memanggil `POST /api/doku/notifikasi`.
+     - Signature non-SNAP (HMAC-SHA256 atas Client-Id, Request-Id, Request-Timestamp, Request-Target, Digest
+       body mentah) diverifikasi timing-safe, termasuk pengecekan Client-Id.
+     - SUCCESS + nominal sama dengan harga paket → `lunasiIsiPundi`: pending→paid atomik, kredit `isi` + `bonus`.
+       Notifikasi ganda tidak mengkredit ulang.
+     - FAILED/EXPIRED → pesanan ditandai gagal.
+  3. User kembali ke `/pakhuis?isi=<invoice>`. Server memanggil `GET /orders/v1/status/{invoice}` bila
+     notifikasi belum datang, lalu menampilkan banner status.
+- **Mode lain:**
+  - `DOKU_MOCK=true` membuka halaman bayar simulasi `/pakhuis/isi/tiruan` (dev/uji saja; 404 di luar mode tiruan).
+  - Tanpa DOKU, tombol demo lama (`ENABLE_TOPUP_DEMO`) tetap dipakai.
+- **Skema:** migrasi `20261006090000_topup_doku` (tabel `topup_orders`, unik `invoice_number`, CHECK status &
+  nominal).
+  - Ditulis manual saat tunnel mati, lalu diverifikasi `prisma migrate dev`: tanpa selisih skema.
+  - Sudah di-apply ke `kongsi_dev`.
+- **Back Office:**
+  - URL notifikasi Checkout = `https://kongsidagang.store/api/doku/notifikasi`.
+  - "Token URL" di Pengaturan SNAP **tidak** dipakai Checkout; sebaiknya dikosongkan.
+- **Verifikasi:**
+  - `scripts/uji/doku.ts` 8/8. Tanda tangan dicocokkan dengan pembanding Python independen; body/Client-Id/secret/
+    target palsu ditolak.
+  - `scripts/uji/isi-pundi.ts` 15/15: notifikasi palsu 401, nominal salah tidak dikredit, notifikasi ganda dan
+    5 pelunasan bersamaan tetap kredit sekali, FAILED, batas pending, Σ transaksi = saldo.
+  - Uji lama: pundi 10/10, taksiran 16/16, tukar 32/32, kirim 30/30.
+    Satu kali `tukar` sempat berhenti di cek ke-3 (diduga koneksi tunnel baru); diulang dua kali → 32/32.
+  - `npm run flow` 20/20, dua kali berturut-turut.
+    - Flow kini memakai DOKU tiruan untuk Isi Pundi.
+    - Langkah bayar menunggu kondisi, tidak lagi jeda tetap; sebelumnya kadang gagal saat dev server mengompilasi.
+- **Rollback:** `git revert kd-isi-doku`. Kosongkan `DOKU_*` di `.env` VPS untuk kembali ke mode demo/mati.
+  Tabel `topup_orders` boleh dibiarkan.

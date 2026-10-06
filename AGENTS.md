@@ -206,7 +206,7 @@ Enum `user_level`. Ambang (rupiah akumulasi) ditentukan Tara — tanya dulu sebe
   ongkir dibayar penerima paket, penahanan silang 2×24 jam, konfirmasi/otomatis 48 jam).
 - Deposit (mode Kirim) & KYC (Kirim / nilai > 1jt) — lihat rencana di Buku Kongsi Ch 8.12.
 - Sengketa → diadili **Syahbandar** (admin) di Kantor Kongsi; Keteng dipindah lewat helper `lib/domain/pundi.ts`.
-- Belum: barter segitiga, bundling, scraper harga pasar, DOKU asli.
+- Belum: barter segitiga, bundling, scraper harga pasar. Isi Pundi sudah lewat DOKU Checkout (`lib/payment/doku.ts`).
 
 ### 6.2 Juru Tunjuk (concierge) — kuis tap-tap
 - 3 langkah, jawaban chip (bukan ketik) — enak di HP.

@@ -133,16 +133,25 @@ if (!SKIP_AUTH && EMAIL && PASSWORD) {
   await p2.waitForTimeout(700);
   await p2.click('button:has-text("Juragan")');
   await p2.click('button:has-text("Isi 270.000 Keteng")');
-  await p2.waitForTimeout(2000);
+  // Mode DOKU: tombol membuka halaman bayar (dev server butuh waktu kompilasi); mode demo: tetap di Pakhuis.
+  await p2.waitForURL("**/pakhuis/isi/tiruan**", { timeout: 20000 }).catch(() => {});
+  await p2.waitForTimeout(1000);
+  // Mode DOKU tiruan (DOKU_MOCK=true): selesaikan di halaman bayar simulasi.
+  if (p2.url().includes("/pakhuis/isi/tiruan")) {
+    await p2.click('button:has-text("Bayar (simulasi sukses)")');
+    await p2.waitForURL("**/pakhuis?isi=**", { timeout: 20000 });
+    check("isi pundi DOKU (tiruan) → Keteng masuk", (await p2.locator("text=Pembayaran diterima").count()) > 0);
+  }
 
   // Bayar dengan Keteng (keranjang masih berisi 2 barang dari langkah guest)
-  await p2.goto(`${BASE}/bayar`, { waitUntil: "domcontentloaded" });
-  await p2.waitForTimeout(1000);
+  await p2.goto(`${BASE}/bayar`, { waitUntil: "networkidle" });
   const payBtn = p2.locator('button:has-text("Keteng")').first();
+  await payBtn.waitFor({ timeout: 15000 }).catch(() => {});
   if (await payBtn.count()) {
     await payBtn.click();
-    await p2.waitForTimeout(2000);
-    check("bayar pakai Keteng berhasil", (await p2.locator("text=/[Bb]erhasil|[Tt]erbayar|[Ll]unas/").count()) > 0);
+    const sukses = p2.locator("text=/[Bb]erhasil|[Tt]erbayar|[Ll]unas/").first();
+    await sukses.waitFor({ timeout: 15000 }).catch(() => {});
+    check("bayar pakai Keteng berhasil", (await sukses.count()) > 0);
   } else {
     check("tombol bayar Keteng tersedia", false);
   }
