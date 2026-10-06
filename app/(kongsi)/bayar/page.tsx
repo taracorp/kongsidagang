@@ -7,14 +7,16 @@ export default async function BayarPage() {
 
   let level = "pelanggan_kecil";
   let stamps = 0;
+  let saldo = 0;
   if (user) {
-    const profile = await prisma.profile.findUnique({
-      where: { id: user.id },
-      select: { level: true, stamps: true },
-    });
+    const [profile, wallet] = await Promise.all([
+      prisma.profile.findUnique({ where: { id: user.id }, select: { level: true, stamps: true } }),
+      prisma.wallet.findUnique({ where: { user_id: user.id }, select: { balance: true } }),
+    ]);
     level = profile?.level ?? "pelanggan_kecil";
     stamps = profile?.stamps ?? 0;
+    saldo = wallet?.balance ?? 0;
   }
 
-  return <BayarClient loggedIn={Boolean(user)} level={level} stamps={stamps} />;
+  return <BayarClient loggedIn={Boolean(user)} level={level} stamps={stamps} saldo={saldo} />;
 }

@@ -4,15 +4,27 @@ import { Pill } from "@/components/kongsi/Pill";
 import { ProdukCard } from "@/components/kongsi/ProdukCard";
 import { RowHead } from "@/components/kongsi/RowHead";
 import { LiveAuction } from "@/components/kongsi/LiveAuction";
-import { getFeatured, getActiveAuction, getAdSettings } from "@/lib/queries";
+import { getActiveAuction, getAdSettings } from "@/lib/queries";
+import { getFeatured, type ProdukTampil } from "@/lib/queries-lapak";
+import { getSessionUser } from "@/lib/auth";
+
+const keKeranjang = (p: ProdukTampil) => ({
+  productId: p.id,
+  name: p.name,
+  shop: p.shop,
+  price: p.price,
+  tone: p.tone,
+  branches: p.branches,
+});
 
 export default async function Beranda() {
+  const user = await getSessionUser();
   const [featured, auction, ad] = await Promise.all([
-    getFeatured(),
+    getFeatured(user?.id ?? null),
     getActiveAuction("reguler"),
     getAdSettings(),
   ]);
-  const { etalase, pilihan } = featured;
+  const { etalase, pilihan, pilihanDari } = featured;
   return (
     <>
       <header className="pb-[22px] pt-10 text-center">
@@ -26,7 +38,7 @@ export default async function Beranda() {
             Dagang
           </h1>
           <p className="mx-auto mt-4 max-w-[540px] text-base text-kongsi-ink-soft">
-            Balai lelang, neraca harga, dan loji para saudagar — satu jalur
+            Balai lelang, neraca harga, dan lapak para saudagar — satu jalur
             perdagangan tempat kamu menawar, menimbang, dan berbelanja dengan
             seru.
           </p>
@@ -55,8 +67,8 @@ export default async function Beranda() {
               Bingung cari apa? Panggil Juru Tunjuk.
             </h3>
             <p className="text-sm">
-              Pelayan Kongsi bakal nanya beberapa hal — mau makanan atau baju,
-              pedas atau manis, kisaran harga — lalu menunjukkan barang yang pas.
+              Pelayan Kongsi bakal nanya beberapa hal — kebutuhan perawatanmu,
+              daerah cabang, dan kisaran harga — lalu menunjukkan yang pas.
             </p>
             <KongsiLinkButton
               href="/juru-tunjuk"
@@ -72,33 +84,64 @@ export default async function Beranda() {
 
       <section className="pb-[34px]">
         <div className="mx-auto max-w-[1080px] px-5">
-          <RowHead title="Etalase — Pilihan Kurator" moreHref="/loji" />
-          <div className="flex gap-[14px] overflow-x-auto pb-2">
-            {etalase.map((p) => (
-              <ProdukCard
-                key={p.name}
-                {...p}
-                addable
-                className="min-w-[158px]"
-                ribbon={<Pill variant="gold">Kurasi</Pill>}
-              />
-            ))}
-          </div>
+          <RowHead title="Etalase — Pilihan Kurator" moreHref="/lapak" />
+          {etalase.length ? (
+            <div className="flex gap-[14px] overflow-x-auto pb-2">
+              {etalase.map((p) => (
+                <ProdukCard
+                  key={p.id}
+                  name={p.name}
+                  shop={p.shop}
+                  shopHref={`/lapak/${p.shopSlug}`}
+                  price={p.price}
+                  oldPrice={p.oldPrice}
+                  tone={p.tone}
+                  logo={p.logo}
+                  cart={keKeranjang(p)}
+                  className="min-w-[158px]"
+                  ribbon={<Pill variant="gold">Kurasi</Pill>}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-4 py-6 text-center text-[13px] text-kongsi-ink-soft">
+              Etalase sedang ditata kurator.
+            </p>
+          )}
         </div>
       </section>
 
       <section className="pb-[34px]">
         <div className="mx-auto max-w-[1080px] px-5">
-          <RowHead title="Pilihan Untukmu" note="berdasarkan minatmu" />
-          <div className="grid grid-cols-2 gap-4">
-            {pilihan.map((p) => (
-              <ProdukCard key={p.name} {...p} addable />
-            ))}
-          </div>
+          <RowHead
+            title="Pilihan Untukmu"
+            note={pilihanDari === "diikuti" ? "dari lapak yang kamu ikuti" : "paling sering ditebus"}
+          />
+          {pilihan.length ? (
+            <div className="grid grid-cols-2 gap-4">
+              {pilihan.map((p) => (
+                <ProdukCard
+                  key={p.id}
+                  name={p.name}
+                  shop={p.shop}
+                  shopHref={`/lapak/${p.shopSlug}`}
+                  price={p.price}
+                  oldPrice={p.oldPrice}
+                  tone={p.tone}
+                  logo={p.logo}
+                  cart={keKeranjang(p)}
+                />
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-4 py-6 text-center text-[13px] text-kongsi-ink-soft">
+              Belum ada pilihan. Jelajahi lapak dulu.
+            </p>
+          )}
           <p className="mt-4 text-center text-[12px] text-kongsi-ink-soft">
             Keliling &amp; isi keranjang tak perlu akun.{" "}
             <Link href="/masuk" className="font-bold text-kongsi-grenadine">
-              Masuk Loji
+              Masuk
             </Link>{" "}
             hanya saat mau menebus.
           </p>

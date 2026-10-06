@@ -18,7 +18,7 @@ const workSans = Work_Sans({
 export const metadata: Metadata = {
   title: "Kongsi Dagang — Jalur Rempah Nusantara",
   description:
-    "Balai lelang, neraca harga, dan loji para saudagar — satu jalur perdagangan tempat kamu menawar, menimbang, dan berbelanja.",
+    "Balai lelang, neraca harga, dan lapak para saudagar — satu jalur perdagangan tempat kamu menawar, menimbang, dan berbelanja.",
 };
 
 export default function RootLayout({

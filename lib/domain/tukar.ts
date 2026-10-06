@@ -2,6 +2,7 @@ import "server-only";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { hold, captureHold, releaseHold, refundHold, type Tx } from "@/lib/domain/pundi";
+import { beriKabar } from "@/lib/domain/kabar-user";
 import {
   beaTukar,
   depositKirim,
@@ -60,6 +61,14 @@ export const lawan = (p: Pihak): Pihak => (p === "a" ? "b" : "a");
 export const pemilik = (d: DealRow, p: Pihak) => (p === "a" ? d.itemA.user_id : d.itemB.user_id);
 const labelDeal = (d: { itemA: { title: string }; itemB: { title: string } }) => `${d.itemA.title} ⇄ ${d.itemB.title}`;
 
+/** Kabar ke pihak deal (a, b, atau keduanya) dengan tautan ke halaman deal. */
+export async function kabarDeal(tx: Tx, d: DealRow, siapa: Pihak | "keduanya", title: string, body?: string) {
+  const ke = siapa === "keduanya" ? (["a", "b"] as Pihak[]) : [siapa];
+  for (const p of ke) {
+    await beriKabar(tx, pemilik(d, p), { kind: "tukar", title, body: body ?? labelDeal(d), href: `/tukar/deal/${d.id}` });
+  }
+}
+
 // ============================================================
 // Kode ketemu COD (QR + 6 digit) — diturunkan HMAC, tidak disimpan.
 // ============================================================
@@ -109,6 +118,7 @@ export async function selesaikan(tx: Tx, d: DealRow, status: "done" | "resolved"
     where: { id: d.id },
     data: { status, closed_at: new Date(), ...(note ? { cancel_reason: note } : {}) },
   });
+  await kabarDeal(tx, d, "keduanya", status === "done" ? "Tukar selesai 🎉 Beri nilai lawan tukarmu" : "Sengketa diputus Syahbandar", note ?? labelDeal(d));
 }
 
 export async function batalkan(
@@ -135,6 +145,9 @@ export async function batalkan(
     where: { id: d.id },
     data: { status, cancel_reason: reason, fault_party: fault, closed_at: new Date() },
   });
+  const judul =
+    status === "rejected" ? "Tawaran tukar ditolak" : status === "expired" ? "Tawaran tukar kedaluwarsa" : status === "resolved" ? "Sengketa diputus Syahbandar" : "Tukar dibatalkan";
+  await kabarDeal(tx, d, "keduanya", judul, `${reason} · Keteng yang ditahan sudah kembali.`);
 }
 
 /** Tolak semua tawaran "proposed" lain yang melibatkan barang-barang ini (rekber dikembalikan). */
@@ -221,6 +234,12 @@ export async function ajukan(userId: string, myItemId: string, targetId: string,
     if (fee_a > 0) await hold(tx, userId, deal.id, fee_a, "bea", `Tahan bea Tukar: ${label}`);
     if (from === "a") await hold(tx, userId, deal.id, topup, "tambah", `Tahan tambahan Keteng: ${label}`);
     if (deposit_a > 0) await hold(tx, userId, deal.id, deposit_a, "deposit", `Tahan deposit Kirim: ${label}`);
+    await beriKabar(tx, target.user_id, {
+      kind: "tukar",
+      title: "Tawaran tukar masuk",
+      body: `${mine.title} ditawarkan untuk ${target.title}${mode === "kirim" ? " (kirim kurir)" : " (COD)"}`,
+      href: `/tukar/deal/${deal.id}`,
+    });
     return deal.id;
   });
 }
@@ -281,6 +300,13 @@ export async function terima(
         await siapkanKirim(tx, { ...d, address_b_id: addressB }, addressB!);
       }
       await tolakTawaranLain(tx, [d.itemA.id, d.itemB.id], d.id, "Barang sudah disepakati dengan tawaran lain");
+      await kabarDeal(
+        tx,
+        d,
+        "a",
+        "Tawaranmu diterima 🤝",
+        d.mode === "kirim" ? `Lunasi ongkir dalam ${JAM_BAYAR_ONGKIR} jam agar paket dijemput kurir.` : `Ketemuan di ${meet?.meet_place} dalam ${JAM_COD} jam.`,
+      );
     },
     { timeout: 20_000 },
   );
@@ -324,6 +350,7 @@ export async function sengketa(userId: string, dealId: string, alasan: string) {
     const why = alasan.trim().slice(0, 300);
     if (why.length < 5) throw new Error("Ceritakan masalahnya (minimal 5 huruf).");
     await tx.barterDeal.update({ where: { id: d.id }, data: { status: "disputed", cancel_reason: why } });
+    await kabarDeal(tx, d, "keduanya", "Tukar diajukan ke Syahbandar", why);
   });
 }
 
@@ -334,6 +361,7 @@ export async function sengketaSistem(tx: Tx, d: DealRow, alasan: string, fault: 
     where: { id: d.id },
     data: { status: "disputed", cancel_reason: alasan, fault_party: fault },
   });
+  await kabarDeal(tx, d, "keduanya", "Tukar diteruskan ke Syahbandar", alasan);
 }
 
 /** COD: pihak `userId` memindai/mengetik kode milik pihak lawan. Dua-duanya terpindai → selesai. */

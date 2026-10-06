@@ -15,7 +15,7 @@ export default async function AdminNeraca() {
       </h3>
       <PariwaraForm initialVideo={ad.video ?? ""} initialImage={ad.image ?? ""} />
       <p className="text-[12px] text-kongsi-ink-soft">
-        ◆ Neraca harga bersumber dari <code>merchant_products</code> loji mitra.
+        ◆ Neraca harga bersumber dari <code>merchant_products</code> lapak mitra.
         Sumber feed/scraper menyusul (lihat AGENTS.md Bagian 7).
       </p>
     </div>

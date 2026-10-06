@@ -64,8 +64,10 @@ Teks UI pakai kolom "Tampil ke user". Nama variabel/route/tabel pakai "Nama kode
 | Vendu (lelang khusus, login) | `/lelang?jenis=vendu` | `auction.type='vendu'` |
 | Tukar Guling (barter) | `/tukar` | `barter` |
 | Neraca Harga (ikon Dacin) | `/neraca` | `priceCompare` |
-| Loji Saudagar (daftar) | `/loji` | `merchants` |
-| Detail Loji | `/loji/[slug]` | `merchantDetail` |
+| Lapak Saudagar (daftar; dulu "Loji") | `/lapak` (`/loji` dialihkan) | `merchants` |
+| Detail Lapak | `/lapak/[slug]` | `merchantDetail` |
+| Kelola Lapak (dasbor pemilik + validasi voucher) | `/pakhuis/lapak` | `merchantDashboard` |
+| Kabar untukmu (notifikasi lonceng) | `/kabar-saya` | `notifications` |
 | Juru Tunjuk (pemandu belanja) | `/juru-tunjuk` | `concierge` |
 | Kabar (artikel) | `/kabar`, `/kabar/[slug]` | `articles` |
 | Etalase (highlight kurasi) | komponen di `/` | `curatedFeed` |
@@ -85,7 +87,7 @@ Teks UI pakai kolom "Tampil ke user". Nama variabel/route/tabel pakai "Nama kode
 | Pundi | dompet (tempat Keteng) | `wallet` |
 | Isi Pundi | top up | `topup` |
 | Cap | stempel loyalti (10 = 1 potongan) — opsional | `stamps` |
-| Surat Jalan | voucher / hak tebus | `voucher` |
+| Surat Jalan | voucher / hak tebus (e-voucher berkode 10 karakter, terikat cabang) | `voucher` |
 | Tebus / Gadai | redeem voucher / bayar | `redeem` |
 | Bea | biaya layanan | `service_fee` |
 | Saudagar | penjual / merchant | `merchant` |
@@ -137,7 +139,7 @@ app/
     lelang/page.tsx
     tukar/page.tsx
     neraca/page.tsx
-    loji/page.tsx · loji/[slug]/page.tsx
+    lapak/page.tsx · lapak/[slug]/page.tsx · pakhuis/lapak/page.tsx · kabar-saya/page.tsx
     juru-tunjuk/page.tsx
     kabar/page.tsx · kabar/[slug]/page.tsx
     keranjang/page.tsx
@@ -157,7 +159,7 @@ prisma/              → schema.prisma, migrations/, seed.ts
 **Chrome (rangka tetap):**
 - **TopBar:** kiri = logo Kongsi Dagang (klik → Beranda); kanan = ikon Keranjang (badge),
   ikon Kabar/notifikasi (badge), tombol **Masuk Loji**.
-- **BottomNav (5 tab):** Beranda · Tukar Guling · Neraca · Loji · Kabar.
+- **BottomNav (5 tab):** Beranda · Tukar Guling · Neraca · Lapak · Kabar.
   Lelang TIDAK di bottom nav — menonjol di Beranda. Akun & notifikasi di TopBar.
 
 ---
@@ -170,7 +172,7 @@ prisma/              → schema.prisma, migrations/, seed.ts
 | **Balai Lelang** | lelang tebak-harga 6–7 fase. Badge reguler/Vendu. | `auction_*` |
 | **Tukar Guling** | grid tawaran barter + contoh kesepakatan (tukar + tambah keping) | `barter_items`, `barter_deals` |
 | **Neraca** | tabel 10 termurah, loji bersegel diprioritaskan, badge termurah/bertera | `price_listings` |
-| **Loji / Detail** | grid toko + isi lapak + obral kilat | `merchants`, `merchant_products` |
+| **Lapak / Detail** | grid lapak + perawatan per kategori (e-voucher, pilih cabang) + obral kilat | `merchants`, `merchant_branches`, `merchant_products` |
 | **Juru Tunjuk** | kuis tap-tap 3 langkah → hasil produk | statis + `personalFeed` |
 | **Kabar** | daftar artikel (1 besar + grid) | `articles` |
 | **Keranjang** | item + ringkasan (subtotal/bea/ongkir) — tanpa login | state client + `cart` |
@@ -211,6 +213,13 @@ Enum `user_level`. Ambang (rupiah akumulasi) ditentukan Tara — tanya dulu sebe
 - Deposit (mode Kirim) & KYC (Kirim / nilai > 1jt) — lihat rencana di Buku Kongsi Ch 8.12.
 - Sengketa → diadili **Syahbandar** (admin) di Kantor Kongsi; Keteng dipindah lewat helper `lib/domain/pundi.ts`.
 - Belum: barter segitiga, bundling, scraper harga pasar. Isi Pundi sudah lewat DOKU Checkout (`lib/payment/doku.ts`).
+
+### 6.1b E-voucher lapak (Okt 2026)
+- Keranjang menyimpan `productId` + `branchId` (localStorage `kongsi.cart.v2`); harga SELALU dari DB (`lib/domain/belanja.ts`).
+- Bayar dengan Keteng → `Order` + `OrderItem` → 1 voucher per unit, kode unik (tanpa 0/O/1/I/L), berlaku `valid_days`.
+- Ditebus petugas lapak di `/pakhuis/lapak` (cabang harus cocok, atomik); voucher lelang ditebus admin di `/admin`.
+- Data tenant asli: `scripts/data/tenant-asli.ts` (idempoten). Jangan buat data contoh/dummy lagi.
+- Notifikasi: `beriKabar(tx, …)` di `lib/domain/kabar-user.ts`, dipanggil di dalam transaksi peristiwanya.
 
 ### 6.2 Juru Tunjuk (concierge) — kuis tap-tap
 - 3 langkah, jawaban chip (bukan ketik) — enak di HP.

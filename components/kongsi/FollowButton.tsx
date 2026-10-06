@@ -19,7 +19,7 @@ export function FollowButton({
   if (!loggedIn) {
     return (
       <KongsiLinkButton href="/masuk" variant="gold" block>
-        Ikuti Loji
+        Ikuti Lapak
       </KongsiLinkButton>
     );
   }
@@ -38,7 +38,7 @@ export function FollowButton({
       onClick={toggle}
       disabled={busy}
     >
-      {following ? "✓ Diikuti" : "Ikuti Loji"}
+      {following ? "✓ Diikuti" : "Ikuti Lapak"}
     </KongsiButton>
   );
 }

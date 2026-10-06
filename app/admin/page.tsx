@@ -1,8 +1,12 @@
 import { BarChart } from "@/components/admin/BarChart";
 import { getAdminOverview } from "@/lib/queries";
+import { KartuIntegrasi } from "@/components/admin/KartuIntegrasi";
+import { TebusVoucherKantor } from "@/components/admin/TebusVoucherKantor";
+import { getStaffSession, isAdminUp } from "@/lib/roles";
 
 export default async function RingkasanPage() {
-  const { cards, produkPerLoji, lelangPerStatus } = await getAdminOverview();
+  const [{ cards, produkPerLoji, lelangPerStatus }, staf] = await Promise.all([getAdminOverview(), getStaffSession()]);
+  const admin = isAdminUp(staf.role);
 
   return (
     <div className="space-y-6">
@@ -27,7 +31,7 @@ export default async function RingkasanPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-5 shadow-hard-sm">
           <h3 className="mb-4 font-fraunces text-lg font-black text-kongsi-indigo">
-            Produk per Loji
+            Produk per Lapak
           </h3>
           <BarChart data={produkPerLoji} color="bg-kongsi-beeswax" />
         </div>
@@ -38,6 +42,12 @@ export default async function RingkasanPage() {
           <BarChart data={lelangPerStatus} color="bg-kongsi-grenadine" />
         </div>
       </div>
+      {admin ? (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <KartuIntegrasi />
+          <TebusVoucherKantor />
+        </div>
+      ) : null}
     </div>
   );
 }

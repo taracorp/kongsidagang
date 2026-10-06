@@ -1,73 +1,52 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ProdukCard, type Tone } from "@/components/kongsi/ProdukCard";
+import { ProdukCard } from "@/components/kongsi/ProdukCard";
 import { KongsiButton } from "@/components/kongsi/KongsiButton";
-import { cariJuruTunjuk } from "@/app/actions/loji";
+import { cariJuruTunjuk, kotaJuruTunjuk } from "@/app/actions/loji";
+import type { ProdukTampil } from "@/lib/queries-lapak";
 import { cn } from "@/lib/utils";
 
-type Step = {
-  q: string;
-  sub: string;
-  chips: { em?: string; label: string }[];
-};
+type Chip = { em?: string; label: string; nilai: string };
+type Step = { q: string; sub: string; chips: Chip[] };
 
-const steps: Step[] = [
-  {
-    q: "Mau cari apa hari ini?",
-    sub: "Juru Tunjuk siap mengantar ke lorong yang tepat.",
-    chips: [
-      { em: "🍜", label: "Makanan" },
-      { em: "👗", label: "Baju" },
-      { em: "🧴", label: "Kecantikan" },
-      { em: "🏺", label: "Perabot" },
-    ],
-  },
-  {
-    q: "Selera yang mana?",
-    sub: "Biar hasilnya pas di lidah.",
-    chips: [
-      { em: "🌶️", label: "Pedas" },
-      { em: "🍯", label: "Manis" },
-      { em: "🧂", label: "Gurih" },
-    ],
-  },
-  {
-    q: "Kisaran harga?",
-    sub: "Sesuaikan dengan isi pundi.",
-    chips: [
-      { label: "< Rp 25rb" },
-      { label: "Rp 25–75rb" },
-      { label: "> Rp 75rb" },
-    ],
-  },
+// Kebutuhan → tag produk (diisi di Kelola Lapak / skrip data tenant).
+const KEBUTUHAN: Chip[] = [
+  { em: "🫧", label: "Jerawat", nilai: "jerawat" },
+  { em: "✨", label: "Kusam & glow", nilai: "glow" },
+  { em: "🌿", label: "Penuaan", nilai: "anti-aging" },
+  { em: "🎯", label: "Flek & pigmen", nilai: "flek" },
+  { em: "🌸", label: "Kemerahan", nilai: "kemerahan" },
+  { em: "🪒", label: "Bulu halus", nilai: "bulu" },
+  { em: "💇", label: "Rambut", nilai: "rambut" },
+];
+const ANGGARAN: Chip[] = [
+  { label: "< Rp 150rb", nilai: "0-149999" },
+  { label: "Rp 150–250rb", nilai: "150000-250000" },
+  { label: "> Rp 250rb", nilai: "250001-100000000" },
+  { label: "Berapa saja", nilai: "0-100000000" },
 ];
 
-const catMap: Record<string, string> = {
-  Makanan: "makanan",
-  Baju: "baju",
-  Kecantikan: "kecantikan",
-  Perabot: "perabot",
-};
-const tasteMap: Record<string, string> = {
-  Pedas: "pedas",
-  Manis: "manis",
-  Gurih: "gurih",
-};
-const priceMap: Record<string, [number, number]> = {
-  "< Rp 25rb": [0, 24999],
-  "Rp 25–75rb": [25000, 75000],
-  "> Rp 75rb": [75001, 100000000],
-};
-
-type Hasil = { name: string; price: number; tone: Tone; shop: string };
-
 export default function JuruTunjukPage() {
+  const [kota, setKota] = useState<string[]>([]);
   const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<string[]>([]);
-  const [results, setResults] = useState<Hasil[] | null>(null);
+  const [answers, setAnswers] = useState<Chip[]>([]);
+  const [results, setResults] = useState<ProdukTampil[] | null>(null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    kotaJuruTunjuk().then(({ data }) => setKota(data ?? []));
+  }, []);
+
+  const steps: Step[] = [
+    { q: "Mau merawat apa?", sub: "Pilih kebutuhan utamamu.", chips: KEBUTUHAN },
+    {
+      q: "Di daerah mana?",
+      sub: "Voucher ditebus di cabang pilihanmu.",
+      chips: [...kota.map((k) => ({ em: "📍", label: k, nilai: k })), { em: "🗺️", label: "Mana saja", nilai: "" }],
+    },
+    { q: "Kisaran harga?", sub: "Sesuaikan dengan isi Pundi.", chips: ANGGARAN },
+  ];
   const done = step >= steps.length;
 
   useEffect(() => {
@@ -75,19 +54,10 @@ export default function JuruTunjukPage() {
     let active = true;
     (async () => {
       setLoading(true);
-      const cat = catMap[answers[0]];
-      const taste = tasteMap[answers[1]];
-      const [min, max] = priceMap[answers[2]] ?? [0, 100000000];
-      const tags = cat === "makanan" && taste ? [cat, taste] : [cat];
-      const { data } = await cariJuruTunjuk(tags, min, max);
+      const [min, max] = answers[2].nilai.split("-").map(Number);
+      const { data } = await cariJuruTunjuk(answers[0].nilai, min, max, answers[1].nilai || null);
       if (!active) return;
-      const mapped: Hasil[] = (data ?? []).map((p) => ({
-        name: p.name,
-        price: p.price,
-        tone: (p.tone as Tone) ?? "sage",
-        shop: p.shop,
-      }));
-      setResults(mapped);
+      setResults(data ?? []);
       setLoading(false);
     })();
     return () => {
@@ -95,8 +65,8 @@ export default function JuruTunjukPage() {
     };
   }, [done, results, answers]);
 
-  function pick(label: string) {
-    setAnswers([...answers.slice(0, step), label]);
+  function pick(c: Chip) {
+    setAnswers([...answers.slice(0, step), c]);
     setStep(step + 1);
   }
 
@@ -118,9 +88,7 @@ export default function JuruTunjukPage() {
               key={i}
               className={cn(
                 "h-[6px] w-9 rounded-[3px] border-[1.5px] border-kongsi-ink",
-                i <= Math.min(step, 2)
-                  ? "bg-kongsi-grenadine"
-                  : "bg-kongsi-parchment-2",
+                i <= Math.min(step, 2) ? "bg-kongsi-grenadine" : "bg-kongsi-parchment-2",
               )}
             />
           ))}
@@ -128,18 +96,14 @@ export default function JuruTunjukPage() {
 
         {!done ? (
           <div>
-            <div className="mb-[6px] font-fraunces text-[26px] font-black text-kongsi-indigo">
-              {steps[step].q}
-            </div>
-            <div className="mb-[22px] text-sm text-kongsi-ink-soft">
-              {steps[step].sub}
-            </div>
+            <div className="mb-[6px] font-fraunces text-[26px] font-black text-kongsi-indigo">{steps[step].q}</div>
+            <div className="mb-[22px] text-sm text-kongsi-ink-soft">{steps[step].sub}</div>
             <div className="flex flex-wrap justify-center gap-3">
               {steps[step].chips.map((c) => (
                 <button
                   key={c.label}
                   type="button"
-                  onClick={() => pick(c.label)}
+                  onClick={() => pick(c)}
                   className="flex min-w-[110px] cursor-pointer flex-col items-center gap-[6px] rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment px-[22px] py-4 text-[15px] font-bold shadow-hard-sm transition-transform hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-kongsi-beeswax"
                 >
                   {c.em ? <span className="text-[26px]">{c.em}</span> : null}
@@ -153,21 +117,22 @@ export default function JuruTunjukPage() {
             <div className="mb-[6px] font-fraunces text-[26px] font-black text-kongsi-indigo">
               {loading ? "Juru Tunjuk mencari…" : "Ini temuan Juru Tunjuk"}
             </div>
-            <div className="mb-4 text-sm text-kongsi-ink-soft">
-              {answers.join(" · ")}
-            </div>
+            <div className="mb-4 text-sm text-kongsi-ink-soft">{answers.map((a) => a.label).join(" · ")}</div>
             {loading ? (
               <div className="py-10 text-kongsi-ink-soft">Sebentar ya…</div>
             ) : results && results.length > 0 ? (
               <div className="grid grid-cols-2 gap-4 text-left">
                 {results.map((p) => (
                   <ProdukCard
-                    key={`${p.shop}-${p.name}`}
+                    key={p.id}
                     name={p.name}
                     shop={p.shop}
+                    shopHref={`/lapak/${p.shopSlug}`}
                     price={p.price}
                     tone={p.tone}
-                    addable
+                    logo={p.logo}
+                    note={`E-voucher · berlaku ${p.validDays} hari`}
+                    cart={{ productId: p.id, name: p.name, shop: p.shop, price: p.price, tone: p.tone, branches: p.branches }}
                   />
                 ))}
               </div>

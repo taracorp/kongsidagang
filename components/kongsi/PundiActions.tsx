@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { isiPundi, tebusSuratJalan, bayarTiruan } from "@/app/actions/pundi";
+import { isiPundi, bayarTiruan } from "@/app/actions/pundi";
 import {
   TOPUP_PACKAGES,
   NOMINAL_FAVORIT,
@@ -147,38 +147,6 @@ export function IsiPundiPaket({ mode, saran }: { mode: "doku" | "demo" | null; s
         {mode === "doku" ? "Dibayar di halaman aman DOKU — pilih metode yang tersedia di sana. " : ""}
         Keteng tidak dapat diuangkan kembali — dipakai untuk belanja, bea Tukar Guling, & lelang.
       </p>
-    </div>
-  );
-}
-
-export function VoucherRedeem({ id }: { id: string }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  async function onClick() {
-    setBusy(true);
-    setErr(null);
-    const { error } = await tebusSuratJalan(id);
-    setBusy(false);
-    if (error) {
-      setErr(error);
-      return;
-    }
-    router.refresh();
-  }
-
-  return (
-    <div className="text-right">
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={busy}
-        className="cursor-pointer rounded-full border-[1.5px] border-kongsi-ink bg-kongsi-beeswax px-[9px] py-[3px] text-[11px] font-bold uppercase tracking-[0.6px] text-kongsi-ink disabled:opacity-60"
-      >
-        {busy ? "…" : "Tebus"}
-      </button>
-      {err ? <div className="mt-1 text-[10px] text-kongsi-bad">{err}</div> : null}
     </div>
   );
 }

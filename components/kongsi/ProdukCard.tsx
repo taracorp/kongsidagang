@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { cn, formatKeping } from "@/lib/utils";
 import { CompassRose } from "./icons";
-import { AddToCartButton } from "./AddToCartButton";
+import { AddToCartButton, type ProdukKeranjang } from "./AddToCartButton";
 
 export type Tone =
   | "sage"
@@ -25,20 +26,26 @@ const toneBg: Record<Tone, string> = {
 export function ProdukCard({
   name,
   shop,
+  shopHref,
   price,
   oldPrice,
   tone = "sage",
+  logo,
+  note,
   ribbon,
-  addable,
+  cart,
   className,
 }: {
   name: string;
   shop?: string;
+  shopHref?: string;
   price: number;
   oldPrice?: number;
   tone?: Tone;
+  logo?: string | null; // logo lapak (ditampilkan di kepala kartu)
+  note?: string | null; // mis. "berlaku 90 hari"
   ribbon?: ReactNode;
-  addable?: boolean;
+  cart?: ProdukKeranjang; // ada → tombol "+ Keranjang"
   className?: string;
 }) {
   return (
@@ -55,16 +62,23 @@ export function ProdukCard({
         )}
       >
         {ribbon ? <div className="absolute left-2 top-2">{ribbon}</div> : null}
-        <CompassRose size={30} />
+        {logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logo} alt={shop ?? ""} className="max-h-[60px] max-w-[70%] object-contain" loading="lazy" />
+        ) : (
+          <CompassRose size={30} />
+        )}
       </div>
       <div className="flex flex-1 flex-col px-3 py-[10px]">
-        <div className="flex-1 text-[13px] font-semibold leading-[1.3]">
-          {name}
-        </div>
+        <div className="flex-1 text-[13px] font-semibold leading-[1.3]">{name}</div>
         {shop ? (
-          <div className="mt-1 text-[11px] font-semibold text-kongsi-olive">
-            {shop}
-          </div>
+          shopHref ? (
+            <Link href={shopHref} className="mt-1 text-[11px] font-semibold text-kongsi-olive hover:underline">
+              {shop}
+            </Link>
+          ) : (
+            <div className="mt-1 text-[11px] font-semibold text-kongsi-olive">{shop}</div>
+          )
         ) : null}
         <div className="mt-[6px] font-fraunces text-base font-black text-kongsi-grenadine">
           {formatKeping(price)}
@@ -74,9 +88,8 @@ export function ProdukCard({
             </span>
           ) : null}
         </div>
-        {addable ? (
-          <AddToCartButton item={{ name, shop, price, tone }} />
-        ) : null}
+        {note ? <div className="text-[11px] text-kongsi-ink-soft">{note}</div> : null}
+        {cart ? <AddToCartButton item={cart} /> : null}
       </div>
     </div>
   );

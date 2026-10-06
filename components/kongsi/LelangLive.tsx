@@ -81,7 +81,7 @@ export function LelangLive({
           {auction.clue_category}
         </div>
         <div className="mt-[2px] text-[13px] text-kongsi-ink-soft">
-          Nama loji:{" "}
+          Nama lapak:{" "}
           <b className="font-fraunces tracking-[3px] text-kongsi-grenadine">
             {auction.clue_name_masked}
           </b>{" "}
@@ -167,7 +167,7 @@ export function LelangLive({
         ) : !userId ? (
           <div className="mt-5">
             <p className="mb-3 text-[13px] text-kongsi-ink-soft">
-              Masuk loji dulu untuk ikut menebak.
+              Masuk dulu untuk ikut menebak.
             </p>
             <KongsiLinkButton href="/masuk" variant="primary" block>
               Masuk untuk Ikut Lelang

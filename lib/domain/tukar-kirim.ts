@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { hold, captureHold, type Tx } from "@/lib/domain/pundi";
 import { JAM_KONFIRMASI, pastikanBoleh } from "@/lib/domain/tukar-aturan";
-import { kunciDeal, pihakDari, sengketaSistem, terima, type DealRow } from "@/lib/domain/tukar";
+import { kabarDeal, kunciDeal, pihakDari, sengketaSistem, terima, type DealRow } from "@/lib/domain/tukar";
 import { kurir, termurah, type Alamat, type Paket, type Tarif, type Wilayah } from "@/lib/shipping/kiriminaja";
 
 // Mode Kirim Tukar Guling (KiriminAja, express).
@@ -263,6 +263,7 @@ export async function kirimkanPaket(dealId: string): Promise<{ dibuat: number; g
     const x = await kunciDeal(tx, dealId);
     if (x.status === "agreed" && x.shipments.length === 2 && x.shipments.every((s) => s.order_id && s.status !== "failed")) {
       await tx.barterDeal.update({ where: { id: x.id }, data: { status: "dikirim", expires_at: null } });
+      await kabarDeal(tx, x, "keduanya", "Paket dibuat — siapkan barangmu", "Kurir menjemput sesuai jadwal. Kemas barang dengan aman.");
     }
   });
   return { dibuat, gagal };
@@ -336,6 +337,7 @@ async function evaluasiDeal(dealId: string) {
         where: { id: d.id },
         data: { status: "diterima", expires_at: new Date(Date.now() + JAM_KONFIRMASI * JAM) },
       });
+      await kabarDeal(tx, d, "keduanya", "Kedua paket sampai — periksa & konfirmasi", `Konfirmasi otomatis dalam ${JAM_KONFIRMASI} jam.`);
     }
   });
 }

@@ -1,7 +1,8 @@
+import Link from "next/link";
 import { SegelBadge, Pill } from "@/components/kongsi/Pill";
 import { Stars } from "@/components/kongsi/PintuCard";
 import { formatKeping } from "@/lib/utils";
-import { getNeracaByName } from "@/lib/queries";
+import { getNeraca } from "@/lib/queries-lapak";
 
 export default async function NeracaPage({
   searchParams,
@@ -9,8 +10,8 @@ export default async function NeracaPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
-  const query = (q ?? "Serum Vitamin C").trim();
-  const { rows: neracaRows, matched } = await getNeracaByName(query);
+  const query = (q ?? "Facial").trim();
+  const neracaRows = await getNeraca(query);
   const cheapest = neracaRows.find((r) => r.cheapest)?.price ?? 0;
 
   return (
@@ -30,7 +31,7 @@ export default async function NeracaPage({
             <input
               name="q"
               defaultValue={query}
-              placeholder="cari barang… cth. Kopi, Serum, Batik"
+              placeholder="cari perawatan… cth. Facial, IPL, Hairspa"
               className="w-full px-3 py-[10px] text-sm outline-none"
               aria-label="Barang untuk ditimbang"
             />
@@ -42,11 +43,11 @@ export default async function NeracaPage({
             </button>
           </div>
           <div className="text-[13px] text-kongsi-ink-soft">
-            {matched ? (
+            {neracaRows.length ? (
               <>
-                Menimbang{" "}
-                <b className="text-kongsi-grenadine">{matched}</b> dari{" "}
-                <b className="text-kongsi-grenadine">{neracaRows.length} lapak</b>
+                Menimbang <b className="text-kongsi-grenadine">“{query}”</b> —{" "}
+                <b className="text-kongsi-grenadine">{neracaRows.length} pilihan</b> dari{" "}
+                <b className="text-kongsi-grenadine">{new Set(neracaRows.map((r) => r.lapakSlug)).size} lapak</b>
               </>
             ) : (
               <>Tidak ada barang cocok untuk “{query}”.</>
@@ -56,8 +57,7 @@ export default async function NeracaPage({
 
         {neracaRows.length === 0 ? (
           <p className="rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-4 py-8 text-center text-[13px] text-kongsi-ink-soft">
-            Coba kata lain — mis. <b>Kopi</b>, <b>Serum</b>, <b>Batik</b>,{" "}
-            <b>Parfum</b>.
+            Coba kata lain — mis. <b>Facial</b>, <b>IPL</b>, <b>Acne</b>, <b>Hairspa</b>.
           </p>
         ) : (
         <div className="overflow-x-auto">
@@ -65,7 +65,7 @@ export default async function NeracaPage({
             <thead>
               <tr className="bg-kongsi-indigo text-left font-fraunces text-xs text-kongsi-parchment">
                 <th className="w-[40px] p-[11px_13px]">#</th>
-                <th className="p-[11px_13px]">Loji / Sumber</th>
+                <th className="p-[11px_13px]">Perawatan · Lapak</th>
                 <th className="hidden p-[11px_13px]">Nilai</th>
                 <th className="p-[11px_13px]">Harga</th>
                 <th className="hidden p-[11px_13px]">Hemat</th>
@@ -74,7 +74,7 @@ export default async function NeracaPage({
             </thead>
             <tbody>
               {neracaRows.map((r) => (
-                <tr key={r.rank} className="text-[13px] even:bg-kongsi-sage/15">
+                <tr key={r.productId} className="text-[13px] even:bg-kongsi-sage/15">
                   <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px]">
                     <span
                       className={
@@ -87,8 +87,9 @@ export default async function NeracaPage({
                     </span>
                   </td>
                   <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px]">
-                    <span className="inline-flex flex-wrap items-center gap-2">
-                      {r.loji}
+                    <div className="font-semibold">{r.name}</div>
+                    <span className="inline-flex flex-wrap items-center gap-2 text-[12px] text-kongsi-olive">
+                      {r.lapak}
                       {r.sealed ? <SegelBadge /> : null}
                     </span>
                   </td>
@@ -110,7 +111,9 @@ export default async function NeracaPage({
                     {r.cheapest ? "termurah" : `+${formatKeping(r.price - cheapest).replace("Rp ", "")}`}
                   </td>
                   <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_13px]">
-                    <Pill variant={r.cheapest ? "gold" : "sage"}>Tebus</Pill>
+                    <Link href={`/lapak/${r.lapakSlug}`} aria-label={`Tebus ${r.name} di ${r.lapak}`}>
+                      <Pill variant={r.cheapest ? "gold" : "sage"}>Tebus</Pill>
+                    </Link>
                   </td>
                 </tr>
               ))}
@@ -119,8 +122,7 @@ export default async function NeracaPage({
         </div>
         )}
         <p className="mt-3 text-[12px] text-kongsi-ink-soft">
-          ◆ Harga dari lapak mitra &amp; feed resmi. Loji <b>bersegel</b> memberi
-          harga langsung — paling tepercaya (bertera).
+          ◆ Harga langsung dari lapak mitra. Lapak <b>bersegel</b> didahulukan — paling tepercaya (bertera).
         </p>
       </div>
     </section>

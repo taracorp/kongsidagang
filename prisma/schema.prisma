@@ -43,6 +43,8 @@ model User {
   walletHolds         WalletHold[]
   addresses           UserAddress[]
   topupOrders         TopupOrder[]
+  orders              Order[]
+  notifications       Notification[]
   follows             Follow[]
 
   @@map("user")
@@ -131,16 +133,26 @@ model Merchant {
   cover_to           String?
   city               String?
   is_sealed          Boolean   @default(false)
-  status             String    @default("buka") // buka | obral | tutup
+  status             String    @default("buka") // buka | obral | tutup | segera
   flash_sale_ends_at DateTime?
   owner_id           String?
   owner              User?     @relation(fields: [owner_id], references: [id], onDelete: SetNull)
   is_active          Boolean   @default(true)
   created_at         DateTime  @default(now())
 
+  // Profil lapak (tenant asli)
+  logo_url    String?
+  description String?
+  whatsapp    String?
+  website     String?
+  hours       String? // mis. "Senin–Minggu 09.00–18.00"
+
   products      MerchantProduct[]
   priceListings PriceListing[]
   follows       Follow[]
+  branches      MerchantBranch[]
+  orderItems    OrderItem[]
+  vouchers      Voucher[]
 
   @@map("merchants")
 }
@@ -157,8 +169,92 @@ model MerchantProduct {
   is_active   Boolean  @default(true)
   created_at  DateTime @default(now())
 
+  kind        String  @default("evoucher") // evoucher | barang
+  category    String? // kelompok di halaman lapak, mis. "Glimmer Glow"
+  description String?
+  valid_days  Int     @default(90) // masa berlaku e-voucher sejak dibeli
+  image_url   String?
+  is_featured Boolean @default(false) // tampil di Etalase Beranda
+  sort        Int     @default(0)
+
+  orderItems OrderItem[]
+  vouchers   Voucher[]
+
   @@index([merchant_id])
   @@map("merchant_products")
+}
+
+// Cabang lapak — e-voucher dipilih cabangnya saat beli dan hanya sah di cabang itu.
+model MerchantBranch {
+  id          String   @id @default(uuid())
+  merchant_id String
+  merchant    Merchant @relation(fields: [merchant_id], references: [id], onDelete: Cascade)
+  name        String
+  address     String
+  city        String?
+  is_active   Boolean  @default(true)
+  sort        Int      @default(0)
+  created_at  DateTime @default(now())
+
+  orderItems OrderItem[]
+  vouchers   Voucher[]
+
+  @@index([merchant_id])
+  @@map("merchant_branches")
+}
+
+// Pesanan belanja (dibayar Keteng). Harga diambil dari DB saat checkout, bukan dari browser.
+model Order {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  subtotal   Int
+  bea        Int
+  total      Int
+  status     String   @default("lunas") // lunas
+  created_at DateTime @default(now())
+
+  items OrderItem[]
+
+  @@index([user_id, created_at(sort: Desc)])
+  @@map("orders")
+}
+
+model OrderItem {
+  id          String           @id @default(uuid())
+  order_id    String
+  order       Order            @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  product_id  String?
+  product     MerchantProduct? @relation(fields: [product_id], references: [id], onDelete: SetNull)
+  merchant_id String?
+  merchant    Merchant?        @relation(fields: [merchant_id], references: [id], onDelete: SetNull)
+  branch_id   String?
+  branch      MerchantBranch?  @relation(fields: [branch_id], references: [id], onDelete: SetNull)
+  name        String // snapshot nama produk
+  unit_price  Int
+  qty         Int
+
+  vouchers Voucher[]
+
+  @@index([order_id])
+  @@map("order_items")
+}
+
+// Kabar untuk user (lonceng di TopBar).
+model Notification {
+  id         String    @id @default(uuid())
+  user_id    String
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  kind       String // tukar | pundi | voucher | tera | lelang | sistem
+  title      String
+  body       String?
+  href       String?
+  read_at    DateTime?
+  created_at DateTime  @default(now())
+
+  @@index([user_id, read_at])
+  @@index([user_id, created_at(sort: Desc)])
+  @@map("notifications")
 }
 
 model MerchantApplication {
@@ -581,11 +677,25 @@ model Voucher {
   user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
   title      String
   note       String?
-  kind       String    @default("lelang") // lelang | neraca | hadiah
+  kind       String    @default("lelang") // lelang | evoucher | hadiah
   status     String    @default("aktif") // aktif | terpakai | kadaluarsa
   expires_at DateTime?
   created_at DateTime  @default(now())
 
+  // Kode tebus + asal voucher. Voucher lapak ditebus petugas lapak di cabangnya; voucher lelang oleh admin.
+  code          String?          @unique
+  merchant_id   String?
+  merchant      Merchant?        @relation(fields: [merchant_id], references: [id], onDelete: SetNull)
+  product_id    String?
+  product       MerchantProduct? @relation(fields: [product_id], references: [id], onDelete: SetNull)
+  branch_id     String?
+  branch        MerchantBranch?  @relation(fields: [branch_id], references: [id], onDelete: SetNull)
+  order_item_id String?
+  orderItem     OrderItem?       @relation(fields: [order_item_id], references: [id], onDelete: SetNull)
+  redeemed_at   DateTime?
+  redeemed_by   String? // user id petugas/admin
+
+  @@index([merchant_id, status])
   @@map("vouchers")
 }
 

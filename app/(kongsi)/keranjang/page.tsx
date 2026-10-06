@@ -6,8 +6,8 @@ import { KongsiLinkButton } from "@/components/kongsi/KongsiButton";
 import { useCart } from "@/components/kongsi/cart";
 import { cn, formatKeping } from "@/lib/utils";
 
+// Perkiraan bea (server yang menentukan: gratis untuk Tuan Besar/Juragan atau dengan 10 Cap).
 const BEA = 2000;
-const ONGKIR = 9000;
 
 const toneBg: Record<string, string> = {
   sage: "bg-kongsi-sage",
@@ -21,27 +21,21 @@ const toneBg: Record<string, string> = {
 
 export default function KeranjangPage() {
   const { items, subtotal, count, setQty, remove } = useCart();
-  const total = items.length ? subtotal + BEA + ONGKIR : 0;
+  const total = items.length ? subtotal + BEA : 0;
 
   return (
     <section className="py-[34px]">
       <div className="mx-auto max-w-[1080px] px-5">
         <div className="mb-[22px] text-center">
-          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">
-            Keranjang
-          </div>
-          <h2 className="mt-1 font-fraunces text-[32px] font-black text-kongsi-indigo">
-            Barang bawaanmu
-          </h2>
+          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Keranjang</div>
+          <h2 className="mt-1 font-fraunces text-[32px] font-black text-kongsi-indigo">Barang bawaanmu</h2>
         </div>
 
         {items.length === 0 ? (
           <div className="mx-auto max-w-md rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-6 py-12 text-center">
-            <p className="text-kongsi-ink-soft">
-              Keranjangmu masih kosong. Keliling dulu di lorong loji.
-            </p>
-            <KongsiLinkButton href="/loji" variant="gold" className="mt-4">
-              Jelajah Loji
+            <p className="text-kongsi-ink-soft">Keranjangmu masih kosong. Keliling dulu di lorong lapak.</p>
+            <KongsiLinkButton href="/lapak" variant="gold" className="mt-4">
+              Jelajah Lapak
             </KongsiLinkButton>
           </div>
         ) : (
@@ -49,7 +43,7 @@ export default function KeranjangPage() {
             <div>
               {items.map((it) => (
                 <div
-                  key={it.id}
+                  key={it.key}
                   className="mb-3 flex items-center gap-[14px] rounded-[5px] border-2 border-kongsi-ink bg-kongsi-parchment p-3"
                 >
                   <div
@@ -62,83 +56,66 @@ export default function KeranjangPage() {
                   </div>
                   <div className="flex-1">
                     <div className="text-sm font-semibold">{it.name}</div>
-                    {it.shop ? (
-                      <div className="text-[11px] text-kongsi-olive">
-                        {it.shop}
-                      </div>
-                    ) : null}
+                    <div className="text-[11px] text-kongsi-olive">
+                      {it.shop}
+                      {it.branchName ? ` · ${it.branchName}` : ""}
+                    </div>
                     <div className="mt-1 flex items-center gap-2">
                       <div className="flex items-center overflow-hidden rounded-[3px] border-2 border-kongsi-ink">
                         <button
                           type="button"
                           aria-label="Kurangi"
-                          onClick={() => setQty(it.id, it.qty - 1)}
+                          onClick={() => setQty(it.key, it.qty - 1)}
                           className="cursor-pointer bg-kongsi-parchment-3 px-2 text-sm font-bold"
                         >
                           −
                         </button>
-                        <span className="min-w-[26px] bg-white px-1 text-center text-sm font-bold">
-                          {it.qty}
-                        </span>
+                        <span className="min-w-[26px] bg-white px-1 text-center text-sm font-bold">{it.qty}</span>
                         <button
                           type="button"
                           aria-label="Tambah"
-                          onClick={() => setQty(it.id, it.qty + 1)}
+                          onClick={() => setQty(it.key, it.qty + 1)}
                           className="cursor-pointer bg-kongsi-parchment-3 px-2 text-sm font-bold"
                         >
                           +
                         </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => remove(it.id)}
-                        className="cursor-pointer text-[12px] font-bold text-kongsi-bad"
-                      >
+                      <button type="button" onClick={() => remove(it.key)} className="cursor-pointer text-[12px] font-bold text-kongsi-bad">
                         Buang
                       </button>
                     </div>
                   </div>
-                  <div className="font-fraunces font-black text-kongsi-grenadine">
-                    {formatKeping(it.price * it.qty)}
-                  </div>
+                  <div className="font-fraunces font-black text-kongsi-grenadine">{formatKeping(it.price * it.qty)}</div>
                 </div>
               ))}
               <p className="mt-[6px] text-[13px] text-kongsi-ink-soft">
-                ◆ Tamu boleh menaruh barang di keranjang tanpa masuk loji.
-                Daftar hanya diminta saat menebus.
+                ◆ Tamu boleh menaruh barang di keranjang tanpa masuk. Daftar hanya diminta saat menebus.
               </p>
             </div>
 
             <div className="rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-5 shadow-hard">
-              <h3 className="mb-[14px] font-fraunces text-[19px] font-black text-kongsi-indigo">
-                Ringkasan
-              </h3>
+              <h3 className="mb-[14px] font-fraunces text-[19px] font-black text-kongsi-indigo">Ringkasan</h3>
               <div className="flex justify-between py-[6px] text-sm">
-                <span>Subtotal ({count} barang)</span>
+                <span>Subtotal ({count} e-voucher)</span>
                 <span>{formatKeping(subtotal)}</span>
               </div>
               <div className="flex justify-between py-[6px] text-sm">
                 <span>Bea layanan</span>
                 <span>{formatKeping(BEA)}</span>
               </div>
-              <div className="flex justify-between py-[6px] text-sm">
+              <div className="flex justify-between py-[6px] text-sm text-kongsi-ink-soft">
                 <span>Ongkir</span>
-                <span>{formatKeping(ONGKIR)}</span>
+                <span>tidak ada (e-voucher)</span>
               </div>
               <div className="mt-2 flex justify-between border-t-2 border-kongsi-ink pt-3 font-fraunces text-xl font-black text-kongsi-indigo">
                 <span>Total</span>
                 <span>{formatKeping(total)}</span>
               </div>
-              <KongsiLinkButton
-                href="/bayar"
-                variant="primary"
-                block
-                className="mt-[14px]"
-              >
+              <KongsiLinkButton href="/bayar" variant="primary" block className="mt-[14px]">
                 Lanjut Menebus
               </KongsiLinkButton>
               <p className="mt-2 text-center text-[11px] text-kongsi-ink-soft">
-                Dibayar dengan Keteng (isi Pundi) atau langsung via DOKU.
+                Dibayar dengan Keteng dari Pundi. Bea gratis untuk Tuan Besar & Juragan, atau tukar 10 Cap.
               </p>
             </div>
           </div>

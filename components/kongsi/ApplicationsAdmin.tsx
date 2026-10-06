@@ -36,7 +36,7 @@ export function ApplicationsAdmin({ items }: { items: AdminApplication[] }) {
       <table className="w-full border-separate border-spacing-0 overflow-hidden rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment text-xs">
         <thead>
           <tr className="bg-kongsi-indigo-dark text-left font-fraunces text-kongsi-parchment">
-            <th className="p-[10px_12px]">Loji</th>
+            <th className="p-[10px_12px]">Lapak</th>
             <th className="p-[10px_12px]">Kategori</th>
             <th className="p-[10px_12px]">Saudagar</th>
             <th className="p-[10px_12px]">WhatsApp</th>

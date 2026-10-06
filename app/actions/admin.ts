@@ -42,28 +42,56 @@ function slugify(s: string) {
     .replace(/(^-|-$)/g, "");
 }
 
-export async function buatArtikel(input: {
+type IsiArtikel = {
   title: string;
   tag: string;
   excerpt: string;
   cover_tone: string;
   body: string[];
   publish: boolean;
-}) {
+};
+
+const MIN_PARAGRAF = 3;
+
+/** Validasi isi artikel: judul, ringkasan, dan minimal 3 paragraf (artikel kosong tidak boleh terbit). */
+function bersihkanArtikel(input: IsiArtikel) {
+  const title = String(input.title ?? "").trim().slice(0, 140);
+  if (!title) throw new Error("Judul wajib.");
+  const body = (Array.isArray(input.body) ? input.body : []).map((p) => String(p).trim()).filter(Boolean);
+  if (body.length < MIN_PARAGRAF) throw new Error(`Isi minimal ${MIN_PARAGRAF} paragraf (1 paragraf per baris).`);
+  return {
+    title,
+    tag: String(input.tag ?? "Tips Belanja"),
+    excerpt: String(input.excerpt ?? "").trim().slice(0, 240) || null,
+    cover_tone: String(input.cover_tone ?? "indigo"),
+    body,
+  };
+}
+
+export async function ubahArtikel(slug: string, input: IsiArtikel) {
   return run(async () => {
     await requireKabarEditor();
-    const title = input.title.trim();
-    if (!title) throw new Error("Judul wajib.");
+    const data = bersihkanArtikel(input);
+    const lama = await prisma.article.findUnique({ where: { slug: String(slug) }, select: { published_at: true } });
+    if (!lama) throw new Error("Artikel tidak ditemukan.");
+    await prisma.article.update({
+      where: { slug: String(slug) },
+      data: { ...data, published_at: input.publish ? (lama.published_at ?? new Date()) : null },
+    });
+  });
+}
+
+export async function buatArtikel(input: IsiArtikel) {
+  return run(async () => {
+    await requireKabarEditor();
+    const { title, ...isi } = bersihkanArtikel(input);
     const exists = await prisma.article.findUnique({ where: { slug: slugify(title) } });
     if (exists) throw new Error("Judul serupa sudah ada — ubah sedikit judulnya.");
     await prisma.article.create({
       data: {
         slug: slugify(title) || `artikel-${Date.now()}`,
         title,
-        tag: input.tag,
-        excerpt: input.excerpt.trim() || null,
-        cover_tone: input.cover_tone,
-        body: input.body,
+        ...isi,
         published_at: input.publish ? new Date() : null,
       },
     });

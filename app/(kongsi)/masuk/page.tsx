@@ -14,7 +14,7 @@ export default async function MasukPage() {
             Gerbang Kongsi
           </div>
           <h2 className="mt-1 font-fraunces text-[30px] font-black text-kongsi-indigo">
-            Masuk ke lojimu
+            Masuk ke Kongsi
           </h2>
         </div>
         <AuthForm redirectTo="/pakhuis" />

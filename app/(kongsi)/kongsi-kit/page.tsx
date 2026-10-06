@@ -68,7 +68,7 @@ export default function KongsiKit() {
         <div className="grid grid-cols-2 gap-4">
           <ProdukCard
             name="Serum Vitamin C 20ml"
-            shop="Loji Sari Ayu"
+            shop="Lapak Contoh A"
             price={89000}
             oldPrice={120000}
             tone="sage"
@@ -76,21 +76,21 @@ export default function KongsiKit() {
           />
           <ProdukCard
             name="Kain Batik Tulis Sogan"
-            shop="Loji Kain Batik"
+            shop="Lapak Contoh B"
             price={245000}
             oldPrice={320000}
             tone="beeswax"
           />
           <ProdukCard
             name="Kopi Gayo 200g"
-            shop="Loji Kopi Rakyat"
+            shop="Lapak Contoh C"
             price={62000}
             oldPrice={80000}
             tone="grenadine"
           />
           <ProdukCard
             name="Madu Hutan 500ml"
-            shop="Loji Rempah Timur"
+            shop="Lapak Contoh D"
             price={98000}
             oldPrice={130000}
             tone="indigo"
@@ -98,10 +98,10 @@ export default function KongsiKit() {
         </div>
       </Section>
 
-      <Section title="Pintu (Loji) Card">
+      <Section title="Pintu (Lapak) Card">
         <div className="grid grid-cols-2 gap-4">
           <PintuCard
-            name="Loji Sari Ayu"
+            name="Lapak Contoh A"
             category="Kecantikan & Rempah"
             rating={4.9}
             tone="grenadine"
@@ -109,7 +109,7 @@ export default function KongsiKit() {
             status={<Pill variant="gold">Obral Kilat</Pill>}
           />
           <PintuCard
-            name="Loji Glow Nusantara"
+            name="Lapak Contoh B"
             category="Skincare"
             rating={4.8}
             tone="indigo"
@@ -117,7 +117,7 @@ export default function KongsiKit() {
             status={<Pill variant="sage">Buka</Pill>}
           />
           <PintuCard
-            name="Loji Rempah Timur"
+            name="Lapak Contoh C"
             category="Bumbu & Herbal"
             rating={4.6}
             tone="olive"

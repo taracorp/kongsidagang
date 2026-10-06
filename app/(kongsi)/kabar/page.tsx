@@ -29,6 +29,11 @@ export default async function KabarPage() {
           </h2>
         </div>
 
+        {!big ? (
+          <p className="rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-4 py-10 text-center text-[13px] text-kongsi-ink-soft">
+            Belum ada artikel.
+          </p>
+        ) : (
         <div className="grid grid-cols-1 gap-[18px]">
           <Link
             href={`/kabar/${big.slug}`}
@@ -41,7 +46,7 @@ export default async function KabarPage() {
               )}
             >
               <span className="rounded-full border-[1.5px] border-kongsi-ink bg-kongsi-beeswax px-[9px] py-[3px] text-[11px] font-bold uppercase tracking-[0.6px] text-kongsi-ink">
-                Panduan
+                Unggulan
               </span>
             </div>
             <div className="px-4 py-[14px]">
@@ -78,6 +83,7 @@ export default async function KabarPage() {
             </Link>
           ))}
         </div>
+        )}
       </div>
     </section>
   );

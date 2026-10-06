@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ajukanSaudagar } from "@/app/actions/loji";
 import { KongsiButton } from "./KongsiButton";
-import { kategoriDagangan } from "@/lib/dummy";
+import { kategoriDagangan } from "@/lib/konstanta";
 
 const fieldLabel = "mb-[5px] block text-[13px] font-bold";
 const fieldInput =
@@ -32,7 +32,7 @@ export function SaudagarForm() {
     };
 
     if (!payload.loji_name || !payload.owner_name || !payload.whatsapp) {
-      setState({ kind: "error", message: "Lengkapi nama loji, saudagar, dan WhatsApp." });
+      setState({ kind: "error", message: "Lengkapi nama lapak, saudagar, dan WhatsApp." });
       return;
     }
 
@@ -65,18 +65,18 @@ export function SaudagarForm() {
       className="rounded-[4px] border-2 border-kongsi-ink bg-kongsi-parchment p-6 shadow-hard"
     >
       <h3 className="mb-[14px] font-fraunces text-[19px] font-black text-kongsi-indigo">
-        Daftarkan lojimu
+        Daftarkan lapakmu
       </h3>
 
       <div className="mb-[14px]">
         <label className={fieldLabel} htmlFor="loji_name">
-          Nama loji
+          Nama lapak
         </label>
         <input
           id="loji_name"
           name="loji_name"
           className={fieldInput}
-          placeholder="cth. Loji Sari Ayu"
+          placeholder="cth. Beauty Center Cabang Kota"
         />
       </div>
 

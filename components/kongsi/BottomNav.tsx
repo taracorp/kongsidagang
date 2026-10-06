@@ -9,7 +9,7 @@ const tabs = [
   { href: "/", label: "Beranda", Icon: IconHome, exact: true },
   { href: "/tukar", label: "Tukar Guling", Icon: IconBarter },
   { href: "/neraca", label: "Neraca", Icon: IconScale },
-  { href: "/loji", label: "Loji", Icon: IconShop },
+  { href: "/lapak", label: "Lapak", Icon: IconShop },
   { href: "/kabar", label: "Kabar", Icon: IconNews },
 ];
 

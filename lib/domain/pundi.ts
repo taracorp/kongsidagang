@@ -4,6 +4,7 @@ import type { Prisma, UserLevel } from "@/lib/generated/prisma/client";
 import { randomBytes } from "node:crypto";
 import { findPackage, rincianIsi } from "@/lib/pundi-paket";
 import { doku } from "@/lib/payment/doku";
+import { beriKabar } from "@/lib/domain/kabar-user";
 
 // Port dari plpgsql spend/topup/redeem/checkout/recompute_level (migrasi Supabase 0014 & 0015).
 // Ambang level (akumulasi belanja, Rp): besar 250rb | tuan_kecil 1jt | tuan_besar 5jt | juragan 20jt.
@@ -18,7 +19,6 @@ export function levelFor(totalSpend: number): UserLevel {
   return "pelanggan_kecil";
 }
 
-const BEA_DASAR = 2000;
 
 // ============================================================
 // Ledger: semua mutasi Keteng lewat helper ini, di dalam $transaction.
@@ -206,12 +206,27 @@ export async function lunasiIsiPundi(invoice: string, amount: number, channel: s
     const nama = pkg ? `paket ${pkg.name}` : `Rp ${o.price.toLocaleString("id-ID")}`;
     await credit(tx, o.user_id, o.price, "isi", `Isi Pundi ${nama} (DOKU${channel ? ` ${channel}` : ""})`);
     if (o.keteng > o.price) await credit(tx, o.user_id, o.keteng - o.price, "bonus", `Bonus ${nama}`);
+    await beriKabar(tx, o.user_id, {
+      kind: "pundi",
+      title: `Isi Pundi berhasil: +${o.keteng.toLocaleString("id-ID")} Keteng`,
+      body: `Isi Pundi ${nama}`,
+      href: "/pakhuis",
+    });
     return "lunas";
   });
 }
 
 export async function gagalkanIsiPundi(invoice: string, status: "failed" | "expired") {
-  await prisma.topupOrder.updateMany({ where: { invoice_number: invoice, status: "pending" }, data: { status } });
+  const o = await prisma.topupOrder.findUnique({ where: { invoice_number: invoice }, select: { user_id: true } });
+  const r = await prisma.topupOrder.updateMany({ where: { invoice_number: invoice, status: "pending" }, data: { status } });
+  if (r.count && o) {
+    await beriKabar(prisma, o.user_id, {
+      kind: "pundi",
+      title: status === "failed" ? "Isi Pundi gagal" : "Isi Pundi kedaluwarsa",
+      body: "Keteng tidak berubah. Silakan coba lagi.",
+      href: "/pakhuis",
+    });
+  }
 }
 
 /** Cocokkan pesanan milik user dengan status di DOKU (bila notifikasi terlambat). */
@@ -233,64 +248,4 @@ export async function rekonsiliasiIsiPundi(userId: string, invoice: string) {
   });
 }
 
-/** Tebus Surat Jalan milik sendiri yang masih aktif. */
-export async function redeemVoucher(userId: string, voucherId: string) {
-  await prisma.$transaction(async (tx) => {
-    const res = await tx.voucher.updateMany({
-      where: { id: voucherId, user_id: userId, status: "aktif" },
-      data: { status: "terpakai" },
-    });
-    if (res.count === 0) throw new Error("Voucher tidak bisa ditebus");
-    const v = await tx.voucher.findUnique({ where: { id: voucherId }, select: { title: true } });
-    await tx.walletTransaction.create({
-      data: {
-        user_id: userId,
-        amount: 0,
-        kind: "tebus",
-        note: `Tebus Surat Jalan: ${v?.title ?? ""}`,
-      },
-    });
-  });
-}
-
-/** Checkout pakai Keteng + hak per-level + Cap; naikkan level otomatis. */
-export async function checkoutKeping(
-  userId: string,
-  subtotal: number,
-  ongkir = 0,
-): Promise<{ paid: number; bea: number; used_stamp: boolean }> {
-  if (!Number.isInteger(subtotal) || subtotal <= 0) throw new Error("Keranjang kosong");
-  if (!Number.isInteger(ongkir) || ongkir < 0) throw new Error("Ongkir tidak valid");
-
-  return prisma.$transaction(async (tx) => {
-    const prof = await tx.profile.upsert({
-      where: { id: userId },
-      create: { id: userId },
-      update: {},
-    });
-
-    let bea = BEA_DASAR;
-    let usedStamp = false;
-    if (prof.level === "tuan_besar" || prof.level === "juragan") {
-      bea = 0; // hak level
-    } else if (prof.stamps >= 10) {
-      bea = 0; // tukar 10 Cap
-      usedStamp = true;
-    }
-    const total = subtotal + ongkir + bea;
-
-    await debit(tx, userId, total, "belanja", "Belanja Kongsi");
-
-    const totalSpend = prof.total_spend + total;
-    await tx.profile.update({
-      where: { id: userId },
-      data: {
-        total_spend: totalSpend,
-        stamps: usedStamp ? prof.stamps - 10 + 1 : prof.stamps + 1,
-        level: levelFor(totalSpend),
-      },
-    });
-
-    return { paid: total, bea, used_stamp: usedStamp };
-  });
-}
+// Belanja & tebus voucher: lihat lib/domain/belanja.ts (harga dari DB, kode unik, validasi petugas).

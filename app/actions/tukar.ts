@@ -8,6 +8,7 @@ import { risetHarga, bacaRiset } from "@/lib/taksir/riset";
 import * as Tukar from "@/lib/domain/tukar";
 import * as Kirim from "@/lib/domain/tukar-kirim";
 import * as Alamat from "@/lib/domain/alamat";
+import { beriKabar } from "@/lib/domain/kabar-user";
 import { run, requireUser, requireAdminUp, toInt } from "./_util";
 
 function parseAnswers(raw: unknown, keys: string[]): Record<string, boolean> {
@@ -102,7 +103,7 @@ export async function tawarkanBarang(form: FormData) {
   });
 }
 
-/** Juru Taksir: riset harga pasar (BigGo + mesin pencari + loji mitra). Hasil di-cache 7 hari. */
+/** Juru Taksir: riset harga pasar (BigGo + mesin pencari + lapak mitra). Hasil di-cache 7 hari. */
 export async function cariHargaPasar(kueri: string, kategori: string, koleksi: boolean) {
   return run(async () => {
     const user = await requireUser();
@@ -154,6 +155,13 @@ export async function teraPenaksir(itemId: string, nilai: number, catatan: strin
       },
     });
     if (res.count === 0) throw new Error("Barang tidak aktif atau sedang dalam tukar.");
+    const it = await prisma.barterItem.findUnique({ where: { id: String(itemId) }, select: { user_id: true, title: true } });
+    await beriKabar(prisma, it?.user_id, {
+      kind: "tera",
+      title: `Barangmu ditera Penaksir: Rp ${nilai.toLocaleString("id-ID")}`,
+      body: `${it?.title ?? ""} — ${note}`,
+      href: "/tukar",
+    });
   });
 }
 

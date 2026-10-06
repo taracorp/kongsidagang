@@ -32,7 +32,7 @@ function AuctionCard({ auction }: { auction: AuctionPublic }) {
           {auction.clue_category}
         </div>
         <div className="mt-[2px] text-sm opacity-85">
-          Nama loji:{" "}
+          Nama lapak:{" "}
           <b className="font-fraunces tracking-[3px] text-kongsi-beeswax">
             {auction.clue_name_masked}
           </b>{" "}
@@ -119,7 +119,7 @@ export function LiveAuction({
       {auction ? <AuctionCard auction={auction} /> : <AdSlot ad={ad} />}
       <p className="mt-[10px] text-[12px] text-kongsi-ink-soft">
         ◆ <b>Lelang Reguler</b> terbuka untuk siapa saja (daftar hanya saat mau
-        menebus). <b>Vendu</b> (lelang khusus) hanya untuk yang sudah masuk loji.
+        menebus). <b>Vendu</b> (lelang khusus) hanya untuk yang sudah masuk.
       </p>
     </div>
   );

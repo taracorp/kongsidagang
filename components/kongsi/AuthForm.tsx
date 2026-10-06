@@ -136,7 +136,7 @@ export function AuthForm({ redirectTo = "/pakhuis" }: { redirectTo?: string }) {
             ? "Memproses…"
             : tab === "daftar"
               ? "Daftar & Masuk"
-              : "Masuk Loji"}
+              : "Masuk"}
         </KongsiButton>
         <p className="mt-3 text-center text-[12px] text-kongsi-ink-soft">
           Keliling &amp; isi keranjang tak perlu akun. Masuk hanya untuk

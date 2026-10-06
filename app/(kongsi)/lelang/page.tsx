@@ -50,13 +50,13 @@ export default async function LelangPage({
         {isVendu && !user ? (
           <div className="mx-auto mt-8 max-w-md rounded-[6px] border-2 border-kongsi-grenadine bg-[#FBE3D5] px-6 py-10 text-center">
             <div className="font-fraunces text-xl font-black text-kongsi-grenadine">
-              🔒 Vendu khusus anggota loji
+              🔒 Vendu khusus anggota Kongsi
             </div>
             <p className="mt-2 text-sm text-kongsi-grenadine-dark">
-              Lelang khusus (Vendu) hanya untuk yang sudah masuk loji.
+              Lelang khusus (Vendu) hanya untuk yang sudah masuk.
             </p>
             <KongsiLinkButton href="/masuk" variant="primary" className="mt-4">
-              Masuk Loji
+              Masuk
             </KongsiLinkButton>
           </div>
         ) : (

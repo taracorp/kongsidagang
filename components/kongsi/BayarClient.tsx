@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
-import { bayarDenganKeping } from "@/app/actions/pundi";
+import { bayarKeranjang } from "@/app/actions/belanja";
 import { KongsiButton, KongsiLinkButton } from "@/components/kongsi/KongsiButton";
 import { useCart } from "@/components/kongsi/cart";
 import { GoogleButton } from "@/components/kongsi/GoogleButton";
@@ -12,7 +12,6 @@ import { cn, formatKeping } from "@/lib/utils";
 import { tautanIsi } from "@/lib/pundi-paket";
 
 const BEA = 2000;
-const ONGKIR = 9000;
 
 const fieldLabel = "mb-[5px] block text-[13px] font-bold";
 const fieldInput =
@@ -141,58 +140,57 @@ export function BayarClient({
   loggedIn,
   level,
   stamps,
+  saldo,
 }: {
   loggedIn: boolean;
   level: string;
   stamps: number;
+  saldo: number;
 }) {
   const { items, subtotal, clear } = useCart();
   const [pay, setPay] = useState<
-    { k: "idle" } | { k: "paying" } | { k: "ok" } | { k: "error"; m: string }
+    { k: "idle" } | { k: "paying" } | { k: "ok"; voucher: number } | { k: "error"; m: string }
   >({ k: "idle" });
 
-  const beaFree =
-    loggedIn && (["tuan_besar", "juragan"].includes(level) || stamps >= 10);
+  // Perkiraan untuk tampilan; server menghitung ulang dari harga di DB.
+  const beaFree = loggedIn && (["tuan_besar", "juragan"].includes(level) || stamps >= 10);
   const bea = beaFree ? 0 : BEA;
-  const total = subtotal + ONGKIR + bea;
+  const total = subtotal + bea;
+  const kurang = Math.max(0, total - saldo);
 
   async function bayarPundi() {
     setPay({ k: "paying" });
-    const { error } = await bayarDenganKeping(subtotal, ONGKIR);
+    const { error, data } = await bayarKeranjang(
+      items.map((it) => ({ productId: it.productId, branchId: it.branchId, qty: it.qty })),
+    );
     if (error) return setPay({ k: "error", m: error });
     clear();
-    setPay({ k: "ok" });
+    setPay({ k: "ok", voucher: data?.voucher ?? 0 });
   }
 
   return (
     <section className="py-[34px]">
       <div className="mx-auto max-w-[1080px] px-5">
         <div className="mb-[22px] text-center">
-          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">
-            Gerbang Tebus
-          </div>
-          <h2 className="mt-1 font-fraunces text-[30px] font-black text-kongsi-indigo">
-            Satu langkah lagi
-          </h2>
+          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Gerbang Tebus</div>
+          <h2 className="mt-1 font-fraunces text-[30px] font-black text-kongsi-indigo">Satu langkah lagi</h2>
         </div>
 
         {pay.k === "ok" ? (
-          <div className="mx-auto max-w-md rounded-[6px] border-2 border-kongsi-ok bg-[#E4EFE5] px-6 py-12 text-center">
-            <div className="font-fraunces text-xl font-black text-kongsi-ok">
-              ✓ Pembayaran berhasil
-            </div>
+          <div className="mx-auto max-w-md rounded-[6px] border-2 border-kongsi-ok bg-kongsi-sage/30 px-6 py-12 text-center">
+            <div className="font-fraunces text-xl font-black text-kongsi-ok">✓ Pembayaran berhasil</div>
             <p className="mt-2 text-sm text-kongsi-ink-soft">
-              Keteng terpotong. Surat Jalan &amp; riwayat ada di Pakhuis.
+              {pay.voucher} Surat Jalan terbit. Tunjukkan kodenya ke petugas di cabang yang kamu pilih.
             </p>
-            <KongsiLinkButton href="/pakhuis" variant="primary" className="mt-4">
-              Ke Pakhuis
+            <KongsiLinkButton href="/pakhuis#surat-jalan" variant="primary" className="mt-4">
+              Lihat Surat Jalan
             </KongsiLinkButton>
           </div>
         ) : items.length === 0 ? (
           <div className="mx-auto max-w-md rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-6 py-12 text-center">
             <p className="text-kongsi-ink-soft">Belum ada yang ditebus.</p>
-            <KongsiLinkButton href="/loji" variant="gold" className="mt-4">
-              Jelajah Loji
+            <KongsiLinkButton href="/lapak" variant="gold" className="mt-4">
+              Jelajah Lapak
             </KongsiLinkButton>
           </div>
         ) : (
@@ -200,39 +198,46 @@ export function BayarClient({
             {loggedIn ? (
               <div className="overflow-hidden rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment shadow-hard">
                 <div className="border-b-2 border-kongsi-ink bg-kongsi-sage/30 px-[18px] py-3 text-[13px]">
-                  🔑 Kamu sudah masuk loji — tebus pakai <b>Pundi (Keteng)</b>.
+                  🔑 Tebus pakai <b>Pundi</b> — saldomu <b>{saldo.toLocaleString("id-ID")} Keteng</b>.
                 </div>
                 <div className="p-[22px]">
-                  <KongsiButton variant="primary" block onClick={bayarPundi} disabled={pay.k === "paying"}>
-                    {pay.k === "paying"
-                      ? "Memproses…"
-                      : `Bayar ${formatKeping(total)} dengan Keteng`}
-                  </KongsiButton>
+                  {kurang > 0 ? (
+                    <>
+                      <p className="mb-3 text-[13px]">
+                        Saldo kurang <b>{formatKeping(kurang)}</b>. Isi Pundi dulu, lalu kembali ke sini.
+                      </p>
+                      <KongsiLinkButton href={tautanIsi(kurang)} variant="gold" block>
+                        Isi Pundi {formatKeping(kurang)}
+                      </KongsiLinkButton>
+                    </>
+                  ) : (
+                    <KongsiButton variant="primary" block onClick={bayarPundi} disabled={pay.k === "paying"}>
+                      {pay.k === "paying" ? "Memproses…" : `Bayar ${formatKeping(total)} dengan Keteng`}
+                    </KongsiButton>
+                  )}
                   {pay.k === "error" ? (
-                    <p className="mt-3 rounded-[4px] border-2 border-kongsi-grenadine bg-[#FBE3D5] px-3 py-2 text-[13px] text-kongsi-grenadine-dark">
+                    <p className="mt-3 rounded-[4px] border-2 border-kongsi-grenadine bg-kongsi-parchment-3 px-3 py-2 text-[13px] text-kongsi-grenadine-dark">
                       {pay.m}{" "}
-                      <Link href={tautanIsi(total)} className="font-bold underline">
-                        Isi Pundi
-                      </Link>
+                      {/saldo/i.test(pay.m) ? (
+                        <Link href={tautanIsi(kurang || total)} className="font-bold underline">
+                          Isi Pundi
+                        </Link>
+                      ) : null}
                     </p>
                   ) : null}
-                  <p className="mt-[10px] text-center text-[11px] text-kongsi-ink-soft">
-                    Pembayaran via DOKU (kartu/VA) segera hadir.
-                  </p>
                 </div>
               </div>
             ) : (
               <GateForm />
             )}
             <div className="rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-5 shadow-hard">
-              <h3 className="mb-[14px] font-fraunces text-[19px] font-black text-kongsi-indigo">
-                Yang ditebus
-              </h3>
+              <h3 className="mb-[14px] font-fraunces text-[19px] font-black text-kongsi-indigo">Yang ditebus</h3>
               {items.map((it) => (
-                <div key={it.id} className="flex justify-between py-[6px] text-sm">
+                <div key={it.key} className="flex justify-between gap-3 py-[6px] text-sm">
                   <span>
                     {it.name}
                     {it.qty > 1 ? ` ×${it.qty}` : ""}
+                    {it.branchName ? <span className="block text-[11px] text-kongsi-olive">{it.branchName}</span> : null}
                   </span>
                   <span>{formatKeping(it.price * it.qty)}</span>
                 </div>
@@ -242,9 +247,7 @@ export function BayarClient({
                 <span>
                   {beaFree ? (
                     <>
-                      <span className="mr-1 text-kongsi-ink-soft line-through">
-                        {formatKeping(BEA)}
-                      </span>
+                      <span className="mr-1 text-kongsi-ink-soft line-through">{formatKeping(BEA)}</span>
                       <b className="text-kongsi-ok">Gratis</b>
                     </>
                   ) : (
@@ -252,19 +255,11 @@ export function BayarClient({
                   )}
                 </span>
               </div>
-              <div className="flex justify-between py-[6px] text-sm">
-                <span>Ongkir</span>
-                <span>{formatKeping(ONGKIR)}</span>
-              </div>
               <div className="mt-2 flex justify-between border-t-2 border-kongsi-ink pt-3 font-fraunces text-xl font-black text-kongsi-indigo">
                 <span>Total</span>
                 <span>{formatKeping(total)}</span>
               </div>
-              {beaFree ? (
-                <div className="mt-2 text-[11px] font-bold text-kongsi-ok">
-                  ✓ Bea gratis — hak level / tukar Cap
-                </div>
-              ) : null}
+              {beaFree ? <div className="mt-2 text-[11px] font-bold text-kongsi-ok">✓ Bea gratis — hak level / tukar Cap</div> : null}
             </div>
           </div>
         )}

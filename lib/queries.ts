@@ -4,171 +4,13 @@ import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { getStaffSession, isAdminUp, canEditKabar, isKetua, isSuperadminEmail } from "@/lib/roles";
 import type { Tone } from "@/components/kongsi/ProdukCard";
-import {
-  merchants as dummyMerchants,
-  getMerchant as dummyGetMerchant,
-  etalaseKurasi,
-  pilihanUntukmu,
-  type Merchant,
-  type Produk,
-} from "@/lib/dummy";
-import {
-  neracaRows as dummyNeraca,
-  barterItems as dummyBarter,
-  artikel as dummyArtikel,
-  type NeracaRow,
-  type BarterItem,
-  type Artikel,
-} from "@/lib/data-e";
 
 const asTone = (t: unknown): Tone => (t as Tone) ?? "sage";
 
-export type LojiKartu = {
-  slug: string;
-  name: string;
-  category: string;
-  rating: number;
-  tone: Tone;
-  sealed: boolean;
-  status: "buka" | "obral";
-};
 
-export async function getLojiList(): Promise<LojiKartu[]> {
-  await connection(); // data DB selalu per-request, jangan diprerender saat build
-  try {
-    const data = await prisma.merchant.findMany({
-      where: { is_active: true },
-      select: {
-        slug: true,
-        name: true,
-        category: true,
-        rating: true,
-        tone: true,
-        is_sealed: true,
-        status: true,
-      },
-      orderBy: { tebusan_count: "desc" },
-    });
-    if (data.length) {
-      return data.map((m) => ({
-        slug: m.slug,
-        name: m.name,
-        category: m.category,
-        rating: Number(m.rating),
-        tone: asTone(m.tone),
-        sealed: m.is_sealed,
-        status: m.status === "obral" ? "obral" : "buka",
-      }));
-    }
-  } catch {
-    // fallback ke dummy
-  }
-  return dummyMerchants.map((m) => ({
-    slug: m.slug,
-    name: m.name,
-    category: m.category,
-    rating: m.rating,
-    tone: m.tone,
-    sealed: Boolean(m.sealed),
-    status: m.status,
-  }));
-}
 
-export async function getLojiDetail(slug: string): Promise<Merchant | null> {
-  await connection(); // data DB selalu per-request, jangan diprerender saat build
-  try {
-    const m = await prisma.merchant.findFirst({
-      where: { slug, is_active: true },
-      include: {
-        products: {
-          where: { is_active: true },
-          select: { name: true, price: true, old_price: true, tone: true },
-          orderBy: { created_at: "asc" },
-        },
-      },
-    });
-    if (m) {
-      return {
-        slug: m.slug,
-        name: m.name,
-        category: m.category,
-        rating: Number(m.rating),
-        tone: asTone(m.tone),
-        sealed: m.is_sealed,
-        status: m.status === "obral" ? "obral" : "buka",
-        city: m.city ?? "",
-        tebusan: m.tebusan_count,
-        coverFrom: asTone(m.cover_from ?? m.tone),
-        coverTo: asTone(m.cover_to ?? m.tone),
-        flashSale: m.status === "obral" ? "03:14:22" : undefined,
-        products: m.products.map((p) => ({
-          name: p.name,
-          shop: m.name,
-          price: p.price,
-          oldPrice: p.old_price ?? undefined,
-          tone: asTone(p.tone),
-        })),
-        id: m.id,
-      };
-    }
-  } catch {
-    // fallback
-  }
-  return dummyGetMerchant(slug) ?? null;
-}
 
-export type LapakProduct = {
-  id: string;
-  name: string;
-  price: number;
-  old_price: number | null;
-  tone: Tone;
-  is_active: boolean;
-};
-export type LapakMerchant = {
-  id: string;
-  slug: string;
-  name: string;
-  category: string;
-  is_sealed: boolean;
-  status: string;
-  products: LapakProduct[];
-};
 
-export async function getMyMerchants(userId: string): Promise<LapakMerchant[]> {
-  await connection(); // data DB selalu per-request, jangan diprerender saat build
-  try {
-    const data = await prisma.merchant.findMany({
-      where: { owner_id: userId },
-      select: {
-        id: true,
-        slug: true,
-        name: true,
-        category: true,
-        is_sealed: true,
-        status: true,
-        products: {
-          select: {
-            id: true,
-            name: true,
-            price: true,
-            old_price: true,
-            tone: true,
-            is_active: true,
-          },
-          orderBy: { created_at: "asc" },
-        },
-      },
-      orderBy: { created_at: "asc" },
-    });
-    return data.map((m) => ({
-      ...m,
-      products: m.products.map((p) => ({ ...p, tone: asTone(p.tone) })),
-    }));
-  } catch {
-    return [];
-  }
-}
 
 export async function getIsFollowing(merchantId: string): Promise<{
   loggedIn: boolean;
@@ -187,123 +29,9 @@ export async function getIsFollowing(merchantId: string): Promise<{
   }
 }
 
-export async function getFeatured(): Promise<{
-  etalase: Produk[];
-  pilihan: Produk[];
-}> {
-  await connection(); // data DB selalu per-request, jangan diprerender saat build
-  try {
-    const data = await prisma.merchantProduct.findMany({
-      where: { is_active: true },
-      select: {
-        name: true,
-        price: true,
-        old_price: true,
-        tone: true,
-        merchant: { select: { name: true } },
-      },
-      take: 20,
-    });
-    if (data.length) {
-      const mapped: Produk[] = data.map((p) => ({
-        name: p.name,
-        shop: p.merchant.name,
-        price: p.price,
-        oldPrice: p.old_price ?? undefined,
-        tone: asTone(p.tone),
-      }));
-      return { etalase: mapped.slice(0, 5), pilihan: mapped.slice(5, 9) };
-    }
-  } catch {
-    // fallback
-  }
-  return { etalase: etalaseKurasi, pilihan: pilihanUntukmu };
-}
 
-export async function getNeraca(productKey: string): Promise<NeracaRow[]> {
-  await connection(); // data DB selalu per-request, jangan diprerender saat build
-  try {
-    const data = await prisma.priceListing.findMany({
-      where: { product_key: productKey },
-      select: { loji_name: true, is_sealed: true, rating: true, price: true },
-      orderBy: { price: "asc" },
-      take: 10,
-    });
-    if (data.length) {
-      return data.map((r, i) => ({
-        rank: i + 1,
-        loji: r.loji_name,
-        sealed: r.is_sealed,
-        rating: Number(r.rating),
-        price: r.price,
-        cheapest: i === 0,
-      }));
-    }
-  } catch {
-    // fallback
-  }
-  return dummyNeraca;
-}
 
-export async function getNeracaByName(query: string): Promise<{
-  rows: NeracaRow[];
-  matched: string | null;
-}> {
-  await connection(); // data DB selalu per-request, jangan diprerender saat build
-  try {
-    const data = await prisma.merchantProduct.findMany({
-      where: {
-        is_active: true,
-        name: { contains: query, mode: "insensitive" },
-      },
-      select: {
-        name: true,
-        price: true,
-        merchant: { select: { name: true, is_sealed: true, rating: true } },
-      },
-      orderBy: { price: "asc" },
-      take: 12,
-    });
-    if (data.length) {
-      const rows: NeracaRow[] = data.map((p, i) => ({
-        rank: i + 1,
-        loji: p.merchant.name,
-        sealed: p.merchant.is_sealed,
-        rating: Number(p.merchant.rating),
-        price: p.price,
-        cheapest: i === 0,
-      }));
-      return { rows, matched: data[0].name };
-    }
-  } catch {
-    // fallback
-  }
-  return { rows: [], matched: null };
-}
 
-export async function getBarter(): Promise<BarterItem[]> {
-  await connection(); // data DB selalu per-request, jangan diprerender saat build
-  try {
-    const data = await prisma.barterItem.findMany({
-      where: { status: "aktif" },
-      select: { title: true, est_value: true, want_text: true, city: true, tone: true },
-      orderBy: { created_at: "desc" },
-    });
-    if (data.length) {
-      return data.map((b) => ({
-        title: b.title,
-        owner: "Saudagar",
-        city: b.city ?? "",
-        estValue: b.est_value,
-        want: b.want_text ?? "",
-        tone: asTone(b.tone),
-      }));
-    }
-  } catch {
-    // fallback
-  }
-  return dummyBarter;
-}
 
 export type BarterRow = {
   id: string;
@@ -668,41 +396,50 @@ export async function getTeraQueue(): Promise<TeraItem[]> {
   }));
 }
 
+export type Artikel = {
+  slug: string;
+  title: string;
+  tag: string;
+  excerpt: string;
+  tone: Tone;
+  body: string[];
+  publishedAt: string | null;
+};
+
+const ARTIKEL_SELECT = { slug: true, title: true, tag: true, excerpt: true, cover_tone: true, body: true, published_at: true } as const;
+
+function keArtikel(a: {
+  slug: string; title: string; tag: string; excerpt: string | null; cover_tone: string; body: string[]; published_at: Date | null;
+}): Artikel {
+  return {
+    slug: a.slug,
+    title: a.title,
+    tag: a.tag,
+    excerpt: a.excerpt ?? "",
+    tone: asTone(a.cover_tone),
+    body: a.body,
+    publishedAt: a.published_at?.toISOString() ?? null,
+  };
+}
+
+/** Artikel terbit (tanpa data contoh: kosong berarti memang belum ada artikel). */
 export async function getArticles(): Promise<Artikel[]> {
-  await connection(); // data DB selalu per-request, jangan diprerender saat build
-  try {
-    const data = await prisma.article.findMany({
-      where: { published_at: { not: null, lte: new Date() } },
-      select: {
-        slug: true,
-        title: true,
-        tag: true,
-        excerpt: true,
-        cover_tone: true,
-        body: true,
-      },
-      orderBy: { published_at: "desc" },
-    });
-    if (data.length) {
-      return data.map((a) => ({
-        slug: a.slug,
-        title: a.title,
-        tag: a.tag,
-        excerpt: a.excerpt ?? "",
-        tone: asTone(a.cover_tone),
-        body: a.body,
-      }));
-    }
-  } catch {
-    // fallback
-  }
-  return dummyArtikel;
+  await connection();
+  const data = await prisma.article.findMany({
+    where: { published_at: { not: null, lte: new Date() } },
+    select: ARTIKEL_SELECT,
+    orderBy: { published_at: "desc" },
+  });
+  return data.map(keArtikel);
 }
 
 export async function getArticle(slug: string): Promise<Artikel | null> {
-  await connection(); // data DB selalu per-request, jangan diprerender saat build
-  const all = await getArticles();
-  return all.find((a) => a.slug === slug) ?? null;
+  await connection();
+  const a = await prisma.article.findFirst({
+    where: { slug, published_at: { not: null, lte: new Date() } },
+    select: ARTIKEL_SELECT,
+  });
+  return a ? keArtikel(a) : null;
 }
 
 export type AuctionPublic = {
@@ -900,7 +637,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     ]);
 
   const produkPerLoji = merchants.map((m) => ({
-    label: m.name.replace(/^Loji /, ""),
+    label: m.name,
     value: m._count.products,
   }));
 
@@ -915,7 +652,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     cards: [
       { label: "Lelang aktif", value: String(aktif), accent: "text-kongsi-grenadine" },
       { label: "Pengajuan Saudagar", value: String(pengajuan) },
-      { label: "Loji terdaftar", value: String(loji), accent: "text-kongsi-ok" },
+      { label: "Lapak terdaftar", value: String(loji), accent: "text-kongsi-ok" },
       { label: "Artikel", value: String(artikel) },
       { label: "Pelanggan", value: String(pelanggan) },
     ],
@@ -1017,6 +754,9 @@ export type AdminArticle = {
   slug: string;
   title: string;
   tag: string;
+  excerpt: string | null;
+  cover_tone: string;
+  body: string[];
   published_at: string | null;
 };
 
@@ -1026,7 +766,7 @@ export async function getAdminArticles(): Promise<AdminArticle[]> {
     const { role } = await getStaffSession();
     if (!canEditKabar(role)) return [];
     const data = await prisma.article.findMany({
-      select: { slug: true, title: true, tag: true, published_at: true },
+      select: { slug: true, title: true, tag: true, excerpt: true, cover_tone: true, body: true, published_at: true },
       orderBy: { created_at: "desc" },
     });
     return data.map((a) => ({
@@ -1044,7 +784,17 @@ export type PakhuisData = {
   level: string;
   stamps: number;
   totalSpend: number;
-  vouchers: { id: string; title: string; note: string | null; status: string }[];
+  vouchers: {
+    id: string;
+    title: string;
+    note: string | null;
+    status: string;
+    kind: string;
+    code: string | null;
+    expires_at: string | null;
+    redeemed_at: string | null;
+    branch: { name: string; address: string } | null;
+  }[];
   ledger: { amount: number; kind: string; note: string | null; created_at: string }[];
   isSaudagar: boolean;
 };
@@ -1062,8 +812,19 @@ export async function getPakhuis(): Promise<PakhuisData | null> {
     }),
     prisma.voucher.findMany({
       where: { user_id: user.id },
-      select: { id: true, title: true, note: true, status: true },
-      orderBy: { created_at: "desc" },
+      select: {
+        id: true,
+        title: true,
+        note: true,
+        status: true,
+        kind: true,
+        code: true,
+        expires_at: true,
+        redeemed_at: true,
+        branch: { select: { name: true, address: true } },
+      },
+      orderBy: [{ status: "asc" }, { created_at: "desc" }],
+      take: 50,
     }),
     prisma.merchant.count({ where: { owner_id: user.id } }),
     prisma.walletTransaction.findMany({
@@ -1080,7 +841,11 @@ export async function getPakhuis(): Promise<PakhuisData | null> {
     level: profile?.level ?? "pelanggan_kecil",
     stamps: profile?.stamps ?? 0,
     totalSpend: profile?.total_spend ?? 0,
-    vouchers,
+    vouchers: vouchers.map((v) => ({
+      ...v,
+      expires_at: v.expires_at?.toISOString() ?? null,
+      redeemed_at: v.redeemed_at?.toISOString() ?? null,
+    })),
     ledger: ledger.map((l) => ({ ...l, created_at: l.created_at.toISOString() })),
     isSaudagar: lapakCount > 0,
   };

@@ -21,7 +21,7 @@ export default async function AdminLelang() {
           <thead>
             <tr className="bg-kongsi-indigo-dark text-left font-fraunces text-kongsi-parchment">
               <th className="p-[11px_14px]">Clue</th>
-              <th className="p-[11px_14px]">Loji (rahasia)</th>
+              <th className="p-[11px_14px]">Lapak (rahasia)</th>
               <th className="p-[11px_14px]">Normal</th>
               <th className="p-[11px_14px]">Deal</th>
               <th className="p-[11px_14px]">Set</th>

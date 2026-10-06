@@ -12,7 +12,7 @@ import {
 } from "@/lib/taksir/ekstrak";
 import { cariBigGo, cariPencarian, tiruan, type Mentah } from "@/lib/taksir/sumber";
 
-// Riset harga pasar Juru Taksir: gabungkan BigGo + cuplikan mesin pencari + harga loji mitra,
+// Riset harga pasar Juru Taksir: gabungkan BigGo + cuplikan mesin pencari + harga lapak mitra,
 // cocokkan dengan kueri, pisahkan baru/bekas, ringkas, lalu simpan (cache 7 hari, dipakai bersama).
 
 const CACHE_HARI = 7;
@@ -57,19 +57,23 @@ function keHasil(r: {
 }
 
 /** Harga dari loji mitra (Neraca) yang product_key-nya cocok dengan kueri. */
-async function dariLoji(kueri: string): Promise<Mentah[]> {
+async function dariLapak(kueri: string): Promise<Mentah[]> {
   const tk = tokenKueri(kueri);
   if (tk.kuat.length === 0) return [];
-  const rows = await prisma.priceListing.findMany({
-    where: { OR: tk.kuat.map((t) => ({ product_key: { contains: t, mode: "insensitive" as const } })) },
-    select: { product_key: true, loji_name: true, price: true },
+  const rows = await prisma.merchantProduct.findMany({
+    where: {
+      is_active: true,
+      merchant: { is_active: true },
+      OR: tk.kuat.map((t) => ({ name: { contains: t, mode: "insensitive" as const } })),
+    },
+    select: { name: true, price: true, merchant: { select: { name: true, slug: true } } },
     take: 30,
   });
   return rows.map((r) => ({
-    sumber: `Loji ${r.loji_name}`,
-    judul: r.product_key.replace(/[-_]/g, " "),
+    sumber: `Lapak ${r.merchant.name}`,
+    judul: r.name,
     harga: r.price,
-    url: `/neraca?q=${encodeURIComponent(r.product_key)}`,
+    url: `/lapak/${r.merchant.slug}`,
     asal: "internal" as const,
   }));
 }
@@ -104,7 +108,7 @@ export async function risetHarga(
           { nama: "Pencarian", jalan: () => cariPencarian(`${kueri} harga`) },
           { nama: "Pencarian bekas", jalan: () => cariPencarian(`${kueri} bekas`) },
           ...(opsi.koleksi ? [{ nama: "Pencarian kolektor", jalan: () => cariPencarian(`${kueri} antik kolektor harga`) }] : []),
-          { nama: "Loji mitra", jalan: () => dariLoji(kueri) },
+          { nama: "Lapak mitra", jalan: () => dariLapak(kueri) },
         ];
 
   const hasil = await Promise.allSettled(tugas.map((t) => t.jalan()));

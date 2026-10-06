@@ -1,5 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/db";
+import { buatKodeVoucher } from "@/lib/domain/belanja";
+import { beriKabar } from "@/lib/domain/kabar-user";
 import { broadcastLelang } from "@/lib/realtime";
 
 // Port dari plpgsql decide_auction / advance_auctions (migrasi Supabase 0010 & 0013).
@@ -62,9 +64,16 @@ export async function decideAuction(auctionId: string) {
         data: {
           user_id: winnerId,
           title: a.clue_category,
-          note: "Menang lelang · tebus segera",
+          note: "Menang lelang · tunjukkan kode ke admin Kongsi",
           kind: "lelang",
+          code: buatKodeVoucher(),
         },
+      });
+      await beriKabar(tx, winnerId, {
+        kind: "lelang",
+        title: `Kamu menang lelang: ${a.clue_category}`,
+        body: "Surat Jalan sudah ada di Pakhuis.",
+        href: "/pakhuis#surat-jalan",
       });
     }
   });

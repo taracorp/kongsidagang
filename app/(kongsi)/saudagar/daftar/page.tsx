@@ -14,7 +14,7 @@ const benefits = [
   {
     emoji: "🛡️",
     title: "Cap segel = kepercayaan",
-    desc: "Loji bersegel naik peringkat di neraca.",
+    desc: "Lapak bersegel naik peringkat di neraca.",
   },
   {
     emoji: "💰",

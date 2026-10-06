@@ -507,3 +507,60 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - **Catatan:** batas per transaksi tiap metode DOKU (QRIS/VA/gerai) berbeda; DOKU sendiri menyembunyikan metode
   yang tidak sanggup menampung nominal.
 - **Rollback:** `git revert kd-isi-nominal`.
+
+### Ch 8.21 — Tenant asli, e-voucher berkode, Loji → Lapak, notifikasi, Kabar berisi (audit alur)
+2026-10-06
+- **Laporan Tara:** saldo setelah Isi Pundi 10rb tidak terlihat; Alamat kirim tak bisa diisi; lonceng mati; banyak
+  yang aneh; ganti tenant palsu dengan tenant asli (beautycenter.id, drwprime.com) yang menjual perawatan sebagai
+  e-voucher; artikel kosong; audit ulang alur.
+- **Temuan kritis audit:** checkout lama memotong saldo sebesar `subtotal` kiriman browser — tanpa pesanan, tanpa
+  voucher. **Ditutup:** `lib/domain/belanja.ts` mengambil harga dari DB; client hanya mengirim `productId/branchId/qty`.
+- **Migrasi `20261006120000_lapak_evoucher_notifikasi`:**
+  - `merchants` + logo/deskripsi/WA/situs/jam, status `segera`;
+  - tabel baru `merchant_branches`, `orders`, `order_items`, `notifications`;
+  - `merchant_products` + `kind`, kategori, deskripsi, `valid_days`, gambar, unggulan, urutan;
+  - `vouchers` + `code` unik, lapak/produk/cabang/order_item, `redeemed_at/by`;
+  - CHECK status & angka; voucher lama diberi kode otomatis.
+  - Batal: `git revert` + `DROP TABLE notifications, order_items, orders, merchant_branches` + drop kolom baru
+    (atau restore backup pra-deploy).
+- **E-voucher:** keranjang `kongsi.cart.v2` (produk + cabang; isi versi lama dibuang). Cabang dipilih di lembar
+  bawah sebelum masuk keranjang. Bayar Keteng → Order → 1 Surat Jalan per unit, kode 10 karakter + QR `KDV:<kode>`,
+  berlaku 90 hari, hanya di cabang terpilih. Pakhuis menampilkan kode, QR, alamat cabang, dan masa berlaku.
+- **Validasi petugas:** `/pakhuis/lapak` → Validasi voucher (pilih cabang, ketik/pindai). Ditolak bila lapak lain,
+  cabang salah, kedaluwarsa (status disimpan `kadaluarsa`), atau sudah ditebus. Voucher lelang ditebus admin di
+  `/admin`. Cron `advance-barter` juga mengedaluwarsakan voucher.
+- **Loji → Lapak:** semua teks UI; rute `/lapak`, `/lapak/[slug]`; dasbor pemilik pindah ke `/pakhuis/lapak`;
+  `/loji*` dialihkan permanen (next.config). Nama kode (`ikutiLoji`, `actions/loji.ts`) tetap.
+- **Tenant asli** (`scripts/data/tenant-asli.ts`, idempoten; dipanggil juga oleh `prisma/seed.ts`):
+  - **Beauty Center DRW Skincare:** 10 cabang (alamat dari situs), 38 perawatan berharga resmi dalam 6 kategori,
+    WA 0815-4290-8888, jam 09.00–18.00, logo diunduh ke uploads sendiri. Menu Signature di situs mencantumkan
+    "26 treatment" tetapi hanya 8 yang publik — sisanya bisa ditambah lewat Kelola Lapak.
+  - **DRW Studio:** "segera hadir" (situs masih pra-peluncuran, tanpa harga/alamat).
+  - Data contoh dihapus: 7 loji palsu + produk, semua `price_listings`, 3 lelang contoh, 6 barang tukar seed
+    (barang Tara "Sepeda United" & "Lenovo Legion Y520" tetap), 5 artikel pendek. `lib/dummy.ts`, `lib/data-e.ts`
+    dan semua fallback dummy dihapus; diganti status kosong yang jujur.
+- **Notifikasi:** model `Notification` + `beriKabar()`. Dipicu oleh: tukar (tawaran, terima, tolak/batal, selesai,
+  sengketa, paket dikirim/diterima), Tera Penaksir, Isi Pundi lunas/gagal, Surat Jalan terbit/ditebus, menang lelang.
+  Lonceng TopBar = jumlah belum dibaca (diambil ulang tiap pindah halaman & 60 dtk) → `/kabar-saya`.
+- **Saldo:** tombol "Pakhuis-ku" di TopBar menampilkan saldo Keteng. Pakhuis disusun ulang:
+  Pundi → Surat Jalan → Level & Cap → Riwayat → tautan.
+- **Alamat kirim:** tautan disembunyikan sampai `KIRIMINAJA_API_KEY` diisi (sebelumnya jalan buntu). Kartu
+  Integrasi di `/admin` menampilkan status DOKU/KiriminAja/SearXNG + langkah. `scripts/kiriminaja-aktifkan.sh`
+  mendaftarkan callback setelah key diisi.
+- **Kabar:** admin bisa mengubah artikel; isi wajib ≥3 paragraf; 6 artikel baru berisi lengkap
+  (`scripts/data/artikel.ts`).
+- **Lain-lain:**
+  - Juru Tunjuk diganti ke kebutuhan perawatan → kota cabang → anggaran.
+  - Neraca membandingkan perawatan antar-lapak, pill Tebus menaut ke lapak.
+  - Juru Taksir membaca harga lapak dari `merchant_products`.
+  - Teks "DOKU segera hadir" di halaman bayar dibuang.
+- **Verifikasi:**
+  - `scripts/uji/belanja.ts` 24/24 (harga DB, cabang wajib & milik lapak, qty 1–20, saldo kurang, lapak segera,
+    kode unik, validasi lapak lain / cabang salah / dua kali / kedaluwarsa, voucher lelang oleh admin,
+    notifikasi, Σ transaksi = saldo).
+  - Uji lama lulus: pundi 10, isi-pundi 17, isi-nominal 11, tukar 32, kirim 30, taksiran 20, ekstrak 22, sumber 5,
+    doku 8, juru-taksir 10.
+  - `npm run flow` 33/33: guest pilih cabang → keranjang → gate; login → bayar → 2 Surat Jalan berkode;
+    lonceng 2 → 0 setelah dibaca; petugas menebus, tebus ulang ditolak; `/loji` 308.
+  - tsc + eslint lolos; screenshot desktop & mobile.
+- **Rollback:** restore backup pra-deploy + `git revert kd-lapak-evoucher`, lalu `deploy.sh`.

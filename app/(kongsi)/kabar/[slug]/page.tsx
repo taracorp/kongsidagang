@@ -35,6 +35,11 @@ export default async function KabarDetail({
         <h1 className="mt-1 font-fraunces text-[34px] font-black leading-[1.08] text-kongsi-indigo">
           {a.title}
         </h1>
+        {a.publishedAt ? (
+          <div className="mt-1 text-[12px] text-kongsi-ink-soft">
+            {new Date(a.publishedAt).toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })} · Redaksi Kongsi
+          </div>
+        ) : null}
         <div
           className={cn(
             "my-6 h-[180px] rounded-[6px] border-2 border-kongsi-ink shadow-hard",
