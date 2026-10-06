@@ -158,7 +158,7 @@ prisma/              → schema.prisma, migrations/, seed.ts
 
 **Chrome (rangka tetap):**
 - **TopBar:** kiri = logo Kongsi Dagang (klik → Beranda); kanan = ikon Keranjang (badge),
-  ikon Kabar/notifikasi (badge), tombol **Masuk Loji**.
+  ikon Kabar/notifikasi (badge), tombol **Masuk** (saat login: **Pakhuis-ku** + saldo Keteng). Lonceng → `/kabar-saya`.
 - **BottomNav (5 tab):** Beranda · Tukar Guling · Neraca · Lapak · Kabar.
   Lelang TIDAK di bottom nav — menonjol di Beranda. Akun & notifikasi di TopBar.
 
@@ -171,7 +171,7 @@ prisma/              → schema.prisma, migrations/, seed.ts
 | **Beranda** | hero → Lelang berlangsung (fallback slot iklan) → teaser Juru Tunjuk → Etalase (kurasi) → Pilihan Untukmu | `auction`, `curatedFeed`, `personalFeed` |
 | **Balai Lelang** | lelang tebak-harga 6–7 fase. Badge reguler/Vendu. | `auction_*` |
 | **Tukar Guling** | grid tawaran barter + contoh kesepakatan (tukar + tambah keping) | `barter_items`, `barter_deals` |
-| **Neraca** | tabel 10 termurah, loji bersegel diprioritaskan, badge termurah/bertera | `price_listings` |
+| **Neraca** | perbandingan perawatan antar-lapak, lapak bersegel diprioritaskan, badge termurah/bertera | `merchant_products` |
 | **Lapak / Detail** | grid lapak + perawatan per kategori (e-voucher, pilih cabang) + obral kilat | `merchants`, `merchant_branches`, `merchant_products` |
 | **Juru Tunjuk** | kuis tap-tap 3 langkah → hasil produk | statis + `personalFeed` |
 | **Kabar** | daftar artikel (1 besar + grid) | `articles` |
@@ -201,7 +201,7 @@ Enum `user_level`. Ambang (rupiah akumulasi) ditentukan Tara — tanya dulu sebe
 
 ### 6.1 Tukar Guling (barter) — v2 (disetujui Tara, 5 Okt 2026)
 - Nilai barang **ditaksir sistem**, bukan angka bebas user. **Juru Taksir** (gratis, tanpa API berbayar):
-  riset harga di BigGo + SearXNG self-hosted (`kongsi-searxng`, 127.0.0.1:8888) + loji mitra → `lib/taksir/*`;
+  riset harga di BigGo + SearXNG self-hosted (`kongsi-searxng`, 127.0.0.1:8888) + lapak mitra → `lib/taksir/*`;
   rumus di `lib/domain/taksiran.ts` (pasar bekas → harga baru × susut → nilai buku; dibeli bekas tidak disusutkan
   dua kali; koleksi tanpa susut). Label akurasi tampil ke semua pihak; banding lewat **tera Penaksir** (admin).
   Tombol pilihan WAJIB pola `.jt-chip` (kotak), bukan bulat.
@@ -235,7 +235,7 @@ Enum `user_level`. Ambang (rupiah akumulasi) ditentukan Tara — tanya dulu sebe
 ## BAGIAN 7: NERACA HARGA — SOURCING (WAJIB BACA)
 
 Jangan langsung scraping marketplace besar (anti-bot + ToS → risiko blokir & hukum). Prioritas:
-1. **Harga loji mitra** (`merchant_products`) — aman, real-time. Bersegel = paling atas.
+1. **Harga lapak mitra** (`merchant_products`) — aman, real-time. Bersegel = paling atas.
 2. **Feed/affiliate resmi** — legal.
 3. **Scraping** hanya sumber yang mengizinkan (cek `robots.txt`+ToS), rate-limit sopan, cache berkala.
 

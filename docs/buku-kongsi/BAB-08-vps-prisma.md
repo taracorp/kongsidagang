@@ -582,3 +582,9 @@ Traefik yang sudah ada di VPS, cukup atur port.
   - `/loji` → 308 `/lapak`; logo `/uploads/lapak/*` 200.
   - Saldo Tara 10.000 Keteng (Isi Pundi 10rb) kini juga tampil di TopBar.
 - **Rollback:** restore backup di atas + `git revert kd-lapak-evoucher`, lalu `deploy.sh`.
+
+### Ch 8.23 — AGENTS.md: sisa istilah Loji dirapikan
+2026-10-06
+- TopBar ("Masuk" / Pakhuis-ku + saldo, lonceng → `/kabar-saya`), Neraca (membaca `merchant_products`), Juru Taksir
+  & sourcing Neraca memakai "lapak mitra". Baris Fase C dibiarkan sebagai catatan sejarah.
+- Rollback: `git revert` commit ini.
