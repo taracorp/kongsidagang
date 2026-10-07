@@ -641,3 +641,83 @@ Traefik yang sudah ada di VPS, cukup atur port.
   - Ongkir tukar via bayar langsung belum diuji ujung-ke-ujung (butuh mode Kirim); jalurnya memakai
     `bayarOngkir` yang sudah teruji di `kirim.ts`.
 - **Rollback:** `git revert kd-bayar-langsung` + drop kolom di atas (atau restore backup pra-deploy).
+
+### Ch 8.25 — Platform fee + biaya DOKU ditanggung pembeli; belanja pakai uang, Keteng khusus Tukar Guling
+2026-10-07
+- **Masukan Tara:**
+  - "beri platform fee supaya saya untung walau tipis";
+  - "biaya topup DOKU ditanggung pembeli; perhatikan PPN; saya mau terima bersih";
+  - "tidak usah bonus-bonusan";
+  - "**Keteng hanya berlaku untuk barter**; transaksi lain uang beneran".
+- **Temuan:** Isi Pundi 10rb Tara di produksi lewat VA BSI → potongan DOKU ±Rp4.440, tetapi 10.000 Keteng terbit
+  (rugi 44%). Bea belanja dulu Rp2.000 flat dan gratis untuk Tuan Besar/Juragan/10 Cap. Bonus paket s/d 8%.
+- **Riset tarif DOKU** (https://www.doku.com/en-us/pricing, belum PPN):
+  - QRIS 0,7%;
+  - VA BCA Rp4.500, VA bank lain Rp4.000;
+  - DANA 1,5%, OVO s/d 3,18%, ShopeePay s/d 4%;
+  - kartu 2,8% + Rp2.000;
+  - minimarket Rp5.000–6.500 (dimatikan); cicilan/paylater (dimatikan).
+  - Pencairan reguler DOKU gratis, instan Rp5.000.
+  - Setoran ke lapak ±Rp2.500 (BI-FAST) atau Rp1.500 + PPN (DOKU Transfer).
+- **Pajak (dicatat, bukan nasihat pajak resmi):**
+  - PPN 12% × DPP 11/12 = efektif 11%, hanya bila PKP (omzet > Rp4,8 M) → saklar `KONGSI_PKP`.
+  - PPh Final UMKM 0,5% (PP 20/2026); orang pribadi dengan omzet ≤ Rp500 jt bebas.
+  - Kongsi diposisikan sebagai perantara: harga voucher = titipan lapak, omzet Kongsi = platform fee (perlu tertulis
+    di S&K lapak + konfirmasi konsultan pajak).
+  - PPh 22 marketplace (PMK 37/2025) hanya untuk platform yang ditunjuk DJP.
+- **Keputusan Tara:**
+  - platform fee flat **Rp4.000** per transaksi belanja;
+  - belum PKP;
+  - hapus bea gratis level/Cap;
+  - metode dibuka: QRIS, VA, e-wallet, kartu.
+- **Kode:**
+  - `lib/payment/biaya.ts` (baru):
+    - tabel `METODE` (kode `payment_method_types` DOKU + MDR);
+    - `potonganDoku` (incl. PPN 11%);
+    - `rincianBayar(neto, metode)` gross-up (biaya persen dihitung DOKU dari total), dibulatkan ke atas Rp100 →
+      Kongsi menerima ≥ neto (kelebihan < Rp100);
+    - `platformFee(pkp)`.
+  - Driver DOKU: `payment.payment_method_types: [metode]` (halaman DOKU hanya menampilkan metode yang biayanya
+    sudah dihitung) + `line_items` rinci (voucher, platform fee, biaya pembayaran).
+  - **Belanja** (`lib/domain/belanja.ts`, ditulis ulang):
+    - `mulaiBelanja` → Order `menunggu` (invoice `KD-BLJ-…`, snapshot harga) + sesi DOKU;
+    - `lunasiBelanja` (idempoten, nominal wajib = tagihan) menerbitkan Surat Jalan;
+    - `gagalkanBelanja`, `rekonsiliasiBelanja`;
+    - tidak ada lagi debit Keteng untuk belanja.
+  - Notifikasi DOKU memisah `KD-BLJ-` (belanja) vs `KD-ISI-` (Keteng).
+  - **Isi Pundi:** paket bonus dihapus (`lib/pundi-paket.ts`: `NOMINAL_CEPAT`, `nominalIsi`). Keteng = nominal;
+    `price` = nominal + biaya metode; `lunasiIsiPundi` mengkredit `keteng` (bukan `price`).
+  - **Bayar Langsung** kini khusus Tukar Guling (tujuan `belanja` ditolak) + pilihan metode.
+  - **UI:**
+    - `PilihMetode` (pola chip, biaya per metode tampil sebelum bayar);
+    - Gerbang Tebus: rincian voucher + platform fee + biaya pembayaran;
+    - keranjang: platform fee + "biaya pembayaran sesuai metode";
+    - Isi Pundi: nominal + metode;
+    - teks "bea gratis"/bonus dihapus; Cap tetap dikumpulkan ("hadiahnya menyusul").
+  - **Admin:** kartu "Titipan lapak & pendapatan" — diterima, biaya pembayaran, titipan per lapak (wajib disetor),
+    platform fee (pendapatan).
+  - Artikel "Cara beli e-voucher" dan "Pundi & Keteng" diperbarui.
+- **Migrasi:**
+  - `20261007120000_bayar_uang_platform_fee`:
+    - `orders` + `biaya_bayar`, `invoice_number` (unik), `metode`, `channel`, `provider`, `payment_url`, `paid_at`,
+      `expires_at`; status default `menunggu`;
+    - CHECK total = subtotal + bea + biaya_bayar, CHECK status;
+    - `topup_orders` + `biaya_bayar`, `metode`, CHECK price = keteng + biaya.
+  - `20261007130000_topup_tanpa_bonus`: `topup_orders_amount_pos` diganti `price > 0 AND keteng > 0`.
+  - Batal: drop kolom/constraint baru dan kembalikan `orders_total_check` serta `topup_orders_amount_pos`
+    (`keteng >= price`), atau restore backup.
+- **Contoh tagihan** (voucher Rp125.000):
+  - QRIS Rp130.100;
+  - VA BCA Rp134.000;
+  - ShopeePay Rp135.000;
+  - kartu Rp135.500.
+  - Kongsi menerima bersih Rp129.000 → Rp125.000 titipan lapak + Rp4.000 platform fee.
+- **Verifikasi:**
+  - `scripts/uji/biaya.ts` 9/9 (semua metode, nominal 10rb–5jt: terima bersih ≥ neto, lebih < Rp100);
+  - `belanja` 32/32; `bayar-langsung` 15/15; `isi-pundi` 18/18; `isi-nominal` 11/11;
+  - pundi 10, tukar 32, kirim 30, doku 8;
+  - `npm run flow` 39/39 (Isi Pundi tanpa bonus, belanja QRIS & VA via DOKU tiruan, VA lebih mahal dari QRIS);
+  - tsc + eslint lolos; screenshot mobile Gerbang Tebus.
+- **Catatan:** tarif di `METODE` = harga publik DOKU. Bila kontrak Tara berbeda (cek Back Office DOKU), cukup ubah
+  angka di sana.
+- **Rollback:** `git revert kd-platform-fee` + batalkan migrasi di atas (atau restore backup pra-deploy).

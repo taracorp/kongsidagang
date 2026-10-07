@@ -208,11 +208,19 @@ model Order {
   id         String   @id @default(uuid())
   user_id    String
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  subtotal   Int
-  bea        Int
-  total      Int
-  status     String   @default("lunas") // lunas
-  created_at DateTime @default(now())
+  subtotal       Int // harga e-voucher (titipan milik lapak)
+  bea            Int // platform fee (+ PPN bila PKP) — pendapatan Kongsi
+  biaya_bayar    Int       @default(0) // biaya DOKU (termasuk PPN) yang ditanggung pembeli
+  total          Int // dibayar pembeli = subtotal + bea + biaya_bayar
+  status         String    @default("menunggu") // menunggu | lunas | gagal | kedaluwarsa
+  invoice_number String?   @unique
+  metode         String? // kode DOKU payment_method_types yang dipilih
+  channel        String? // kanal yang dilaporkan DOKU saat lunas
+  provider       String? // doku | tiruan | demo (null = pesanan lama dibayar Keteng)
+  payment_url    String?
+  paid_at        DateTime?
+  expires_at     DateTime?
+  created_at     DateTime  @default(now())
 
   items OrderItem[]
 
@@ -666,6 +674,8 @@ model TopupOrder {
   paid_at        DateTime?
   expires_at     DateTime
   created_at     DateTime  @default(now())
+  biaya_bayar    Int       @default(0) // biaya DOKU yang ditanggung pembeli (price = keteng + biaya_bayar)
+  metode         String?
   // Bayar Langsung: setelah lunas, Keteng masuk lalu `tujuan` dijalankan otomatis (lib/domain/bayar-langsung.ts).
   tujuan         String    @default("isi") // isi | belanja | tukar_ajukan | tukar_terima | tukar_ongkir
   muatan         Json? // parameter aksi tujuan

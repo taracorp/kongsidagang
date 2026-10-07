@@ -36,6 +36,7 @@ Titik rollback = **git tag annotated** `kd-*`. Lihat semua: `git tag -l 'kd-*' -
 | `kd-isi-nominal` | ceab51d | 2026-10-06 | Isi Pundi: nominal favorit + bebas (s/d 50jt) + saran dari kekurangan saldo | (tanpa migrasi) |
 | `kd-lapak-evoucher` | 34607e7 | 2026-10-06 | Tenant asli + e-voucher berkode + Loji→Lapak + notifikasi + Kabar berisi | migrasi `20261006120000_lapak_evoucher_notifikasi` |
 | `kd-bayar-langsung` | bc2119b | 2026-10-07 | Bayar Langsung: transfer DOKU → Keteng 1:1 → belanja/tukar otomatis | migrasi `20261007090000_bayar_langsung` |
+| `kd-platform-fee` | (lihat tag) | 2026-10-07 | Platform fee Rp4.000 + biaya DOKU ditanggung pembeli; belanja pakai uang; Keteng khusus Tukar Guling; tanpa bonus | migrasi `20261007120000_bayar_uang_platform_fee`, `20261007130000_topup_tanpa_bonus` |
 
 ## Prosedur
 

@@ -5,9 +5,10 @@ import { CompassRose } from "@/components/kongsi/icons";
 import { KongsiLinkButton } from "@/components/kongsi/KongsiButton";
 import { useCart } from "@/components/kongsi/cart";
 import { cn, formatKeping } from "@/lib/utils";
+import { PLATFORM_FEE } from "@/lib/payment/biaya";
 
-// Perkiraan bea (server yang menentukan: gratis untuk Tuan Besar/Juragan atau dengan 10 Cap).
-const BEA = 2000;
+// Perkiraan: platform fee flat; biaya pembayaran DOKU dihitung di Gerbang Tebus setelah metode dipilih.
+const BEA = PLATFORM_FEE;
 
 const toneBg: Record<string, string> = {
   sage: "bg-kongsi-sage",
@@ -100,8 +101,12 @@ export default function KeranjangPage() {
                 <span>{formatKeping(subtotal)}</span>
               </div>
               <div className="flex justify-between py-[6px] text-sm">
-                <span>Bea layanan</span>
+                <span>Platform fee</span>
                 <span>{formatKeping(BEA)}</span>
+              </div>
+              <div className="flex justify-between py-[6px] text-sm text-kongsi-ink-soft">
+                <span>Biaya pembayaran</span>
+                <span>sesuai metode</span>
               </div>
               <div className="flex justify-between py-[6px] text-sm text-kongsi-ink-soft">
                 <span>Ongkir</span>
@@ -109,13 +114,14 @@ export default function KeranjangPage() {
               </div>
               <div className="mt-2 flex justify-between border-t-2 border-kongsi-ink pt-3 font-fraunces text-xl font-black text-kongsi-indigo">
                 <span>Total</span>
-                <span>{formatKeping(total)}</span>
+                <span>{formatKeping(total)}+</span>
               </div>
               <KongsiLinkButton href="/bayar" variant="primary" block className="mt-[14px]">
                 Lanjut Menebus
               </KongsiLinkButton>
               <p className="mt-2 text-center text-[11px] text-kongsi-ink-soft">
-                Dibayar dengan Keteng dari Pundi. Bea gratis untuk Tuan Besar & Juragan, atau tukar 10 Cap.
+                Dibayar langsung (QRIS, transfer bank, e-wallet, atau kartu). Biaya pembayaran mengikuti metode yang kamu
+                pilih — QRIS paling murah.
               </p>
             </div>
           </div>

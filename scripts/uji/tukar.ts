@@ -27,7 +27,7 @@ async function main() {
     ok(R.bolehkah("proposed", "b", "terima") && !R.bolehkah("proposed", "a", "terima"), "hanya penerima boleh menerima");
     ok(!R.bolehkah("proposed", "a", "pindai") && !R.bolehkah("done", "a", "batal_di_tempat"), "transisi ilegal ditolak");
 
-    for (const u of ids) await P.topupDemo(u, "saudagar"); // 106.000 masing-masing
+    for (const u of ids) await P.topupDemo(u, "106000"); // 106.000 masing-masing
     const beras = await item(A, "Beras 100kg", 1_500_000);
     const sepeda = await item(B, "Sepeda Polygon", 1_900_000);
     const hp = await item(C, "HP bekas", 1_000_000);
@@ -35,8 +35,8 @@ async function main() {
     // Ajukan: A lebih rendah 400rb → wajib tambah ≥ 400rb. Saldo A 106rb → gagal.
     ok(await gagal(() => T.ajukan(A, beras.id, sepeda.id, 0)), "A lebih rendah tanpa tambah ditolak");
     ok(await gagal(() => T.ajukan(A, beras.id, sepeda.id, 400_000)), "saldo kurang untuk tambah 400rb ditolak");
-    await P.topupDemo(A, "juragan"); // +270rb → 376rb
-    await P.topupDemo(A, "juragan"); // → 646rb
+    await P.topupDemo(A, "270000"); // +270rb → 376rb
+    await P.topupDemo(A, "270000"); // → 646rb
     const d1 = await T.ajukan(A, beras.id, sepeda.id, 400_000);
     ok((await bal(A)) === 646_000 - 10_000 - 400_000, "A menahan bea 10rb + tambah 400rb");
     ok(await gagal(() => T.ajukan(A, beras.id, sepeda.id, 400_000)), "ajuan ganda ditolak");
@@ -44,7 +44,7 @@ async function main() {
     // C juga mengajukan ke sepeda (akan otomatis ditolak saat B menerima A).
     const d2 = await T.ajukan(C, hp.id, sepeda.id, 900_000).catch(() => null);
     ok(d2 === null, "C saldo kurang untuk tambah 900rb");
-    await P.topupDemo(C, "juragan"); await P.topupDemo(C, "juragan"); await P.topupDemo(C, "juragan");
+    await P.topupDemo(C, "270000"); await P.topupDemo(C, "270000"); await P.topupDemo(C, "270000");
     const c0 = await bal(C);
     const d3 = await T.ajukan(C, hp.id, sepeda.id, 900_000);
 

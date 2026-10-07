@@ -83,7 +83,7 @@ Teks UI pakai kolom "Tampil ke user". Nama variabel/route/tabel pakai "Nama kode
 
 | Tampil | Arti | Nama kode |
 |---|---|---|
-| Keteng | saldo dompet, **1 Keteng = Rp 1**, tidak dapat diuangkan | `balance` (integer rupiah) |
+| Keteng | saldo dompet **khusus Tukar Guling**, **1 Keteng = Rp 1**, tidak dapat diuangkan | `balance` (integer rupiah) |
 | Pundi | dompet (tempat Keteng) | `wallet` |
 | Isi Pundi | top up | `topup` |
 | Cap | stempel loyalti (10 = 1 potongan) — opsional | `stamps` |
@@ -216,13 +216,18 @@ Enum `user_level`. Ambang (rupiah akumulasi) ditentukan Tara — tanya dulu sebe
 
 ### 6.1b E-voucher lapak (Okt 2026)
 - Keranjang menyimpan `productId` + `branchId` (localStorage `kongsi.cart.v2`); harga SELALU dari DB (`lib/domain/belanja.ts`).
-- Bayar dengan Keteng → `Order` + `OrderItem` → 1 voucher per unit, kode unik (tanpa 0/O/1/I/L), berlaku `valid_days`.
+- Dibayar **uang** lewat DOKU (bukan Keteng): `Order` "menunggu" + `OrderItem` snapshot → notifikasi lunas
+  (`lunasiBelanja`) → 1 voucher per unit, kode unik (tanpa 0/O/1/I/L), berlaku `valid_days`.
+- Tagihan = harga voucher (titipan lapak) + **platform fee Rp4.000** (`PLATFORM_FEE`, + PPN 11% bila `KONGSI_PKP=true`)
+  + biaya pembayaran DOKU metode pilihan (gross-up incl. PPN, `lib/payment/biaya.ts`) → Kongsi terima bersih.
+  Tidak ada bea gratis per level/Cap.
 - Ditebus petugas lapak di `/pakhuis/lapak` (cabang harus cocok, atomik); voucher lelang ditebus admin di `/admin`.
 - Data tenant asli: `scripts/data/tenant-asli.ts` (idempoten). Jangan buat data contoh/dummy lagi.
 - Notifikasi: `beriKabar(tx, …)` di `lib/domain/kabar-user.ts`, dipanggil di dalam transaksi peristiwanya.
 
-### 6.1c Bayar Langsung (Okt 2026)
-- User tidak wajib Isi Pundi dulu. Saat saldo kurang (belanja, ajukan/terima tukar, ongkir), user membayar lewat DOKU;
+### 6.1c Bayar Langsung & Isi Pundi (Okt 2026)
+- **Keteng hanya untuk Tukar Guling.** Isi Pundi = nominal 1:1 + biaya DOKU metode pilihan; tanpa bonus, tanpa platform fee.
+- User tidak wajib Isi Pundi dulu. Saat saldo kurang (ajukan/terima tukar, ongkir), user membayar lewat DOKU;
   uangnya masuk 1:1 sebagai Keteng lalu aksinya dijalankan otomatis (`lib/domain/bayar-langsung.ts`,
   `topup_orders.tujuan/muatan`). Saldo sebagian → user memilih "pakai saldo + bayar kekurangan" atau "bayar penuh".
 - Nominal dihitung server (`nominalLangsung`: dibulatkan ke Rp1.000, minimal Rp10.000). Input divalidasi SEBELUM

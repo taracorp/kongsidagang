@@ -1,49 +1,22 @@
-// Isi Pundi — paket & nominal. Dipakai server (pundi.ts) & client (kartu Isi Pundi). 1 Keteng = Rp 1.
-// Keteng tidak dapat diuangkan kembali.
-//
-// - Paket hemat: nominal kecil berbonus (mendorong isi di muka).
-// - Nominal favorit: pilihan cepat untuk kebutuhan besar (mis. menutup selisih Tukar Guling), tanpa bonus.
+// Isi Pundi (Keteng — khusus Tukar Guling). Fungsi murni: dipakai client & server.
+// Sejak 7 Okt 2026 (keputusan Tara): TANPA bonus paket. Keteng yang masuk = nominal;
+// pembeli membayar nominal + biaya DOKU sesuai metode (lib/payment/biaya.ts), tanpa platform fee.
+// - Nominal cepat: tombol siap pakai.
 // - Nominal lain: bebas, TOPUP_MIN–TOPUP_MAX, kelipatan Rp 1.000.
 
-export type TopupPackage = {
-  id: string;
-  name: string;
-  price: number; // rupiah yang dibayar
-  keteng: number; // Keteng yang masuk Pundi (termasuk bonus)
-};
-
-export const TOPUP_PACKAGES: TopupPackage[] = [
-  { id: "eceran", name: "Eceran", price: 10_000, keteng: 10_000 },
-  { id: "pemula", name: "Pemula", price: 25_000, keteng: 25_500 },
-  { id: "pedagang", name: "Pedagang", price: 50_000, keteng: 52_000 },
-  { id: "saudagar", name: "Saudagar", price: 100_000, keteng: 106_000 },
-  { id: "juragan", name: "Juragan", price: 250_000, keteng: 270_000 },
-];
-
-export const NOMINAL_FAVORIT = [500_000, 1_000_000, 2_000_000, 5_000_000];
+export const NOMINAL_CEPAT = [10_000, 25_000, 50_000, 100_000, 250_000, 500_000, 1_000_000, 2_000_000];
 export const TOPUP_MIN = 10_000;
 export const TOPUP_MAX = 50_000_000;
 export const TOPUP_KELIPATAN = 1_000;
 
-export function findPackage(id: string): TopupPackage | undefined {
-  return TOPUP_PACKAGES.find((p) => p.id === id);
-}
-
-export type RincianIsi = { packageId: string; name: string; price: number; keteng: number };
-
-/**
- * Terjemahkan pilihan Isi Pundi: id paket ("pedagang") atau nominal rupiah ("1500000").
- * Lempar error bila tidak sah — dipakai server sebagai validasi utama.
- */
-export function rincianIsi(pilihan: string): RincianIsi {
-  const pkg = findPackage(pilihan);
-  if (pkg) return { packageId: pkg.id, name: pkg.name, price: pkg.price, keteng: pkg.keteng };
+/** Validasi nominal Isi Pundi → Keteng yang masuk (1:1). */
+export function nominalIsi(pilihan: string | number): number {
   const n = Number(String(pilihan).replace(/\D/g, ""));
-  if (!Number.isInteger(n) || n <= 0) throw new Error("Pilih paket atau isi nominal.");
+  if (!Number.isInteger(n) || n <= 0) throw new Error("Isi nominal.");
   if (n < TOPUP_MIN) throw new Error(`Nominal minimal Rp ${TOPUP_MIN.toLocaleString("id-ID")}.`);
   if (n > TOPUP_MAX) throw new Error(`Nominal maksimal Rp ${TOPUP_MAX.toLocaleString("id-ID")} per transaksi.`);
   if (n % TOPUP_KELIPATAN !== 0) throw new Error("Nominal harus kelipatan Rp 1.000.");
-  return { packageId: "nominal", name: `Rp ${n.toLocaleString("id-ID")}`, price: n, keteng: n };
+  return n;
 }
 
 /** Nominal yang disarankan untuk menutup kekurangan saldo (dibulatkan ke atas, dalam batas). */
@@ -59,7 +32,7 @@ export function tautanIsi(kurang: number): string {
 }
 
 /**
- * Nominal Bayar Langsung (dipakai client untuk label & server untuk tagihan).
+ * Keteng yang dibeli lewat Bayar Langsung (Tukar Guling).
  * - "penuh": seluruh kebutuhan.
  * - "kurang": kebutuhan dikurangi saldo.
  * Keduanya dibulatkan ke atas ke Rp1.000 dan minimal Rp10.000; kelebihannya tetap jadi Keteng di Pundi.

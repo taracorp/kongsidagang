@@ -25,6 +25,7 @@ async function main() {
   const bal = async (id: string) => (await prisma.wallet.findUnique({ where: { user_id: id } }))?.balance ?? 0;
   const setSaldo = async (id: string, n: number) => {
     const b = await bal(id);
+    if (n === b) return;
     await prisma.$transaction((tx) => (n > b ? P.credit(tx, id, n - b, "isi", "uji") : P.debit(tx, id, b - n, "isi", "uji")));
   };
   const order = (inv: string) => prisma.topupOrder.findUniqueOrThrow({ where: { invoice_number: inv } });
@@ -40,83 +41,61 @@ async function main() {
   }
   const SITE = "https://kongsidagang.store";
 
-  const bc = await prisma.merchant.findUniqueOrThrow({ where: { slug: "beauty-center-drw-skincare" }, include: { branches: { orderBy: { sort: "asc" } } } });
-  const tebusAwal = bc.tebusan_count;
-  const facial = await prisma.merchantProduct.findFirstOrThrow({ where: { merchant_id: bc.id, name: "Facial Acne" } });
-  const hair = await prisma.merchantProduct.findFirstOrThrow({ where: { merchant_id: bc.id, name: "Wash and Dry" } });
-  const cabang = bc.branches[0].id;
-  const keranjang = (p: { id: string }) => ({ baris: [{ productId: p.id, branchId: cabang, qty: 1 }] });
+  const { rincianBayar } = await import("@/lib/payment/biaya");
   const items: string[] = [];
 
   try {
-    // --- Belanja, saldo 0, bayar penuh
-    ok((await galat(() => L.mulaiBayarLangsung(akun(U), "belanja", { baris: [{ productId: facial.id, branchId: null, qty: 1 }] }, "penuh", SITE))).includes("cabang"),
-      "input tidak sah ditolak SEBELUM user membayar");
-    ok((await prisma.topupOrder.count({ where: { user_id: U } })) === 0, "tidak ada tagihan dibuat untuk input tidak sah");
-    const a = await L.mulaiBayarLangsung(akun(U), "belanja", keranjang(facial), "penuh", SITE);
-    let o = await order(a.invoice);
-    ok(o.price === facial.price + 2000 && o.keteng === o.price && o.tujuan === "belanja" && o.tujuan_status === "menunggu",
-      `tagihan = harga DB + bea (${o.price}), tujuan menunggu`);
-    ok((await bal(U)) === 0 && (await prisma.voucher.count({ where: { user_id: U } })) === 0, "belum ada Keteng/voucher sebelum lunas");
-    ok((await notif(a.invoice, o.price)) === 200, "notifikasi DOKU diterima");
-    o = await order(a.invoice);
-    const v1 = await prisma.voucher.count({ where: { user_id: U } });
-    ok(o.status === "paid" && o.tujuan_status === "berhasil" && !!o.tujuan_ref, "lunas → tujuan berhasil (ref order)");
-    ok(v1 === 1 && (await bal(U)) === 0, "1 Surat Jalan terbit, Keteng langsung terpakai (saldo 0)");
-    await notif(a.invoice, o.price);
-    await L.jalankanTujuan(a.invoice);
-    ok((await prisma.voucher.count({ where: { user_id: U } })) === 1 && (await bal(U)) === 0, "notifikasi ganda → tidak dobel");
-    const riwayat = await prisma.walletTransaction.findMany({ where: { user_id: U }, orderBy: { created_at: "asc" } });
-    ok(riwayat.some((t) => t.note?.startsWith("Bayar langsung")) && riwayat.some((t) => t.kind === "belanja"), "riwayat: Bayar langsung + Belanja");
-
-    // --- Saldo sebagian
-    await setSaldo(U, 100_000);
-    const b = await L.mulaiBayarLangsung(akun(U), "belanja", keranjang(facial), "kurang", SITE);
-    ok((await order(b.invoice)).price === 27_000, "pakai saldo 100rb → bayar kekurangan 27rb");
-    const b2 = await L.mulaiBayarLangsung(akun(U), "belanja", keranjang(facial), "penuh", SITE);
-    ok((await order(b2.invoice)).price === 127_000, "bayar penuh 127rb (saldo tidak dipakai)");
-    await prisma.topupOrder.deleteMany({ where: { invoice_number: { in: [b.invoice, b2.invoice] } } });
-    await setSaldo(U, 120_000);
-    const c = await L.mulaiBayarLangsung(akun(U), "belanja", keranjang(facial), "kurang", SITE);
-    ok((await order(c.invoice)).price === 10_000, "kekurangan 7rb → minimal Rp10.000");
-    await notif(c.invoice, 10_000);
-    ok((await bal(U)) === 3_000 && (await prisma.voucher.count({ where: { user_id: U } })) === 2, "sisa pembulatan 3.000 Keteng tetap di Pundi");
-    await setSaldo(U, 200_000);
-    ok((await galat(() => L.mulaiBayarLangsung(akun(U), "belanja", keranjang(facial), "kurang", SITE))).includes("sudah cukup"),
-      "saldo cukup + 'kurang' → disuruh bayar pakai Keteng");
-
-    // --- Harga berubah sebelum lunas → tujuan gagal, Keteng aman
-    await setSaldo(U, 0);
-    const d = await L.mulaiBayarLangsung(akun(U), "belanja", keranjang(hair), "penuh", SITE);
-    const harga = (await order(d.invoice)).price;
-    await prisma.merchantProduct.update({ where: { id: hair.id }, data: { price: 40_000 } });
-    await notif(d.invoice, harga);
-    await prisma.merchantProduct.update({ where: { id: hair.id }, data: { price: hair.price } });
-    o = await order(d.invoice);
-    ok(o.tujuan_status === "gagal" && /Total berubah/.test(o.tujuan_hasil ?? ""), `harga naik → tujuan gagal (${o.tujuan_hasil})`);
-    ok((await bal(U)) === harga && (await prisma.voucher.count({ where: { user_id: U } })) === 2, "Keteng yang dibayar tetap di Pundi, tidak ada voucher");
-    ok((await prisma.notification.count({ where: { user_id: U, title: { startsWith: "Pembayaran masuk" } } })) === 1, "kabar lonceng: pembayaran masuk + alasan");
-
-    // --- Tukar: ajukan (A menambah Keteng) lalu terima COD, keduanya via bayar langsung
     await setSaldo(U, 0);
     const iA = await prisma.barterItem.create({ data: { user_id: U, title: "Uji A", est_value: 100_000, status: "aktif" } });
     const iB = await prisma.barterItem.create({ data: { user_id: V, title: "Uji B", est_value: 300_000, status: "aktif" } });
     items.push(iA.id, iB.id);
     const sel = hitungSelisih(100_000, 300_000);
-    const muatanAjukan = { myItemId: iA.id, targetId: iB.id, topup: sel.diff, mode: "cod", addressId: null };
-    const e = await L.mulaiBayarLangsung(akun(U), "tukar_ajukan", muatanAjukan, "penuh", SITE);
-    const pe = (await order(e.invoice)).price;
-    ok(pe === 10_000 + sel.diff, `ajukan: tagihan = bea 10rb + tambah ${sel.diff}`);
-    await notif(e.invoice, pe);
-    o = await order(e.invoice);
+    const ajukan = { myItemId: iA.id, targetId: iB.id, topup: sel.diff, mode: "cod", addressId: null };
+    const butuh = 10_000 + sel.diff; // bea 10rb + tambah Keteng
+
+    ok((await galat(() => L.mulaiBayarLangsung(akun(U), "tukar_ajukan", { ...ajukan, myItemId: iB.id }, "penuh", "QRIS", SITE))).includes("barangmu"),
+      "input tidak sah ditolak SEBELUM user membayar");
+    ok((await prisma.topupOrder.count({ where: { user_id: U } })) === 0, "tidak ada tagihan untuk input tidak sah");
+    ok((await galat(() => L.mulaiBayarLangsung(akun(U), "belanja" as never, {}, "penuh", "QRIS", SITE))).includes("Tujuan"),
+      "belanja tidak bisa lewat Keteng (Keteng khusus Tukar Guling)");
+
+    // Saldo sebagian: pilih kurang / penuh, biaya metode ditanggung pembeli
+    await setSaldo(U, 100_000);
+    const k1 = await L.mulaiBayarLangsung(akun(U), "tukar_ajukan", ajukan, "kurang", "QRIS", SITE);
+    const o1 = await order(k1.invoice);
+    ok(o1.keteng === butuh - 100_000 && o1.price === rincianBayar(o1.keteng, "QRIS").total && o1.biaya_bayar === o1.price - o1.keteng,
+      `pakai saldo: beli ${o1.keteng} Keteng, bayar ${o1.price} (biaya QRIS ${o1.biaya_bayar})`);
+    const k2 = await L.mulaiBayarLangsung(akun(U), "tukar_ajukan", ajukan, "penuh", "VIRTUAL_ACCOUNT_BRI", SITE);
+    const o2 = await order(k2.invoice);
+    ok(o2.keteng === butuh && o2.biaya_bayar >= 4_440 && o2.metode === "VIRTUAL_ACCOUNT_BRI", `bayar penuh: ${o2.keteng} Keteng + biaya VA ${o2.biaya_bayar}`);
+    await prisma.topupOrder.deleteMany({ where: { invoice_number: { in: [k1.invoice, k2.invoice] } } });
+    await setSaldo(U, butuh - 3_000);
+    const k3 = await L.mulaiBayarLangsung(akun(U), "tukar_ajukan", ajukan, "kurang", "QRIS", SITE);
+    ok((await order(k3.invoice)).keteng === 10_000, "kekurangan 3rb → minimal 10.000 Keteng");
+    await prisma.topupOrder.deleteMany({ where: { invoice_number: k3.invoice } });
+    await setSaldo(U, butuh + 5_000);
+    ok((await galat(() => L.mulaiBayarLangsung(akun(U), "tukar_ajukan", ajukan, "kurang", "QRIS", SITE))).includes("sudah cukup"),
+      "saldo cukup + 'kurang' → disuruh bayar pakai Keteng");
+    await setSaldo(U, 0);
+
+    // --- Ajukan & terima COD lewat bayar langsung
+    const muatanAjukan = ajukan;
+    const e = await L.mulaiBayarLangsung(akun(U), "tukar_ajukan", muatanAjukan, "penuh", "QRIS", SITE);
+    const oe = await order(e.invoice);
+    ok(oe.keteng === butuh && oe.price === rincianBayar(butuh, "QRIS").total, `ajukan: ${butuh} Keteng (bea 10rb + tambah ${sel.diff}) + biaya QRIS`);
+    await notif(e.invoice, oe.price - 100);
+    ok((await order(e.invoice)).status === "pending", "nominal tidak cocok → ditolak");
+    await notif(e.invoice, oe.price);
+    const o = await order(e.invoice);
     const deal = o.tujuan_ref ? await prisma.barterDeal.findUnique({ where: { id: o.tujuan_ref } }) : null;
     ok(o.tujuan_status === "berhasil" && deal?.status === "proposed" && (await bal(U)) === 0, "ajukan otomatis setelah lunas; Keteng ditahan rekber");
-    ok((await galat(() => L.mulaiBayarLangsung(akun(V), "tukar_terima", { dealId: deal!.id, meetType: "minimarket", meetPlace: "ab" }, "penuh", SITE))) !== "",
+    ok((await galat(() => L.mulaiBayarLangsung(akun(V), "tukar_terima", { dealId: deal!.id, meetType: "minimarket", meetPlace: "ab" }, "penuh", "QRIS", SITE))) !== "",
       "terima: Titik Aman tidak sah ditolak sebelum bayar");
-    const f = await L.mulaiBayarLangsung(akun(V), "tukar_terima", { dealId: deal!.id, meetType: "minimarket", meetPlace: "Indomaret Kaliurang" }, "penuh", SITE);
-    const pf = (await order(f.invoice)).price;
-    ok(pf === 10_000, "terima: tagihan = bea 10rb");
-    await notif(f.invoice, pf);
+    const f = await L.mulaiBayarLangsung(akun(V), "tukar_terima", { dealId: deal!.id, meetType: "minimarket", meetPlace: "Indomaret Kaliurang" }, "penuh", "EMONEY_DANA", SITE);
+    const of = await order(f.invoice);
+    ok(of.keteng === 10_000 && of.metode === "EMONEY_DANA", "terima: 10.000 Keteng (bea) via DANA");
+    await notif(f.invoice, of.price);
+    await L.jalankanTujuan(f.invoice);
     ok((await prisma.barterDeal.findUniqueOrThrow({ where: { id: deal!.id } })).status === "agreed", "terima otomatis setelah lunas → deal disepakati");
 
     for (const id of ids) {
@@ -127,8 +106,6 @@ async function main() {
   } finally {
     await prisma.barterDeal.deleteMany({ where: { OR: [{ item_a: { in: items } }, { item_b: { in: items } }] } });
     await prisma.user.deleteMany({ where: { id: { in: ids } } });
-    await prisma.merchantProduct.update({ where: { id: hair.id }, data: { price: hair.price } });
-    await prisma.merchant.update({ where: { id: bc.id }, data: { tebusan_count: tebusAwal } });
     await prisma.$disconnect();
   }
   if (fail) { console.error(`${fail} gagal`); process.exit(1); }

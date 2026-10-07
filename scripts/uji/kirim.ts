@@ -38,7 +38,7 @@ async function main() {
 
     const adrA = await alamat(A, "Sariharjo, Ngaglik, Sleman, DI Yogyakarta, 55581", 5788, 31554);
     const adrB = await alamat(B, "Sawojajar, Kedungkandang, Kota Malang, Jawa Timur, 65139", 3635, 46740);
-    for (const u of ids) { await P.topupDemo(u, "juragan"); await P.topupDemo(u, "juragan"); } // 540rb
+    for (const u of ids) { await P.topupDemo(u, "270000"); await P.topupDemo(u, "270000"); } // 540rb
     const buku = await item(A, "Buku Uji Kirim", 200_000, "buku", 0.5);
     const hp = await item(B, "HP Uji Kirim", 200_000, "hp", 0.5);
 

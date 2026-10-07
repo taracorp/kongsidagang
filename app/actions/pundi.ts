@@ -9,13 +9,14 @@ import {
 } from "@/lib/domain/pundi";
 import { jalankanTujuan, mulaiBayarLangsung, statusPesanan, type CaraBayar, type Tujuan } from "@/lib/domain/bayar-langsung";
 import { prisma } from "@/lib/db";
+import { lunasiBelanja } from "@/lib/domain/belanja";
 import { run, requireUser, type ActionResult } from "./_util";
 
 /**
- * Isi Pundi: DOKU → kembalikan URL halaman bayar; mode demo → langsung masuk.
- * `pilihan` = id paket ("pedagang") atau nominal rupiah ("1500000"); divalidasi di server (rincianIsi).
+ * Isi Pundi (Keteng, khusus Tukar Guling): DOKU → kembalikan URL halaman bayar; mode demo → langsung masuk.
+ * `pilihan` = nominal rupiah ("1500000"), `metode` = kode DOKU; pembeli menanggung biaya pembayaran.
  */
-export async function isiPundi(pilihan: string): Promise<ActionResult<{ url?: string }>> {
+export async function isiPundi(pilihan: string, metode: string): Promise<ActionResult<{ url?: string }>> {
   return run(async () => {
     const user = await requireUser();
     const mode = isiPundiTersedia();
@@ -24,6 +25,7 @@ export async function isiPundi(pilihan: string): Promise<ActionResult<{ url?: st
       const { url } = await mulaiIsiPundi(
         { id: user.id, name: user.name ?? "", email: user.email },
         String(pilihan),
+        String(metode),
         site,
       );
       return { url };
@@ -41,6 +43,8 @@ export async function bayarTiruan(invoice: string) {
   return run(async () => {
     if (process.env.DOKU_MOCK !== "true") throw new Error("Mode tiruan tidak aktif.");
     const user = await requireUser();
+    const order = await prisma.order.findFirst({ where: { invoice_number: String(invoice), user_id: user.id } });
+    if (order) return lunasiBelanja(order.invoice_number!, order.total, "TIRUAN");
     const o = await prisma.topupOrder.findFirst({ where: { invoice_number: String(invoice), user_id: user.id } });
     if (!o) throw new Error("Pesanan tidak ditemukan.");
     const hasil = await lunasiIsiPundi(o.invoice_number, o.price, "TIRUAN");
@@ -49,22 +53,25 @@ export async function bayarTiruan(invoice: string) {
   });
 }
 
-const TUJUAN: Tujuan[] = ["belanja", "tukar_ajukan", "tukar_terima", "tukar_ongkir"];
-
 /**
- * Bayar Langsung: bayar lewat DOKU tanpa Isi Pundi dulu. Nominal dihitung server dari tujuan + saldo;
- * setelah lunas uangnya jadi Keteng (1:1) lalu aksi tujuannya dijalankan otomatis.
+ * Bayar Langsung (Tukar Guling): bayar lewat DOKU tanpa Isi Pundi dulu. Keteng yang dibutuhkan dihitung server
+ * dari tujuan + saldo, pembeli menanggung biaya metode; setelah lunas Keteng masuk lalu aksi tujuannya jalan.
  */
-export async function bayarLangsung(tujuan: Tujuan, muatan: unknown, cara: CaraBayar): Promise<ActionResult<{ url: string }>> {
+export async function bayarLangsung(
+  tujuan: Tujuan,
+  muatan: unknown,
+  cara: CaraBayar,
+  metode: string,
+): Promise<ActionResult<{ url: string }>> {
   return run(async () => {
     const user = await requireUser();
-    if (!TUJUAN.includes(tujuan)) throw new Error("Tujuan pembayaran tidak dikenal.");
     const site = process.env.BETTER_AUTH_URL || "http://localhost:3000";
     const { url } = await mulaiBayarLangsung(
       { id: user.id, name: user.name ?? "", email: user.email },
       tujuan,
       muatan,
       cara === "penuh" ? "penuh" : "kurang",
+      String(metode),
       site,
     );
     return { url };

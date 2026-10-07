@@ -11,10 +11,17 @@ export default async function BayarTiruanPage({ searchParams }: { searchParams: 
   const user = await getSessionUser();
   if (!user) redirect("/masuk");
   const { invoice } = await searchParams;
-  const o = invoice
+  const belanja = invoice
+    ? await prisma.order.findFirst({ where: { invoice_number: String(invoice), user_id: user.id } })
+    : null;
+  const t = invoice && !belanja
     ? await prisma.topupOrder.findFirst({ where: { invoice_number: String(invoice), user_id: user.id } })
     : null;
-  if (!o) notFound();
+  if (!belanja && !t) notFound();
+  const o = belanja
+    ? { invoice_number: belanja.invoice_number!, price: belanja.total, status: belanja.status, info: `E-voucher · metode ${belanja.metode}` }
+    : { invoice_number: t!.invoice_number, price: t!.price, status: t!.status, info: `${t!.keteng.toLocaleString("id-ID")} Keteng · metode ${t!.metode ?? "-"}` };
+  const kembali = belanja || t!.tujuan !== "isi" ? tautanHasil(o.invoice_number) : `/pakhuis?isi=${encodeURIComponent(o.invoice_number)}`;
 
   return (
     <section className="py-[34px]">
@@ -23,12 +30,9 @@ export default async function BayarTiruanPage({ searchParams }: { searchParams: 
           <div className="text-[11px] font-bold uppercase tracking-[1.5px] text-kongsi-olive">Simulasi DOKU (dev)</div>
           <h2 className="mt-1 font-fraunces text-[26px] font-black text-kongsi-indigo">{formatKeping(o.price)}</h2>
           <p className="mb-4 text-[13px] text-kongsi-ink-soft">
-            Invoice {o.invoice_number} · {o.keteng.toLocaleString("id-ID")} Keteng · status {o.status}
+            Invoice {o.invoice_number} · {o.info} · status {o.status}
           </p>
-          <BayarTiruan
-            invoice={o.invoice_number}
-            kembali={o.tujuan === "isi" ? `/pakhuis?isi=${encodeURIComponent(o.invoice_number)}` : tautanHasil(o.invoice_number)}
-          />
+          <BayarTiruan invoice={o.invoice_number} kembali={kembali} />
         </div>
       </div>
     </section>

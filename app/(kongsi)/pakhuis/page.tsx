@@ -44,8 +44,8 @@ export default async function PakhuisPage({
     ? 100
     : Math.max(0, Math.min(100, Math.round(((data.totalSpend - curMin) / (nextMin - curMin)) * 100)));
   const nextLevelNote = isMax
-    ? "Kamu di puncak — Juragan. Hak penuh: Vendu prioritas & bea gratis."
-    : `Rp ${(nextMin - data.totalSpend).toLocaleString("id-ID")} lagi menuju ${levelTangga[levelIndex + 1]} — buka potongan bea & akses Vendu lebih leluasa.`;
+    ? "Kamu di puncak — Juragan. Hak penuh: Vendu prioritas."
+    : `Rp ${(nextMin - data.totalSpend).toLocaleString("id-ID")} lagi menuju ${levelTangga[levelIndex + 1]} — buka akses Vendu lebih leluasa.`;
 
   const aktif = data.vouchers.filter((v) => v.status === "aktif");
   const selesai = data.vouchers.filter((v) => v.status !== "aktif");
@@ -93,7 +93,7 @@ export default async function PakhuisPage({
           <div className="mt-[3px] font-fraunces text-[38px] font-black leading-none">
             {data.balance.toLocaleString("id-ID")} <small className="text-[15px] opacity-80">Keteng</small>
           </div>
-          <div className="mt-1 text-[12px] opacity-85">1 Keteng = Rp 1 · tidak dapat diuangkan</div>
+          <div className="mt-1 text-[12px] opacity-85">1 Keteng = Rp 1 · khusus Tukar Guling · tidak dapat diuangkan</div>
           <IsiPundiPaket mode={modeIsi} saran={saran} />
           <CompassRose size={90} className="absolute -bottom-2 -right-2 text-kongsi-parchment opacity-15" />
         </div>
@@ -189,7 +189,7 @@ export default async function PakhuisPage({
           </div>
           <div className="mt-[14px]">
             <span className="text-[10px] font-bold uppercase tracking-[1.5px] text-kongsi-olive">
-              Cap terkumpul ({capTotal} = 1 bea gratis)
+              Cap terkumpul (1 Cap tiap belanja · hadiahnya menyusul)
             </span>
             <div className="mt-2 flex flex-wrap gap-2">
               {Array.from({ length: capTotal }).map((_, i) => (

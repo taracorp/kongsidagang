@@ -2,40 +2,30 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { buatPesananBayar, invoiceBaru, isiPundiTersedia, lunasiIsiPundi, type TujuanBayar } from "@/lib/domain/pundi";
-import { belanja, siapkanBelanja, type BarisBelanja } from "@/lib/domain/belanja";
 import * as Tukar from "@/lib/domain/tukar";
 import * as Kirim from "@/lib/domain/tukar-kirim";
 import { beriKabar } from "@/lib/domain/kabar-user";
 import { nominalLangsung, TOPUP_MAX } from "@/lib/pundi-paket";
 
-// Bayar Langsung: user membayar lewat DOKU (QRIS / VA / e-wallet) tanpa Isi Pundi dulu.
-// Uang yang dibayar masuk 1:1 sebagai Keteng (lunasiIsiPundi), lalu aksi tujuannya dijalankan otomatis
-// (jalankanTujuan). Keteng tetap satu-satunya buku besar, jadi rekber/bea/riwayat tidak berubah.
-// Bila tujuan gagal dijalankan (harga berubah, tawaran ditarik, …) Keteng tetap aman di Pundi.
+// Bayar Langsung (khusus Tukar Guling — Keteng hanya berlaku untuk barter): user membayar lewat DOKU
+// tanpa Isi Pundi dulu. Keteng yang dibutuhkan diterbitkan 1:1 (lunasiIsiPundi), pembeli menanggung biaya DOKU
+// metode pilihannya, lalu aksi tujuannya dijalankan otomatis (jalankanTujuan).
+// Bila tujuan gagal dijalankan (tawaran ditarik, barang tidak tersedia, …) Keteng tetap aman di Pundi.
+// Belanja e-voucher TIDAK lewat sini: dibayar uang langsung (lib/domain/belanja.ts).
 
-export type Tujuan = Exclude<TujuanBayar, "isi">;
+export type Tujuan = Exclude<TujuanBayar, "isi" | "belanja">;
 export type CaraBayar = "kurang" | "penuh";
 
-export type MuatanBelanja = { baris: BarisBelanja[] };
 export type MuatanAjukan = { myItemId: string; targetId: string; topup: number; mode: "cod" | "kirim"; addressId: string | null };
 export type MuatanTerima = { dealId: string; meetType?: string; meetPlace?: string; addressId?: string };
 export type MuatanOngkir = { dealId: string };
-type Muatan = MuatanBelanja | MuatanAjukan | MuatanTerima | MuatanOngkir;
+type Muatan = MuatanAjukan | MuatanTerima | MuatanOngkir;
 
 /** Bersihkan muatan dari browser: hanya field yang dikenal, bertipe benar. */
 function rapikan(tujuan: Tujuan, m: unknown): Muatan {
   const o = (m ?? {}) as Record<string, unknown>;
   const str = (v: unknown) => (v == null || v === "" ? undefined : String(v));
   switch (tujuan) {
-    case "belanja": {
-      const baris = Array.isArray(o.baris) ? o.baris : [];
-      return {
-        baris: baris.slice(0, 20).map((b) => {
-          const x = (b ?? {}) as Record<string, unknown>;
-          return { productId: String(x.productId ?? ""), branchId: str(x.branchId) ?? null, qty: Number(x.qty) };
-        }),
-      };
-    }
     case "tukar_ajukan":
       return {
         myItemId: String(o.myItemId ?? ""),
@@ -54,8 +44,6 @@ function rapikan(tujuan: Tujuan, m: unknown): Muatan {
 /** Keteng yang dibutuhkan tujuan, dihitung di server (sekaligus memvalidasi input sebelum user membayar). */
 export async function hitungKebutuhan(userId: string, tujuan: Tujuan, m: Muatan): Promise<number> {
   switch (tujuan) {
-    case "belanja":
-      return prisma.$transaction((tx) => siapkanBelanja(tx, userId, (m as MuatanBelanja).baris).then((r) => r.total));
     case "tukar_ajukan": {
       const a = m as MuatanAjukan;
       return Tukar.hitungAjukan(userId, a.myItemId, a.targetId, a.topup, { mode: a.mode, addressId: a.addressId });
@@ -71,11 +59,12 @@ export async function hitungKebutuhan(userId: string, tujuan: Tujuan, m: Muatan)
 }
 
 const NAMA_TUJUAN: Record<Tujuan, string> = {
-  belanja: "Belanja e-voucher",
   tukar_ajukan: "Ajukan Tukar Guling",
   tukar_terima: "Terima Tukar Guling",
   tukar_ongkir: "Ongkir Tukar Guling",
 };
+
+export const TUJUAN: Tujuan[] = ["tukar_ajukan", "tukar_terima", "tukar_ongkir"];
 
 /** Halaman kembali setelah bayar. */
 export const tautanHasil = (invoice: string) => `/bayar/selesai?inv=${encodeURIComponent(invoice)}`;
@@ -85,17 +74,19 @@ export async function mulaiBayarLangsung(
   tujuan: Tujuan,
   muatanMentah: unknown,
   cara: CaraBayar,
+  metode: string,
   siteUrl: string,
 ): Promise<{ url: string; invoice: string }> {
   const mode = isiPundiTersedia();
+  if (!TUJUAN.includes(tujuan)) throw new Error("Tujuan pembayaran tidak dikenal.");
   if (!mode) throw new Error("Pembayaran langsung belum tersedia.");
   const muatan = rapikan(tujuan, muatanMentah);
   const kebutuhan = await hitungKebutuhan(user.id, tujuan, muatan);
   const w = await prisma.wallet.findUnique({ where: { user_id: user.id }, select: { balance: true } });
   const saldo = w?.balance ?? 0;
-  const price = nominalLangsung(kebutuhan, saldo, cara === "penuh" ? "penuh" : "kurang");
-  if (price <= 0) throw new Error("Saldo Keteng sudah cukup — bayar pakai Keteng saja.");
-  if (price > TOPUP_MAX) throw new Error(`Maksimal Rp ${TOPUP_MAX.toLocaleString("id-ID")} per pembayaran.`);
+  const keteng = nominalLangsung(kebutuhan, saldo, cara === "penuh" ? "penuh" : "kurang");
+  if (keteng <= 0) throw new Error("Saldo Keteng sudah cukup — bayar pakai Keteng saja.");
+  if (keteng > TOPUP_MAX) throw new Error(`Maksimal Rp ${TOPUP_MAX.toLocaleString("id-ID")} per pembayaran.`);
   const data = { tujuan, muatan: muatan as unknown as Prisma.InputJsonValue };
 
   if (mode === "demo") {
@@ -106,22 +97,22 @@ export async function mulaiBayarLangsung(
         user_id: user.id,
         invoice_number: invoice,
         package_id: "langsung",
-        price,
-        keteng: price,
+        price: keteng,
+        keteng,
         provider: "demo",
         expires_at: new Date(Date.now() + 3600_000),
         tujuan_status: "menunggu",
         ...data,
       },
     });
-    await lunasiIsiPundi(invoice, price, null);
+    await lunasiIsiPundi(invoice, keteng, null);
     await jalankanTujuan(invoice);
     return { url: tautanHasil(invoice), invoice };
   }
 
   return buatPesananBayar(
     user,
-    { packageId: "langsung", price, keteng: price, itemName: `${NAMA_TUJUAN[tujuan]} — Kongsi Dagang` },
+    { packageId: "langsung", keteng, metode, itemName: `${keteng.toLocaleString("id-ID")} Keteng — ${NAMA_TUJUAN[tujuan]}` },
     tautanHasil,
     siteUrl,
     data,
@@ -134,7 +125,7 @@ export async function mulaiBayarLangsung(
  */
 export async function jalankanTujuan(invoice: string): Promise<void> {
   const o = await prisma.topupOrder.findUnique({ where: { invoice_number: invoice } });
-  if (!o || o.tujuan === "isi" || o.status !== "paid") return;
+  if (!o || !TUJUAN.includes(o.tujuan as Tujuan) || o.status !== "paid") return;
   const klaim = await prisma.topupOrder.updateMany({
     where: { id: o.id, tujuan_status: "menunggu" },
     data: { tujuan_status: "diproses" },
@@ -147,12 +138,6 @@ export async function jalankanTujuan(invoice: string): Promise<void> {
     let ref: string | null = null;
     let hasil = "";
     switch (tujuan) {
-      case "belanja": {
-        const r = await belanja(o.user_id, (m as MuatanBelanja).baris);
-        ref = r.orderId;
-        hasil = `${r.voucher} Surat Jalan terbit`;
-        break;
-      }
       case "tukar_ajukan": {
         const a = m as MuatanAjukan;
         ref = await Tukar.ajukan(o.user_id, a.myItemId, a.targetId, a.topup, { mode: a.mode, addressId: a.addressId });
@@ -181,12 +166,12 @@ export async function jalankanTujuan(invoice: string): Promise<void> {
     });
   } catch (e) {
     const pesan = e instanceof Error ? e.message : "Terjadi kesalahan.";
-    // Saldo kurang di titik ini berarti total berubah (harga/bea naik) sejak tagihan dibuat.
-    const alasan = /saldo keteng tidak cukup/i.test(pesan) ? "Total berubah sejak tagihan dibuat, Keteng belum cukup." : pesan;
+    // Saldo kurang di titik ini berarti kebutuhan berubah (mis. ongkir naik) sejak tagihan dibuat.
+    const alasan = /saldo keteng tidak cukup/i.test(pesan) ? "Jumlah yang ditahan berubah sejak tagihan dibuat, Keteng belum cukup." : pesan;
     await prisma.topupOrder.update({ where: { id: o.id }, data: { tujuan_status: "gagal", tujuan_hasil: alasan } });
     await beriKabar(prisma, o.user_id, {
       kind: "pundi",
-      title: `Pembayaran masuk: +${o.price.toLocaleString("id-ID")} Keteng`,
+      title: `Pembayaran masuk: +${o.keteng.toLocaleString("id-ID")} Keteng`,
       body: `${NAMA_TUJUAN[tujuan]} belum bisa diproses: ${alasan} Keteng-mu aman di Pundi, silakan coba lagi.`,
       href: tautanHasil(o.invoice_number),
     });
@@ -201,6 +186,8 @@ export async function statusPesanan(userId: string, invoice: string) {
       invoice_number: true,
       status: true,
       price: true,
+      keteng: true,
+      biaya_bayar: true,
       tujuan: true,
       tujuan_status: true,
       tujuan_hasil: true,

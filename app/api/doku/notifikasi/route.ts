@@ -1,5 +1,6 @@
 import { gagalkanIsiPundi, lunasiIsiPundi } from "@/lib/domain/pundi";
 import { jalankanTujuan } from "@/lib/domain/bayar-langsung";
+import { gagalkanBelanja, lunasiBelanja } from "@/lib/domain/belanja";
 import { dokuConfig, verifikasiNotifikasi, PATH_NOTIFIKASI } from "@/lib/payment/doku";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,17 @@ export async function POST(req: Request) {
   const invoice = body.order?.invoice_number;
   const status = String(body.transaction?.status ?? "").toUpperCase();
   if (!invoice) return new Response("Bad request", { status: 400 });
+
+  // Belanja e-voucher (dibayar uang): invoice KD-BLJ-…
+  if (invoice.startsWith("KD-BLJ-")) {
+    if (status === "SUCCESS") {
+      const hasil = await lunasiBelanja(invoice, Number(body.order?.amount), body.channel?.id ?? null);
+      if (hasil === "tolak") console.error(`[doku] notifikasi belanja ditolak: ${invoice} nominal/pesanan tidak cocok`);
+    } else if (status === "FAILED" || status === "EXPIRED") {
+      await gagalkanBelanja(invoice, status === "FAILED" ? "gagal" : "kedaluwarsa");
+    }
+    return Response.json({ responseCode: "2000000", responseMessage: "Successful" });
+  }
 
   if (status === "SUCCESS") {
     const hasil = await lunasiIsiPundi(invoice, Number(body.order?.amount), body.channel?.id ?? null);

@@ -18,6 +18,8 @@ export type CheckoutInput = {
   customer: { id: string; name: string; email: string };
   callbackUrl: string; // kembali ke aplikasi setelah bayar
   dueMinutes: number;
+  metode?: string; // batasi halaman DOKU ke satu metode (biaya sudah dihitung untuk metode ini)
+  lineItems?: { name: string; price: number; quantity: number }[]; // jumlahnya harus = amount
 };
 
 export type CheckoutHasil = { url: string; expiresAt: Date };
@@ -111,9 +113,13 @@ function driverAsli(clientId: string, secret: string): DokuDriver {
           callback_url: i.callbackUrl,
           callback_url_result: i.callbackUrl,
           auto_redirect: true,
-          line_items: [{ name: i.itemName.slice(0, 64), price: i.amount, quantity: 1 }],
+          line_items: (i.lineItems ?? [{ name: i.itemName, price: i.amount, quantity: 1 }]).map((x) => ({
+            name: x.name.slice(0, 64),
+            price: x.price,
+            quantity: x.quantity,
+          })),
         },
-        payment: { payment_due_date: i.dueMinutes },
+        payment: { payment_due_date: i.dueMinutes, ...(i.metode ? { payment_method_types: [i.metode] } : {}) },
         customer: { id: i.customer.id, name: i.customer.name.slice(0, 64), email: i.customer.email },
         additional_info: { integration: { name: "kongsidagang", version: "1.0" } },
       });

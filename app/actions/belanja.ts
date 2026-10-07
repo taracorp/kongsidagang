@@ -1,12 +1,15 @@
 "use server";
 
 import { prisma } from "@/lib/db";
-import { belanja, tebusVoucherLapak, tebusVoucherAdmin, type BarisBelanja } from "@/lib/domain/belanja";
+import { mulaiBelanja, tebusVoucherLapak, tebusVoucherAdmin, type BarisBelanja } from "@/lib/domain/belanja";
 import { getStaffSession, isAdminUp } from "@/lib/roles";
 import { run, requireUser, requireAdminUp } from "./_util";
 
-/** Bayar keranjang dengan Keteng. Hanya ID produk, cabang, dan jumlah yang dikirim — harga dari DB. */
-export async function bayarKeranjang(baris: BarisBelanja[]) {
+/**
+ * Bayar keranjang dengan uang lewat DOKU (metode pilihan pembeli). Hanya ID produk, cabang, jumlah, dan kode
+ * metode yang dikirim — harga, platform fee, dan biaya pembayaran dihitung server. Kembalikan URL halaman bayar.
+ */
+export async function bayarKeranjang(baris: BarisBelanja[], metode: string) {
   return run(async () => {
     const user = await requireUser();
     const bersih = (Array.isArray(baris) ? baris : []).map((b) => ({
@@ -14,7 +17,9 @@ export async function bayarKeranjang(baris: BarisBelanja[]) {
       branchId: b?.branchId ? String(b.branchId) : null,
       qty: Number(b?.qty),
     }));
-    return belanja(user.id, bersih);
+    const site = process.env.BETTER_AUTH_URL || "http://localhost:3000";
+    const { url } = await mulaiBelanja({ id: user.id, name: user.name ?? "", email: user.email }, bersih, String(metode), site);
+    return { url };
   });
 }
 

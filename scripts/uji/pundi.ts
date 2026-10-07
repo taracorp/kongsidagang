@@ -20,8 +20,8 @@ async function main() {
     (await prisma.walletTransaction.aggregate({ where: { user_id: u }, _sum: { amount: true } }))._sum.amount ?? 0;
 
   try {
-    ok((await P.topupDemo(A, "pedagang")) === 52_000, "paket Pedagang → 52.000 Keteng (bonus 2rb)");
-    await P.topupDemo(B, "eceran");
+    ok((await P.topupDemo(A, "52000")) === 52_000, "Isi 52.000 → 52.000 Keteng (tanpa bonus)");
+    await P.topupDemo(B, "10000");
 
     const h = await prisma.$transaction((tx) => P.hold(tx, A, null, 10_000, "bea", "uji bea"));
     const t = await prisma.$transaction((tx) => P.hold(tx, A, null, 5_000, "tambah", "uji tambah"));
