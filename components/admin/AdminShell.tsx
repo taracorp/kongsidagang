@@ -29,6 +29,7 @@ const items: Item[] = [
   { href: "/admin/saudagar", label: "Saudagar", Icon: IconShop, roles: "adminUp" },
   { href: "/admin/neraca", label: "Neraca & Pariwara", Icon: IconScale, roles: "adminUp" },
   { href: "/admin/tukar", label: "Sengketa Tukar", Icon: IconBarter, roles: "adminUp" },
+  { href: "/admin/kiriminaja", label: "Uji Kurir", Icon: IconBarter, roles: "adminUp" },
   { href: "/admin/kabar", label: "Kabar", Icon: IconNews, roles: "kabar" },
   { href: "/admin/peran", label: "Atur Peran", Icon: WaxSeal, roles: "ketua" },
 ];

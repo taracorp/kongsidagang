@@ -24,6 +24,7 @@ export type Tarif = {
   insurance: number;
   etd: string | null;
   group: string;
+  force_insurance?: boolean; // kurir mewajibkan asuransi (mis. J&T EZ)
 };
 
 export type Alamat = {
@@ -46,9 +47,22 @@ export type OrderInput = {
   tarif: Tarif;
   item_name: string;
   schedule: string; // "YYYY-MM-DD HH:mm:ss"
+  qty?: number;
+  note?: string;
 };
 
-export type OrderHasil = { pickup_number: string | null; awb: string | null };
+export type OrderHasil = { pickup_number: string | null; awb: string | null; raw?: unknown };
+
+/** Hasil pelacakan (POST /api/mitra/tracking), dirangkum. */
+export type Lacakan = {
+  text: string;
+  awb: string | null;
+  sorting_code: string | null;
+  service: string | null;
+  service_name: string | null;
+  delivered: boolean;
+  histories: { at: string | null; status: string }[];
+};
 
 export type KurirDriver = {
   nama: "kiriminaja" | "tiruan";
@@ -56,7 +70,8 @@ export type KurirDriver = {
   tarif(asal: Wilayah, tujuan: Wilayah, paket: Paket): Promise<Tarif[]>;
   jadwalPickup(): Promise<string>;
   buatOrder(o: OrderInput): Promise<OrderHasil>;
-  batalkan(awb: string, alasan: string): Promise<void>;
+  batalkan(awb: string, alasan: string): Promise<{ text: string; data: unknown }>;
+  lacak(orderIdAtauAwb: string): Promise<Lacakan>;
 };
 
 const PHONE_RE = /^(08\d{8,12}|02\d{7,11}|628\d{8,12}|\+628\d{8,12})$/;
@@ -128,7 +143,16 @@ function driverAsli(apiKey: string): KurirDriver {
 
     async tarif(asal, tujuan, p) {
       const r = await call<{
-        results: { service: string; service_type: string; service_name: string; cost: string; etd: string; group: string; insurance?: number }[];
+        results: {
+          service: string;
+          service_type: string;
+          service_name: string;
+          cost: string;
+          etd: string;
+          group: string;
+          insurance?: number;
+          force_insurance?: boolean;
+        }[];
       }>("POST", "api/mitra/v6.1/shipping_price", {
         origin: asal.district_id,
         subdistrict_origin: asal.subdistrict_id,
@@ -149,6 +173,7 @@ function driverAsli(apiKey: string): KurirDriver {
         insurance: Number(x.insurance) || 0,
         etd: x.etd ?? null,
         group: x.group,
+        force_insurance: Boolean(x.force_insurance),
       }));
     },
 
@@ -196,7 +221,7 @@ function driverAsli(apiKey: string): KurirDriver {
               width: o.paket.width_cm,
               height: o.paket.height_cm,
               length: o.paket.length_cm,
-              qty: 1,
+              qty: o.qty ?? 1,
               item_value: o.paket.item_value,
               shipping_cost: o.tarif.cost,
               service: o.tarif.courier,
@@ -206,27 +231,48 @@ function driverAsli(apiKey: string): KurirDriver {
               package_type_id: 7,
               item_name: o.item_name.slice(0, 100),
               drop: false,
-              note: "Tukar Guling Kongsi Dagang",
+              note: o.note ?? "Tukar Guling Kongsi Dagang",
               items: [
                 {
                   name: o.item_name.slice(0, 100),
-                  price: o.paket.item_value,
+                  price: Math.round(o.paket.item_value / (o.qty ?? 1)),
                   weight: o.paket.weight_g,
                   width: o.paket.width_cm,
                   height: o.paket.height_cm,
                   length: o.paket.length_cm,
-                  qty: 1,
+                  qty: o.qty ?? 1,
                 },
               ],
             },
           ],
         },
       );
-      return { pickup_number: r.pickup_number ?? null, awb: r.details?.[0]?.awb ?? null };
+      return { pickup_number: r.pickup_number ?? null, awb: r.details?.[0]?.awb ?? null, raw: r };
     },
 
     async batalkan(awb, alasan) {
-      await call("POST", "api/mitra/v3/cancel_shipment", { awb, reason: alasan.slice(0, 200).padEnd(5, ".") });
+      const r = await call<{ text?: string; data?: unknown }>("POST", "api/mitra/v3/cancel_shipment", {
+        awb,
+        reason: alasan.slice(0, 200).padEnd(5, "."),
+      });
+      return { text: r.text ?? "", data: r.data ?? null };
+    },
+
+    async lacak(id) {
+      const r = await call<{
+        text?: string;
+        details?: { awb?: string | null; sorting_code?: string | null; service?: string; service_name?: string; delivered?: boolean };
+        histories?: { created_at?: string; status?: string }[];
+      }>("POST", "api/mitra/tracking", { order_id: id });
+      return {
+        text: r.text ?? "",
+        awb: r.details?.awb ?? null,
+        sorting_code: r.details?.sorting_code ?? null,
+        service: r.details?.service ?? null,
+        service_name: r.details?.service_name ?? null,
+        delivered: Boolean(r.details?.delivered),
+        histories: (r.histories ?? []).map((h) => ({ at: h.created_at ?? null, status: h.status ?? "" })),
+      };
     },
   };
 }
@@ -267,7 +313,20 @@ const driverTiruan: KurirDriver = {
     urutTiruan++;
     return { pickup_number: `MOCK-PID-${Date.now()}-${urutTiruan}`, awb: `MOCK${o.order_id}` };
   },
-  async batalkan() {},
+  async batalkan() {
+    return { text: "Paket akan dibatalkan (tiruan)", data: { success: "pending" } };
+  },
+  async lacak(id) {
+    return {
+      text: "Paket dibuat (tiruan)",
+      awb: id.startsWith("MOCK") ? id : `MOCK${id}`,
+      sorting_code: "JOG-JOG1000-TIRUAN",
+      service: "jne",
+      service_name: "REG",
+      delivered: false,
+      histories: [{ at: fmtJakarta(new Date()), status: "Paket dibuat oleh KiriminAja (tiruan)" }],
+    };
+  },
 };
 
 /** Driver aktif, atau null bila mode Kirim belum dikonfigurasi. */
@@ -278,8 +337,18 @@ export function kurir(): KurirDriver | null {
   return null;
 }
 
+/** Key/URL sandbox KiriminAja (https://tdev.kiriminaja.com): order tidak pernah dijemput kurir sungguhan. */
+export function kurirSandbox(): boolean {
+  return Boolean(process.env.KIRIMINAJA_API_KEY) && /tdev\.kiriminaja/i.test(process.env.KIRIMINAJA_BASE_URL ?? "");
+}
+
+/**
+ * Mode Kirim terbuka untuk user? Tidak, selama key masih sandbox (user bisa membayar ongkir untuk paket yang
+ * tak pernah dijemput) — kecuali KIRIMINAJA_IZINKAN_SANDBOX=true untuk uji internal.
+ */
 export function kirimAktif(): boolean {
-  return kurir() !== null;
+  if (kurir() === null) return false;
+  return !kurirSandbox() || process.env.KIRIMINAJA_IZINKAN_SANDBOX === "true";
 }
 
 /** Token yang wajib ada di header Authorization webhook (KiriminAja mengirim Bearer {api_key}). */

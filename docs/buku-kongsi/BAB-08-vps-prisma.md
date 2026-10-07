@@ -741,3 +741,33 @@ Traefik yang sudah ada di VPS, cukup atur port.
   - VPS `.env`: `NEXT_PUBLIC_DOKU_METODE=` 8 kode VA di atas.
   - Bila Tara mengaktifkan QRIS/e-wallet/kartu di Back Office DOKU: tambahkan kodenya di env lalu `deploy.sh`.
 - **Rollback:** hapus env (semua metode tampil) atau `git revert` commit ini.
+
+### Ch 8.27 — KiriminAja: pengaman sandbox, Uji Kurir (admin), label pengiriman, pelacakan, log webhook
+2026-10-07
+- **Konteks:** Tara mengirim API key KiriminAja **Sandbox** (terikat IP VPS) dan template UAT MitraAPI yang meminta
+  bukti screenshot UI. Key dan PIN disimpan hanya di `.env` VPS (tidak di repo).
+- **Pengaman:**
+  - `kirimAktif()` = false selama key sandbox (`KIRIMINAJA_BASE_URL` tdev), kecuali `KIRIMINAJA_IZINKAN_SANDBOX=true`.
+    Tujuannya agar user produksi tidak membayar ongkir untuk paket yang tak pernah dijemput.
+  - `ajukan` menolak mode Kirim di server bila belum aktif.
+- **Driver** (`lib/shipping/kiriminaja.ts`):
+  - `lacak()` (POST /api/mitra/tracking);
+  - `batalkan()` mengembalikan respons;
+  - `buatOrder` mendukung qty/catatan dan menyimpan respons mentah;
+  - tarif membawa `force_insurance`.
+- **Uji Kurir** (`/admin/kiriminaja`, admin; `lib/domain/kurir-uji.ts`, `app/actions/kurir-uji.ts`):
+  - uji API key, cakupan wilayah, ongkir (tabel layanan);
+  - buat paket Non-COD (skenario berat > volume / volume > berat, ± asuransi);
+  - daftar paket uji dengan Label / Lacak / Batalkan;
+  - log webhook.
+- **Label pengiriman** (`components/label/LabelPengiriman.tsx`, `/label/uji/[id]`, `/label/tukar/[shipmentId]`):
+  - semua kolom wajib docs KiriminAja (logo/label kurir, layanan, barcode AWB Code128A + teks, Non-COD/COD,
+    sorting code, pengirim & penerima lengkap, berat gram, qty, asuransi, kota asal/tujuan, isi paket, order ref +
+    barcode);
+  - ukuran A6, siap cetak;
+  - encoder Code128 sendiri (`lib/barcode/code128.ts`), terverifikasi dekoder ZXing 4/4.
+- **Tukar Guling:**
+  - kartu paket menampilkan sorting code, "Cetak label pengiriman" (pengirim), dan "Lacak paket";
+  - webhook menyimpan `sorting_code`, memperbarui paket uji, dan mencatat setiap callback ke `kurir_webhook_log`.
+- **Migrasi `20261007150000_kurir_uji_label`** (aditif): `barter_shipments.sorting_code`, tabel `kurir_uji`,
+  `kurir_webhook_log`. Batal: drop kolom/tabel tersebut.

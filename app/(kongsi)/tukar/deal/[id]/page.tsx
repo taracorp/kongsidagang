@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import QRCode from "qrcode";
 import { Pill } from "@/components/kongsi/Pill";
+import { LacakPaket } from "@/components/kongsi/LacakPaket";
 import {
   TerimaTawaran,
   TarikTawaran,
@@ -96,8 +97,23 @@ function KartuPaket({ p, mine, theirs }: { p: DealPaket; mine: string; theirs: s
         {p.etd ? ` · ${p.etd} hari` : ""} · ongkir {formatKeping(p.ongkir)}
         {p.iReceive ? " (aku bayar)" : " (dia bayar)"}
       </div>
-      {p.awb ? <div className="mt-1">Resi: <b className="font-fraunces tracking-[1px]">{p.awb}</b></div> : null}
+      {p.awb ? (
+        <div className="mt-1">
+          Resi: <b className="font-fraunces tracking-[1px]">{p.awb}</b>
+          {p.sortingCode ? <span className="text-kongsi-ink-soft"> · sorting {p.sortingCode}</span> : null}
+        </div>
+      ) : null}
       {p.statusText ? <div className="mt-1 text-[12px]">{p.statusText}</div> : null}
+      {p.orderId ? (
+        <div className="mt-2 flex flex-wrap items-center gap-3 text-[12px]">
+          {!p.iReceive && p.awb ? (
+            <a href={`/label/tukar/${p.id}`} target="_blank" rel="noopener noreferrer" className="font-bold text-kongsi-grenadine">
+              Cetak label pengiriman ↗
+            </a>
+          ) : null}
+          <LacakPaket shipmentId={p.id} />
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -293,6 +293,7 @@ export async function kirimkanPaket(dealId: string): Promise<{ dibuat: number; g
 export type WebhookData = {
   order_id?: string;
   awb?: string | null;
+  sorting_code?: string | null;
   shipped_at?: string | null;
   finished_at?: string | null;
   returned_at?: string | null;
@@ -317,7 +318,20 @@ export async function prosesWebhook(method: string, data: WebhookData[]): Promis
   for (const row of data) {
     if (!row.order_id) continue;
     const s = await prisma.barterShipment.findUnique({ where: { order_id: row.order_id } });
-    if (!s) continue;
+    if (!s) {
+      // Paket uji dari halaman admin "Uji Kurir".
+      const u = await prisma.kurirUji.updateMany({
+        where: { order_id: row.order_id },
+        data: {
+          status: peta.status,
+          status_text: (row.reason ? `${peta.teks}: ${row.reason}` : peta.teks).slice(0, 300),
+          ...(row.awb ? { awb: row.awb } : {}),
+          ...(row.sorting_code ? { sorting_code: row.sorting_code } : {}),
+        },
+      });
+      n += u.count;
+      continue;
+    }
     const now = new Date();
     const teks = row.reason ? `${peta.teks}: ${row.reason}` : peta.teks;
     // Status akhir (sampai) tidak boleh mundur karena callback terlambat.
@@ -328,6 +342,7 @@ export async function prosesWebhook(method: string, data: WebhookData[]): Promis
         status,
         status_text: teks.slice(0, 300),
         awb: row.awb ?? s.awb,
+        sorting_code: row.sorting_code ?? s.sorting_code,
         shipped_at: s.shipped_at ?? (row.shipped_at || status === "shipped" ? new Date(row.shipped_at ?? now) : null),
         delivered_at: status === "delivered" ? (s.delivered_at ?? new Date(row.finished_at ?? now)) : s.delivered_at,
         events: tambahEvent(s.events, { at: now.toISOString(), method, reason: row.reason ?? null }),
@@ -357,4 +372,24 @@ async function evaluasiDeal(dealId: string) {
       await kabarDeal(tx, d, "keduanya", "Kedua paket sampai — periksa & konfirmasi", `Konfirmasi otomatis dalam ${JAM_KONFIRMASI} jam.`);
     }
   });
+}
+
+/** Lacak satu paket (pihak deal saja); simpan AWB & sorting code terbaru. */
+export async function lacakPaket(userId: string, shipmentId: string) {
+  const s = await prisma.barterShipment.findUnique({
+    where: { id: shipmentId },
+    include: { deal: { include: { itemA: { select: { user_id: true } }, itemB: { select: { user_id: true } } } } },
+  });
+  if (!s || !s.order_id) throw new Error("Paket belum dibuat di kurir.");
+  if (s.deal.itemA.user_id !== userId && s.deal.itemB.user_id !== userId) throw new Error("Bukan pihak tukar ini.");
+  const drv = kurir();
+  if (!drv) throw new Error("Mode Kirim belum tersedia.");
+  const l = await drv.lacak(s.awb ?? s.order_id);
+  if ((l.awb && l.awb !== s.awb) || (l.sorting_code && l.sorting_code !== s.sorting_code)) {
+    await prisma.barterShipment.update({
+      where: { id: s.id },
+      data: { awb: l.awb ?? s.awb, sorting_code: l.sorting_code ?? s.sorting_code },
+    });
+  }
+  return l;
 }

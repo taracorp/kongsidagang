@@ -342,3 +342,11 @@ export async function putusSengketa(dealId: string, keputusan: "selesai" | "bata
     await Tukar.putus(String(dealId), keputusan);
   });
 }
+
+/** Lacak paket Tukar Guling (pihak deal atau admin). Sorting code & AWB terbaru ikut disimpan. */
+export async function lacakPaketTukar(shipmentId: string) {
+  return run(async () => {
+    const user = await requireUser();
+    return Kirim.lacakPaket(user.id, String(shipmentId));
+  });
+}

@@ -454,7 +454,7 @@ model BarterShipment {
   order_id      String?    @unique // ID kita di KiriminAja (≤ 20 karakter)
   pickup_number String?
   awb           String?
-  // quoted | paid | requested | shipped | delivered | canceled | returned | problem | failed
+  sorting_code  String? // dari webhook processed_packages / tracking (wajib di label)
   status        String     @default("quoted")
   status_text   String?
   events        Json       @default("[]")
@@ -732,4 +732,48 @@ model Setting {
   updated_at DateTime @default(now())
 
   @@map("settings")
+}
+
+/// Paket uji KiriminAja dari halaman admin "Uji Kurir" (UAT sandbox & diagnosa produksi).
+model KurirUji {
+  id           String   @id @default(uuid())
+  order_id     String   @unique // ≤ 20 karakter
+  awb          String?
+  sorting_code String?
+  pickup_number String?
+  courier      String
+  service_type String
+  service_name String
+  skenario     String // mis. "Non-COD · berat > volume · asuransi"
+  pengirim     Json // { name, phone, address, area, zipcode, city }
+  penerima     Json
+  weight_g     Int
+  length_cm    Int
+  width_cm     Int
+  height_cm    Int
+  item_name    String
+  item_value   Int
+  qty          Int      @default(1)
+  shipping_cost Int
+  insurance    Int      @default(0)
+  status       String   @default("requested") // requested | shipped | delivered | canceled | returned | problem
+  status_text  String?
+  respon       Json? // respons create order (tanpa rahasia)
+  dibuat_oleh  String
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@map("kurir_uji")
+}
+
+/// Log callback KiriminAja yang diterima (setelah lolos verifikasi token).
+model KurirWebhookLog {
+  id         String   @id @default(uuid())
+  method     String
+  payload    Json
+  diproses   Int      @default(0)
+  created_at DateTime @default(now())
+
+  @@index([created_at(sort: Desc)])
+  @@map("kurir_webhook_log")
 }

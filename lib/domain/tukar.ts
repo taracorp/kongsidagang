@@ -3,6 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/db";
 import { hold, captureHold, releaseHold, refundHold, type Tx } from "@/lib/domain/pundi";
 import { beriKabar } from "@/lib/domain/kabar-user";
+import { kirimAktif } from "@/lib/shipping/kiriminaja";
 import {
   beaTukar,
   depositKirim,
@@ -189,6 +190,7 @@ async function siapkanAjukan(tx: Tx, userId: string, myItemId: string, targetId:
   if (mine.status !== "aktif") throw new Error("Barangmu sedang tidak tersedia.");
   if (!target || target.status !== "aktif") throw new Error("Barang tujuan tidak tersedia.");
   if (target.user_id === userId) throw new Error("Tidak bisa menukar dengan barang sendiri.");
+  if (mode === "kirim" && !kirimAktif()) throw new Error("Mode Kirim belum tersedia. Pilih COD.");
   if (mode === "kirim" && (!mine.category || !target.category)) {
     throw new Error("Barang tanpa kategori taksiran hanya bisa COD.");
   }

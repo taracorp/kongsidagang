@@ -174,6 +174,9 @@ export type DealPaket = {
   status: string;
   statusText: string | null;
   awb: string | null;
+  id: string;
+  sortingCode: string | null;
+  orderId: string | null;
 };
 
 export type DealBarang = {
@@ -268,6 +271,9 @@ export async function getDealDetail(dealId: string, userId: string): Promise<Dea
       status: s.status,
       statusText: s.status_text,
       awb: s.awb,
+      id: s.id,
+      sortingCode: s.sorting_code,
+      orderId: s.order_id,
     })),
     myConfirmed: Boolean(me === "a" ? d.confirmed_a_at : d.confirmed_b_at),
     theirConfirmed: Boolean(me === "a" ? d.confirmed_b_at : d.confirmed_a_at),

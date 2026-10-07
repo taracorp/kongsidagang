@@ -1,6 +1,8 @@
 import { timingSafeEqual } from "node:crypto";
 import { prosesWebhook, type WebhookData } from "@/lib/domain/tukar-kirim";
 import { tokenWebhook } from "@/lib/shipping/kiriminaja";
+import { prisma } from "@/lib/db";
+import type { Prisma } from "@/lib/generated/prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -22,5 +24,9 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as { method?: string; data?: WebhookData[] } | null;
   if (!body?.method || !Array.isArray(body.data)) return Response.json({ ok: true, diproses: 0 });
   const diproses = await prosesWebhook(body.method, body.data);
+  // Log callback (sudah terverifikasi token) untuk diagnosa & bukti UAT; disimpan 500 terakhir.
+  await prisma.kurirWebhookLog
+    .create({ data: { method: body.method.slice(0, 60), payload: body as unknown as Prisma.InputJsonValue, diproses } })
+    .catch(() => null);
   return Response.json({ ok: true, diproses });
 }
