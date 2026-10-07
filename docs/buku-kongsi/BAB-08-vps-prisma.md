@@ -721,3 +721,23 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - **Catatan:** tarif di `METODE` = harga publik DOKU. Bila kontrak Tara berbeda (cek Back Office DOKU), cukup ubah
   angka di sana.
 - **Rollback:** `git revert kd-platform-fee` + batalkan migrasi di atas (atau restore backup pra-deploy).
+
+### Ch 8.26 — Deploy produksi Bayar Langsung + platform fee; hanya metode DOKU yang aktif yang ditampilkan
+2026-10-07
+- **Deploy** (atas perintah Tara "silahkan deploy"):
+  - backup `/root/backup-kongsi/kongsi-20261007-011726-pre-platform-fee.sql.gz` (34 tabel);
+  - migrasi `20261007090000_bayar_langsung`, `20261007120000_bayar_uang_platform_fee`, `20261007130000_topup_tanpa_bonus`
+    diterapkan; build; pm2 reload; HTTP 200;
+  - `tenant-asli.ts` dijalankan ulang (artikel terbaru).
+- **Temuan saat verifikasi:** sesi checkout uji Rp10.000 ke DOKU asli (tidak dibayar, kedaluwarsa 5 menit) untuk
+  tiap metode. Hasil: **aktif hanya VA** Mandiri, BRI, BNI, BSI, Permata, CIMB, Danamon, BTN. QRIS, VA BCA,
+  DANA/OVO/ShopeePay, dan kartu → "PAYMENT CHANNEL IS INACTIVE".
+- **Perbaikan:**
+  - `lib/payment/biaya.ts`: `METODE_AKTIF` dari env `NEXT_PUBLIC_DOKU_METODE` (kode dipisah koma, dibaca saat
+    build). `cariMetode` hanya menerima metode aktif. `METODE_AWAL` = QRIS bila aktif, selain itu metode aktif
+    pertama.
+  - `PilihMetode` hanya menampilkan metode aktif.
+  - Teks "QRIS paling murah" dinetralkan.
+  - VPS `.env`: `NEXT_PUBLIC_DOKU_METODE=` 8 kode VA di atas.
+  - Bila Tara mengaktifkan QRIS/e-wallet/kartu di Back Office DOKU: tambahkan kodenya di env lalu `deploy.sh`.
+- **Rollback:** hapus env (semua metode tampil) atau `git revert` commit ini.

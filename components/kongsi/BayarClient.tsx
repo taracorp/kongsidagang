@@ -10,7 +10,7 @@ import { KongsiButton, KongsiLinkButton } from "@/components/kongsi/KongsiButton
 import { useCart } from "@/components/kongsi/cart";
 import { GoogleButton } from "@/components/kongsi/GoogleButton";
 import { cn, formatKeping } from "@/lib/utils";
-import { METODE, platformFee, rincianBayar } from "@/lib/payment/biaya";
+import { METODE, platformFee, rincianBayar, METODE_AWAL } from "@/lib/payment/biaya";
 
 const fieldLabel = "mb-[5px] block text-[13px] font-bold";
 const fieldInput =
@@ -145,7 +145,7 @@ export function BayarClient({
   tersedia: boolean; // pembayaran DOKU (atau demo) aktif
 }) {
   const { items, subtotal } = useCart();
-  const [metode, setMetode] = useState("QRIS");
+  const [metode, setMetode] = useState(METODE_AWAL);
   const [pay, setPay] = useState<{ k: "idle" } | { k: "paying" } | { k: "error"; m: string }>({ k: "idle" });
 
   // Perkiraan untuk tampilan; server menghitung ulang dari harga di DB dengan rumus yang sama.

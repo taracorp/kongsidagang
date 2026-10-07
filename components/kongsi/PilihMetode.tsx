@@ -1,9 +1,9 @@
 "use client";
 
-import { METODE, NAMA_GRUP, rincianBayar, type GrupMetode } from "@/lib/payment/biaya";
+import { METODE_AKTIF as METODE, NAMA_GRUP, rincianBayar, type GrupMetode } from "@/lib/payment/biaya";
 import { cn, formatKeping } from "@/lib/utils";
 
-const GRUP: GrupMetode[] = ["qris", "va", "ewallet", "kartu"];
+const GRUP: GrupMetode[] = (["qris", "va", "ewallet", "kartu"] as GrupMetode[]).filter((g) => METODE.some((m) => m.grup === g));
 // Tombol pilihan = pola .jt-chip (kotak, border tebal, bayangan keras) — sama dengan TawarkanForm.
 const pilihan =
   "cursor-pointer rounded-[6px] border-2 border-kongsi-ink px-3 py-[10px] shadow-hard-sm transition-transform hover:translate-x-[1px] hover:translate-y-[1px]";
@@ -73,7 +73,7 @@ export function PilihMetode({
         </div>
       ))}
       <p className="text-[11px] text-kongsi-ink-soft">
-        Biaya pembayaran adalah potongan DOKU (termasuk PPN 11%) untuk metode yang kamu pilih. QRIS biasanya paling murah.
+        Biaya pembayaran adalah potongan DOKU (termasuk PPN 11%) untuk metode yang kamu pilih.
       </p>
     </div>
   );

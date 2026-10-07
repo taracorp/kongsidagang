@@ -39,6 +39,18 @@ export const METODE: Metode[] = [
   { kode: "CREDIT_CARD", nama: "Kartu kredit / debit (Visa, Mastercard, JCB)", grup: "kartu", persen: 0.028, flat: 2_000 },
 ];
 
+/**
+ * Metode yang aktif di akun DOKU (Back Office → Payment Channels). Diatur lewat env
+ * NEXT_PUBLIC_DOKU_METODE (kode dipisah koma; dibaca saat build, jadi perlu deploy ulang bila diubah).
+ * Kosong = semua metode di atas. Metode di luar daftar ini ditolak server dan tidak tampil ke pembeli.
+ */
+const DAFTAR_AKTIF = (process.env.NEXT_PUBLIC_DOKU_METODE ?? "")
+  .split(",")
+  .map((x) => x.trim())
+  .filter(Boolean);
+export const METODE_AKTIF: Metode[] = DAFTAR_AKTIF.length ? METODE.filter((m) => DAFTAR_AKTIF.includes(m.kode)) : METODE;
+export const METODE_AWAL = (METODE_AKTIF.find((m) => m.grup === "qris") ?? METODE_AKTIF[0] ?? METODE[0]).kode;
+
 export const NAMA_GRUP: Record<GrupMetode, string> = {
   qris: "QRIS",
   va: "Transfer bank (Virtual Account)",
@@ -47,8 +59,8 @@ export const NAMA_GRUP: Record<GrupMetode, string> = {
 };
 
 export function cariMetode(kode: string): Metode {
-  const m = METODE.find((x) => x.kode === kode);
-  if (!m) throw new Error("Pilih metode pembayaran.");
+  const m = METODE_AKTIF.find((x) => x.kode === kode);
+  if (!m) throw new Error("Pilih metode pembayaran yang tersedia.");
   return m;
 }
 

@@ -120,8 +120,8 @@ export default function KeranjangPage() {
                 Lanjut Menebus
               </KongsiLinkButton>
               <p className="mt-2 text-center text-[11px] text-kongsi-ink-soft">
-                Dibayar langsung (QRIS, transfer bank, e-wallet, atau kartu). Biaya pembayaran mengikuti metode yang kamu
-                pilih — QRIS paling murah.
+                Dibayar langsung lewat DOKU. Biaya pembayaran mengikuti metode yang kamu pilih dan tampil sebelum
+                membayar.
               </p>
             </div>
           </div>

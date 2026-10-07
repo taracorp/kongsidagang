@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { bayarLangsung } from "@/app/actions/pundi";
 import type { CaraBayar, Tujuan } from "@/lib/domain/bayar-langsung";
-import { rincianBayar } from "@/lib/payment/biaya";
+import { rincianBayar, METODE_AWAL } from "@/lib/payment/biaya";
 import { nominalLangsung, tautanIsi } from "@/lib/pundi-paket";
 import { cn, formatKeping } from "@/lib/utils";
 import { KongsiButton } from "./KongsiButton";
@@ -33,7 +33,7 @@ export function BayarLangsung({
   disabled?: boolean;
   kecil?: boolean; // tombol ringkas (lembar Ajukan Tukar)
 }) {
-  const [metode, setMetode] = useState("QRIS");
+  const [metode, setMetode] = useState(METODE_AWAL);
   const [busy, setBusy] = useState<CaraBayar | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
