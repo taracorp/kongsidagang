@@ -860,3 +860,17 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - **Catatan:** Mode Kirim tetap terkunci (belum ada key KiriminAja produksi). VPS: swap 2 GB masih penuh → tambah
   RAM/swap disarankan. SSH sempat tidak menjawab beberapa jam sore ini.
 - **Rollback:** restore backup + `git revert kd-kurir-kota`, lalu deploy ulang.
+
+### Ch 8.31 — Foto barang wajib; perbaikan "DOKU: Invalid character" saat Bayar Langsung
+2026-10-12
+- **Laporan Tara:**
+  1. foto barang harus syarat mutlak (barang tanpa foto bisa tayang);
+  2. Ajukan Tukar gagal "DOKU: Invalid character, allowed only a-z A-Z 0-9 . - / + , = _ : ' @ % ( )".
+- **Penyebab 2:** nama line item berisi "—" / "·" (mis. "2.779.500 Keteng — Ajukan Tukar Guling",
+  "Facial Acne · DRW Beauty Center Jakal"); DOKU menolak karakter di luar daftar.
+- **Perbaikan:**
+  - `teksDoku()` di `lib/payment/doku.ts` membersihkan nama item & nama pelanggan ke karakter yang diizinkan ("—·×" → "-",
+    "&" → "dan", emoji/aksen dibuang, maks 64). Berlaku untuk Isi Pundi, Bayar Langsung, dan belanja e-voucher.
+  - Foto wajib: formulir langkah 4 menolak tanpa foto (label "*wajib"), server `tawarkanBarang` menolak tanpa file.
+- **Verifikasi:** uji `teksDoku` 6 contoh → semua lolos pola DOKU; tsc + eslint lolos.
+- **Rollback:** `git revert` commit ini.

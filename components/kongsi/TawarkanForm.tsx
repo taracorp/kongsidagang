@@ -159,6 +159,7 @@ export function TawarkanForm({
       if (cat?.needs_serial && !serial.trim()) return `Isi ${cat.serial_label ?? "nomor seri"}.`;
     }
     if (s === 2 && !allAnswered) return "Jawab semua pertanyaan kondisi — ini jadi patokan bila ada sengketa.";
+    if (s === 3 && !photoRef.current?.files?.[0]) return "Foto barang wajib — ambil atau pilih foto barangmu dulu.";
     if (s === 3 && !kotaSah(city)) return "Pilih kota/kabupaten dari daftar.";
     return null;
   }
@@ -434,7 +435,9 @@ export function TawarkanForm({
         <div>
           {/* Foto — tombol sesuai pakem, bukan input file bawaan browser */}
           <div className="mb-[14px]">
-            <span className={fieldLabel}>Foto barang</span>
+            <span className={fieldLabel}>
+              Foto barang <span className="text-kongsi-grenadine">*wajib</span>
+            </span>
             <input
               id="photo"
               ref={photoRef}
@@ -457,7 +460,7 @@ export function TawarkanForm({
               </label>
             </div>
             <p className="mt-1 text-[11px] text-kongsi-ink-soft">
-              {foto ? foto.nama : "Foto asli barangmu (di HP langsung membuka kamera). Barang berfoto lebih dipercaya."}
+              {foto ? foto.nama : "Wajib: foto asli barangmu (di HP langsung membuka kamera)."}
             </p>
           </div>
 

@@ -22,6 +22,24 @@ export type CheckoutInput = {
   lineItems?: { name: string; price: number; quantity: number }[]; // jumlahnya harus = amount
 };
 
+/**
+ * DOKU hanya menerima a-z A-Z 0-9 spasi . - / + , = _ : ' @ % ( ) pada nama item/pelanggan.
+ * Karakter lain (mis. "—", "·", "×", emoji) diganti/dibuang agar checkout tidak ditolak "Invalid character".
+ */
+export function teksDoku(s: string, maks = 64): string {
+  return s
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[—–·•×→]/g, "-")
+    .replace(/&/g, "dan")
+    .replace(/[^a-zA-Z0-9 .\-/+,=_:'@%()]/g, "")
+    .replace(/\s+/g, " ")
+    .replace(/(\s*-\s*)+/g, " - ")
+    .trim()
+    .slice(0, maks)
+    .trim() || "Kongsi Dagang";
+}
+
 export type CheckoutHasil = { url: string; expiresAt: Date };
 
 export type StatusTransaksi = "SUCCESS" | "FAILED" | "PENDING" | "EXPIRED" | "UNKNOWN";
@@ -114,13 +132,13 @@ function driverAsli(clientId: string, secret: string): DokuDriver {
           callback_url_result: i.callbackUrl,
           auto_redirect: true,
           line_items: (i.lineItems ?? [{ name: i.itemName, price: i.amount, quantity: 1 }]).map((x) => ({
-            name: x.name.slice(0, 64),
+            name: teksDoku(x.name),
             price: x.price,
             quantity: x.quantity,
           })),
         },
         payment: { payment_due_date: i.dueMinutes, ...(i.metode ? { payment_method_types: [i.metode] } : {}) },
-        customer: { id: i.customer.id, name: i.customer.name.slice(0, 64), email: i.customer.email },
+        customer: { id: i.customer.id, name: teksDoku(i.customer.name), email: i.customer.email },
         additional_info: { integration: { name: "kongsidagang", version: "1.0" } },
       });
       const pay = (r.response as { payment?: { url?: string; expired_date?: string } } | undefined)?.payment;

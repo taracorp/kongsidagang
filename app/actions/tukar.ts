@@ -91,11 +91,10 @@ export async function tawarkanBarang(form: FormData) {
     dicari = [...new Set(dicari.filter((x) => sahKategori.has(x)))].slice(0, 3);
     const catatan = String(form.get("want_text") ?? "").trim().slice(0, 120) || null;
 
-    let photo_url: string | null = null;
+    // Foto wajib: barang tanpa foto membingungkan penawar dan tidak bisa jadi patokan sengketa.
     const file = form.get("photo");
-    if (file instanceof File && file.size > 0) {
-      photo_url = await saveUpload("barter", user.id, file);
-    }
+    if (!(file instanceof File) || file.size === 0) throw new Error("Foto barang wajib diunggah.");
+    const photo_url = await saveUpload("barter", user.id, file);
 
     await prisma.barterItem.create({
       data: {
