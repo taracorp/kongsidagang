@@ -263,7 +263,7 @@ function driverAsli(apiKey: string): KurirDriver {
               width: o.paket.width_cm,
               height: o.paket.height_cm,
               length: o.paket.length_cm,
-              qty: o.qty ?? 1,
+              qty: 1, // satu paket; jumlah barang ada di items[].qty (qty paket > 1 = beberapa koli → ongkir beda)
               item_value: o.paket.item_value,
               shipping_cost: o.tarif.cost,
               service: o.tarif.courier,
@@ -278,7 +278,7 @@ function driverAsli(apiKey: string): KurirDriver {
                 {
                   name: o.item_name.slice(0, 100),
                   price: Math.round(o.paket.item_value / (o.qty ?? 1)),
-                  weight: o.paket.weight_g,
+                  weight: Math.max(1, Math.round(o.paket.weight_g / (o.qty ?? 1))),
                   width: o.paket.width_cm,
                   height: o.paket.height_cm,
                   length: o.paket.length_cm,
