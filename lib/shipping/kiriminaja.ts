@@ -72,6 +72,7 @@ export type KurirDriver = {
   buatOrder(o: OrderInput): Promise<OrderHasil>;
   batalkan(awb: string, alasan: string): Promise<{ text: string; data: unknown }>;
   lacak(orderIdAtauAwb: string): Promise<Lacakan>;
+  saldoKredit(): Promise<number>; // saldo KA Credit (Rp)
 };
 
 const PHONE_RE = /^(08\d{8,12}|02\d{7,11}|628\d{8,12}|\+628\d{8,12})$/;
@@ -97,6 +98,32 @@ export function termurah(list: Tarif[]): Tarif | null {
 function pad(n: number) {
   return String(n).padStart(2, "0");
 }
+/**
+ * Prefix Order ID yang terdaftar di akun KiriminAja (wajib; order lain ditolak "Format Order ID tidak sesuai").
+ * Akun Kongsi: "KDG-". Bisa diubah lewat env KIRIMINAJA_ORDER_PREFIX.
+ */
+export function prefixOrder(): string {
+  return process.env.KIRIMINAJA_ORDER_PREFIX || "KDG-";
+}
+
+/** Order ID unik ≤ 20 karakter berawalan prefix akun, mis. "KDG-U3F9K2A7B1". */
+export function orderIdKurir(sisipan = ""): string {
+  const acak = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.toUpperCase();
+  return `${prefixOrder()}${sisipan}${acak}`.slice(0, 20);
+}
+
+/** Slot pickup cadangan bila endpoint jadwal tidak menjawab: slot KiriminAja berikutnya (08/11/14/17 WIB), ≥ 1 jam lagi. */
+export function slotPickupCadangan(now = new Date()): string {
+  const SLOT = [8, 11, 14, 17];
+  const wib = new Date(now.getTime() + 7 * 3600_000);
+  const jam = wib.getUTCHours() + wib.getUTCMinutes() / 60 + 1;
+  const hari = new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()));
+  const slot = SLOT.find((h) => h >= jam);
+  if (slot == null) hari.setUTCDate(hari.getUTCDate() + 1);
+  const h = slot ?? SLOT[0];
+  return `${hari.getUTCFullYear()}-${pad(hari.getUTCMonth() + 1)}-${pad(hari.getUTCDate())} ${pad(h)}:00:00`;
+}
+
 function fmtJakarta(d: Date) {
   const j = new Date(d.getTime() + 7 * 3600_000); // WIB
   return `${j.getUTCFullYear()}-${pad(j.getUTCMonth() + 1)}-${pad(j.getUTCDate())} ${pad(j.getUTCHours())}:${pad(j.getUTCMinutes())}:00`;
@@ -181,7 +208,11 @@ function driverAsli(apiKey: string): KurirDriver {
       const r = await call<{ schedules: { clock: string; expired: number; libur: boolean }[] }>(
         "POST",
         "api/mitra/v2/schedules",
-      );
+      ).catch((e) => {
+        // Endpoint jadwal kadang galat ("Oops…"); pakai slot standar berikutnya agar order tetap bisa dibuat.
+        console.warn("[kiriminaja] jadwal pickup gagal, pakai slot cadangan:", (e as Error).message);
+        return { schedules: [{ clock: slotPickupCadangan(), expired: Number.MAX_SAFE_INTEGER, libur: false }] };
+      });
       const now = Date.now() / 1000;
       const s = (r.schedules ?? []).find((x) => !x.libur && x.expired > now);
       if (!s) throw new KiriminAjaError("KiriminAja: belum ada jadwal pickup tersedia.");
@@ -189,13 +220,24 @@ function driverAsli(apiKey: string): KurirDriver {
     },
 
     async buatOrder(o) {
-      if (process.env.KIRIMINAJA_PIN) {
-        await call("POST", "api/mitra/v6.2/pin/validate", { pin: process.env.KIRIMINAJA_PIN });
+      // Pembayaran ongkir: KA Credit (saldo akun KiriminAja) dengan PIN. Tanpa PIN, order berstatus "unpaid"
+      // (harus dibayar QRIS manual) dan AWB tidak terbit.
+      const pin = process.env.KIRIMINAJA_PIN;
+      if (pin) {
+        await call("POST", "api/mitra/v6.2/pin/validate", { pin }).catch((e) => {
+          // Sandbox belum menyediakan endpoint ini ("Unable to find your endpoint target"); PIN tetap dikirim di body.
+          if (!/Unable to find your endpoint/i.test((e as Error).message)) throw e;
+        });
       }
-      const r = await call<{ pickup_number?: string; details?: { order_id: string; awb: string | null }[] }>(
+      const r = await call<{
+        pickup_number?: string;
+        payment_status?: string;
+        details?: { order_id: string; awb: string | null }[];
+      }>(
         "POST",
         "api/mitra/v6.2/request_pickup",
         {
+          ...(pin ? { payment_method: "credit", pin } : {}),
           address: o.sender.address + ", " + o.sender.area,
           phone: o.sender.phone,
           kecamatan_id: o.sender.district_id,
@@ -247,7 +289,10 @@ function driverAsli(apiKey: string): KurirDriver {
           ],
         },
       );
-      return { pickup_number: r.pickup_number ?? null, awb: r.details?.[0]?.awb ?? null, raw: r };
+      if (r.payment_status && r.payment_status !== "paid") {
+        throw new KiriminAjaError(`KiriminAja: ongkir belum terbayar (${r.payment_status}). Cek saldo KA Credit & PIN.`);
+      }
+      return { pickup_number: r.pickup_number ?? null, awb: r.details?.[0]?.awb || null, raw: r };
     },
 
     async batalkan(awb, alasan) {
@@ -256,6 +301,11 @@ function driverAsli(apiKey: string): KurirDriver {
         reason: alasan.slice(0, 200).padEnd(5, "."),
       });
       return { text: r.text ?? "", data: r.data ?? null };
+    },
+
+    async saldoKredit() {
+      const r = await call<{ results?: { balance?: number } }>("GET", "api/mitra/v6.2/credit/balance");
+      return Number(r.results?.balance ?? 0);
     },
 
     async lacak(id) {
@@ -315,6 +365,9 @@ const driverTiruan: KurirDriver = {
   },
   async batalkan() {
     return { text: "Paket akan dibatalkan (tiruan)", data: { success: "pending" } };
+  },
+  async saldoKredit() {
+    return 500_000;
   },
   async lacak(id) {
     return {

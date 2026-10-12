@@ -60,7 +60,8 @@ const SKENARIO = [
 ] as const;
 
 const volume = (l: number, w: number, h: number) => Math.ceil((l * w * h) / 6);
-const jam = (s: string) => new Date(s).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "medium" });
+const jam = (s: string) =>
+  new Date(s).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "medium", timeZone: "Asia/Jakarta" }) + " WIB";
 
 function PilihWilayah({ nilai, onPilih, id }: { nilai: Wilayah; onPilih: (w: Wilayah) => void; id: string }) {
   const [q, setQ] = useState("");
@@ -129,7 +130,10 @@ export function UjiKurir({
     setKoneksi(
       error
         ? { ok: false, teks: error }
-        : { ok: true, teks: `Authorized ✓ — API key valid (${data!.ms} ms). Jadwal pickup terdekat: ${data!.jadwal}` },
+        : {
+            ok: true,
+            teks: `Authorized ✓ — API key valid (${data!.ms} ms) · saldo KA Credit ${formatKeping(data!.saldo)} · jadwal pickup terdekat ${data!.jadwal}`,
+          },
     );
   }
 

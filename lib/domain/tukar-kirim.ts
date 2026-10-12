@@ -5,7 +5,7 @@ import type { Prisma } from "@/lib/generated/prisma/client";
 import { hold, captureHold, type Tx } from "@/lib/domain/pundi";
 import { JAM_KONFIRMASI, pastikanBoleh } from "@/lib/domain/tukar-aturan";
 import { kabarDeal, kunciDeal, pihakDari, sengketaSistem, terima, type DealRow } from "@/lib/domain/tukar";
-import { kurir, termurah, type Alamat, type Paket, type Tarif, type Wilayah } from "@/lib/shipping/kiriminaja";
+import { kurir, prefixOrder, termurah, type Alamat, type Paket, type Tarif, type Wilayah } from "@/lib/shipping/kiriminaja";
 
 // Mode Kirim Tukar Guling (KiriminAja, express).
 // 1. B menerima + memilih alamat → tarif termurah dua arah dihitung, dua paket "quoted" dibuat,
@@ -201,8 +201,9 @@ export async function bayarOngkir(userId: string, dealId: string) {
 }
 
 function orderIdBaru(dealId: string, leg: Leg) {
-  // ≤ 20 karakter (batas tracking KiriminAja), unik per percobaan.
-  return `KD${dealId.replace(/-/g, "").slice(0, 12)}${leg === "a_to_b" ? "A" : "B"}${randomBytes(2).toString("hex")}`.toUpperCase();
+  // ≤ 20 karakter (batas tracking KiriminAja), berawalan prefix akun (KDG-), unik per percobaan.
+  const sisa = 20 - prefixOrder().length - 5;
+  return `${prefixOrder()}${dealId.replace(/-/g, "").slice(0, Math.max(4, sisa)).toUpperCase()}${leg === "a_to_b" ? "A" : "B"}${randomBytes(2).toString("hex").toUpperCase()}`.slice(0, 20);
 }
 
 /**

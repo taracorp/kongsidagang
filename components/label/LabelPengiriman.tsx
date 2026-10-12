@@ -165,7 +165,7 @@ export function LabelPengiriman({ d }: { d: DataLabel }) {
           <div className="text-[8px] font-bold uppercase">Order ref (Kongsi Dagang · KiriminAja)</div>
           <div className="text-[12px] font-black tracking-[1px]">{d.order_id}</div>
           <div className="text-[8px]">
-            {d.dibuat.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" })}
+            {d.dibuat.toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Jakarta" })} WIB
             {d.catatan ? ` · ${d.catatan}` : ""}
           </div>
         </div>

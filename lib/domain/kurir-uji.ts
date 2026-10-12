@@ -1,8 +1,7 @@
 import "server-only";
-import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
-import { kurir, kurirSandbox, normalisasiHp, type Alamat, type Wilayah } from "@/lib/shipping/kiriminaja";
+import { kurir, kurirSandbox, normalisasiHp, orderIdKurir, type Alamat, type Wilayah } from "@/lib/shipping/kiriminaja";
 
 // Uji Kurir (admin): uji koneksi, cakupan, ongkir, buat paket, lacak, batal, dan log webhook KiriminAja.
 // Dipakai untuk UAT sandbox MitraAPI dan diagnosa di produksi. Semua lewat driver yang sama dengan Tukar Guling.
@@ -23,11 +22,13 @@ export function infoKoneksi() {
   };
 }
 
-/** Uji API key: panggilan terautentikasi (jadwal pickup). */
+/** Uji API key: panggilan terautentikasi (saldo KA Credit) + jadwal pickup terdekat. */
 export async function cekKoneksi() {
   const t0 = Date.now();
+  const saldo = await driver().saldoKredit();
+  const ms = Date.now() - t0;
   const jadwal = await driver().jadwalPickup();
-  return { ok: true, jadwal, ms: Date.now() - t0, ...infoKoneksi() };
+  return { ok: true, saldo, jadwal, ms, ...infoKoneksi() };
 }
 
 export const cariWilayah = (q: string) => driver().cariWilayah(q);
@@ -96,7 +97,7 @@ export async function buatPaketUji(adminId: string, i: InputUji) {
   if (!tarif) throw new Error("Layanan kurir tidak tersedia untuk rute ini. Cek ongkir ulang.");
   if (!i.asuransi && tarif.force_insurance) throw new Error(`${tarif.service_name} mewajibkan asuransi.`);
   const insurance = i.asuransi ? tarif.insurance : 0;
-  const order_id = `KDU${Date.now().toString(36).toUpperCase()}${randomBytes(2).toString("hex").toUpperCase()}`.slice(0, 20);
+  const order_id = orderIdKurir("U");
   const schedule = await d.jadwalPickup();
   const hasil = await d.buatOrder({
     order_id,
@@ -117,10 +118,13 @@ export async function buatPaketUji(adminId: string, i: InputUji) {
     zipcode: a.zipcode,
     city: kotaDari(a.area),
   });
+  // AWB kadang belum ada di respons create; ambil lewat tracking (sekaligus sorting code).
+  const l = hasil.awb ? null : await d.lacak(order_id).catch(() => null);
   return prisma.kurirUji.create({
     data: {
       order_id,
-      awb: hasil.awb,
+      awb: hasil.awb ?? l?.awb ?? null,
+      sorting_code: l?.sorting_code ?? null,
       pickup_number: hasil.pickup_number,
       courier: tarif.courier,
       service_type: tarif.service_type,
@@ -134,7 +138,7 @@ export async function buatPaketUji(adminId: string, i: InputUji) {
       shipping_cost: tarif.cost,
       insurance,
       status: "requested",
-      status_text: hasil.awb ? "AWB terbit" : "Order dibuat, menunggu AWB",
+      status_text: l?.text || (hasil.awb ? "AWB terbit" : "Order dibuat, menunggu AWB"),
       respon: (hasil.raw ?? null) as Prisma.InputJsonValue,
       dibuat_oleh: adminId,
     },
