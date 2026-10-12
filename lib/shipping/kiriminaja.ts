@@ -157,11 +157,27 @@ function driverAsli(apiKey: string): KurirDriver {
     return json;
   }
 
+  /**
+   * Untuk endpoint baca/idempoten (tracking, alamat, ongkir, jadwal, saldo, batal): ulangi bila KiriminAja
+   * membalas galat sementara ("Unknown error" / "Oops, terjadi kesalahan"). JANGAN dipakai untuk request_pickup.
+   */
+  async function callUlang<T>(method: "GET" | "POST", path: string, body?: unknown, kali = 5): Promise<T> {
+    for (let i = 1; ; i++) {
+      try {
+        return await call<T>(method, path, body);
+      } catch (e) {
+        const sementara = /Unknown error|Oops, terjadi kesalahan|HTTP 5\d\d|timeout|fetch failed/i.test((e as Error).message);
+        if (!sementara || i >= kali) throw e;
+        await new Promise((r) => setTimeout(r, 1200 * i));
+      }
+    }
+  }
+
   return {
     nama: "kiriminaja",
 
     async cariWilayah(q) {
-      const r = await call<{ data: { district_id: number; subdistrict_id: number; full_address: string }[] }>(
+      const r = await callUlang<{ data: { district_id: number; subdistrict_id: number; full_address: string }[] }>(
         "GET",
         `api/mitra/v6.1/addresses?search=${encodeURIComponent(q)}`,
       );
@@ -169,7 +185,7 @@ function driverAsli(apiKey: string): KurirDriver {
     },
 
     async tarif(asal, tujuan, p) {
-      const r = await call<{
+      const r = await callUlang<{
         results: {
           service: string;
           service_type: string;
@@ -205,7 +221,7 @@ function driverAsli(apiKey: string): KurirDriver {
     },
 
     async jadwalPickup() {
-      const r = await call<{ schedules: { clock: string; expired: number; libur: boolean }[] }>(
+      const r = await callUlang<{ schedules: { clock: string; expired: number; libur: boolean }[] }>(
         "POST",
         "api/mitra/v2/schedules",
       ).catch((e) => {
@@ -298,7 +314,7 @@ function driverAsli(apiKey: string): KurirDriver {
     },
 
     async batalkan(awb, alasan) {
-      const r = await call<{ text?: string; data?: unknown }>("POST", "api/mitra/v3/cancel_shipment", {
+      const r = await callUlang<{ text?: string; data?: unknown }>("POST", "api/mitra/v3/cancel_shipment", {
         awb,
         reason: alasan.slice(0, 200).padEnd(5, "."),
       });
@@ -306,12 +322,12 @@ function driverAsli(apiKey: string): KurirDriver {
     },
 
     async saldoKredit() {
-      const r = await call<{ results?: { balance?: number } }>("GET", "api/mitra/v6.2/credit/balance");
+      const r = await callUlang<{ results?: { balance?: number } }>("GET", "api/mitra/v6.2/credit/balance");
       return Number(r.results?.balance ?? 0);
     },
 
     async lacak(id) {
-      const r = await call<{
+      const r = await callUlang<{
         text?: string;
         details?: { awb?: string | null; sorting_code?: string | null; service?: string; service_name?: string; delivered?: boolean };
         histories?: { created_at?: string; status?: string }[];

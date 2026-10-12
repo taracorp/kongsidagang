@@ -105,6 +105,26 @@ if (fase === "buat") {
   simpan();
 }
 
+if (fase === "bersih") {
+  // Batalkan semua paket uji yang ada (lacak dulu agar AWB tersimpan), sebelum uji ulang.
+  await buka();
+  const kotak = kartu("5–7 · Paket uji").locator("div.rounded-\\[4px\\]");
+  const n = await kotak.count();
+  for (let i = 0; i < n; i++) {
+    const k = kotak.nth(i);
+    await k.locator('button:has-text("Lacak")').click();
+    await k.locator("ul, p.mt-3").first().waitFor({ timeout: 60000 });
+    await p.waitForTimeout(1500);
+    await buka();
+    const k2 = kartu("5–7 · Paket uji").locator("div.rounded-\\[4px\\]").nth(i);
+    await k2.locator('button:has-text("Batalkan")').click();
+    await k2.locator("p.mt-3").last().waitFor({ timeout: 60000 });
+    await p.waitForTimeout(1000);
+    console.log("BERSIH", i + 1, (await k2.innerText()).replace(/\s+/g, " ").slice(0, 260));
+    await buka();
+  }
+}
+
 if (fase === "label") {
   for (const [i, href] of (hasil.paket ?? []).entries()) {
     await p.goto(B + href, { waitUntil: "networkidle" });
