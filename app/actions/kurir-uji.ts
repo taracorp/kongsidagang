@@ -33,7 +33,8 @@ export async function ujiBuatPaket(input: U.InputUji) {
   return run(async () => {
     const s = await requireAdminUp();
     const u = await U.buatPaketUji(s.userId!, input);
-    return { id: u.id, order_id: u.order_id, awb: u.awb };
+    const respon = (u.respon ?? {}) as { payment_status?: string };
+    return { id: u.id, order_id: u.order_id, awb: u.awb, pickup_number: u.pickup_number, pembayaran: respon.payment_status ?? null };
   });
 }
 

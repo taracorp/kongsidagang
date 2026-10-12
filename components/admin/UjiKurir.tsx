@@ -28,6 +28,7 @@ export type PaketUjiBaris = {
   awb: string | null;
   sorting_code: string | null;
   pickup_number: string | null;
+  pembayaran: string | null; // payment_status dari respons request_pickup (paid = KA Credit terpotong)
   courier: string;
   service_name: string;
   skenario: string;
@@ -56,7 +57,7 @@ const WILAYAH_TUJUAN: Wilayah = {
 
 const SKENARIO = [
   { kode: "berat", nama: "Berat barang > berat volume", weight_g: 2000, length_cm: 10, width_cm: 10, height_cm: 10 },
-  { kode: "volume", nama: "Berat volume > berat barang", weight_g: 500, length_cm: 40, width_cm: 30, height_cm: 30 },
+  { kode: "volume", nama: "Berat volume > berat barang", weight_g: 300, length_cm: 30, width_cm: 20, height_cm: 15 },
 ] as const;
 
 const volume = (l: number, w: number, h: number) => Math.ceil((l * w * h) / 6);
@@ -182,7 +183,12 @@ export function UjiKurir({
     setHasilBuat(
       error
         ? { ok: false, teks: error }
-        : { ok: true, teks: `Order ID ${data!.order_id} terbentuk${data!.awb ? ` · AWB ${data!.awb}` : " · AWB menyusul (webhook/lacak)"}` },
+        : {
+            ok: true,
+            teks: `Order ID ${data!.order_id} terbentuk · pickup ${data!.pickup_number ?? "-"} · pembayaran KA Credit: ${data!.pembayaran ?? "-"}${
+              data!.awb ? ` · AWB ${data!.awb}` : " · AWB menyusul (webhook/lacak)"
+            }`,
+          },
     );
     if (!error) router.refresh();
   }
@@ -317,7 +323,8 @@ export function UjiKurir({
       <div className={kartu}>
         <h3 className={judul}>4 · Buat paket Non-COD</h3>
         <p className={sub}>
-          Endpoint request_pickup v6.2. Ongkir & asuransi diambil ulang dari tarif server. COD & KA Credit tidak dipakai Kongsi.
+          Endpoint request_pickup v6.2 · ongkir dibayar dari saldo <b>KA Credit</b> (payment_method=credit + PIN) · ongkir &
+          asuransi diambil ulang dari tarif server · COD tidak dipakai Kongsi.
         </p>
         {pilih ? (
           <>
@@ -381,6 +388,7 @@ export function UjiKurir({
                     <div className="text-kongsi-ink-soft">
                       {p.status} · {p.status_text ?? ""} · {jam(p.created_at)}
                       {p.pickup_number ? ` · pickup ${p.pickup_number}` : ""}
+                      {p.pembayaran ? ` · KA Credit: ${p.pembayaran}` : ""}
                     </div>
                   </div>
                   <div className="flex gap-2">

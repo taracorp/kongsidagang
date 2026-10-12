@@ -18,6 +18,7 @@ export default async function AdminUjiKurir() {
         awb: p.awb,
         sorting_code: p.sorting_code,
         pickup_number: p.pickup_number,
+        pembayaran: ((p.respon ?? {}) as { payment_status?: string }).payment_status ?? null,
         courier: p.courier,
         service_name: p.service_name,
         skenario: p.skenario,

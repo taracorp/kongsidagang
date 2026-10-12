@@ -116,13 +116,18 @@ if (fase === "label") {
 
 if (fase === "lacak") {
   await buka();
-  const kotak = kartu("5–7 · Paket uji").locator("div.rounded-\\[4px\\]").first();
-  await kotak.locator('button:has-text("Lacak")').click();
-  await kotak.locator("ul").waitFor({ timeout: 60000 });
-  await p.waitForTimeout(800);
-  hasil.lacak = await kotak.innerText();
-  console.log("LACAK:", hasil.lacak);
-  await foto(kotak, "14-lacak");
+  // Lacak semua paket (AWB & sorting code tersimpan dari respons tracking); bukti = paket tertua (#1).
+  const kotak = kartu("5–7 · Paket uji").locator("div.rounded-\\[4px\\]");
+  const n = await kotak.count();
+  for (let i = n - 1; i >= 0; i--) {
+    await kotak.nth(i).locator('button:has-text("Lacak")').click();
+    await kotak.nth(i).locator("ul, p.mt-3").first().waitFor({ timeout: 60000 });
+    await p.waitForTimeout(1500);
+    console.log(`LACAK #${n - i}:`, (await kotak.nth(i).innerText()).replace(/\s+/g, " ").slice(0, 300));
+  }
+  const pertama = kotak.nth(n - 1);
+  hasil.lacak = await pertama.innerText();
+  await foto(pertama, "14-lacak");
   simpan();
 }
 
