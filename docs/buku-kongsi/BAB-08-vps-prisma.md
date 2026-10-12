@@ -771,3 +771,49 @@ Traefik yang sudah ada di VPS, cukup atur port.
   - webhook menyimpan `sorting_code`, memperbarui paket uji, dan mencatat setiap callback ke `kurir_webhook_log`.
 - **Migrasi `20261007150000_kurir_uji_label`** (aditif): `barter_shipments.sorting_code`, tabel `kurir_uji`,
   `kurir_webhook_log`. Batal: drop kolom/tabel tersebut.
+
+### Ch 8.28 — UAT KiriminAja MitraAPI (sandbox): temuan integrasi & perbaikan driver
+2026-10-12
+- **Instance UAT** (sementara): `/var/www/kongsidagang-uat`, pm2 `kongsidagang-uat` :3021, DB `kongsi_dev`, key
+  sandbox, DOKU tiruan, Traefik `/data/coolify/proxy/dynamic/kongsidagang-uat.yml` →
+  https://kongsi-uat.31-97-49-146.sslip.io.
+  - Build dilakukan di WSL lalu `.next` di-rsync, karena build di VPS memicu OOM.
+  - Hapus setelah UAT: `pm2 delete kongsidagang-uat`, hapus file Traefik di atas, hapus direktori.
+- **Temuan dari sandbox → perbaikan driver** (`lib/shipping/kiriminaja.ts`):
+  - **Prefix Order ID akun = `KDG-`** (lainnya ditolak "Format Order ID tidak sesuai"): `prefixOrder()` /
+    `orderIdKurir()`, env `KIRIMINAJA_ORDER_PREFIX`. Order Tukar Guling juga berprefix `KDG-`.
+  - **Bayar ongkir via KA Credit:** `payment_method: "credit"` + `pin` di body `request_pickup`. Tanpa itu order
+    `unpaid` (QR) dan AWB tidak terbit.
+    - `pin/validate` belum ada di sandbox → dicoba, tidak memblokir bila endpoint tidak ditemukan.
+    - Order non-`paid` ditolak (kecuali mode `qris` di Uji Kurir).
+  - **qty paket = 1;** jumlah barang di `items[].qty`, berat & panjang per item = isi paket ÷ qty. KiriminAja menghitung
+    berat tagih dari items, sehingga qty paket > 1 / dimensi item penuh → "Ongkir tidak sesuai".
+  - **Percobaan ulang otomatis** (`callUlang`) untuk galat sementara ("Unknown error"/"Oops…") pada endpoint baca &
+    batal. `request_pickup` tidak diulang.
+  - Slot pickup cadangan (08/11/14/17 WIB) bila `schedules` galat.
+  - `saldoKredit()` (GET `/api/mitra/v6.2/credit/balance`) untuk uji API key.
+  - AWB diambil lewat tracking setelah order dibuat.
+- **Uji Kurir:**
+  - pilihan bayar ongkir KA Credit / tagihan QRIS;
+  - tampil nomor pickup & status pembayaran;
+  - skenario berat 1 kg dan volume 300 g / 30×20×15 cm;
+  - zona waktu WIB.
+- **Kondisi sandbox selama UAT:**
+  - `set_callback`, `addresses`, `schedules`, `tracking`, `cancel_shipment` putus-sambung;
+  - saldo KA Credit sandbox habis (Rp15.700) oleh order uji integrasi, dan refund pembatalan belum masuk;
+  - skenario create 4–7 memakai tagihan QRIS, sedangkan KA Credit/label/tracking/webhook/cancel memakai 2 order paid.
+- **VPS:**
+  - RAM 8 GB, swap 2 GB penuh;
+  - beberapa kali tidak responsif (OOM membunuh proses node build; load > 100);
+  - rekomendasi: tambah swap / RAM, kurangi aplikasi lain, build di luar VPS.
+- **Dokumen:** `uat-kiriminaja/` (tidak di-commit) — `isi_uat.py`, `info.py`, `skrip/_uat2.mjs` (skenario UI), `skrip/_uat3.mjs` (ulang lacak/batal);
+  hasil PDF/DOCX di folder Downloads Tara.
+- **Hasil UAT** (12 Okt 2026, dokumen 18 halaman `UAT KiriminAja - MitraAPI V1 - Kongsi Dagang.pdf/.docx` di Downloads Tara):
+  - Pass: auth, coverage, pricing, create Non-COD (4 skenario), KA Credit, label, tracking, webhook, cancel;
+  - N/A: COD (4 baris).
+  - Order uji: KDG-UMV4W8KB0NTNY, -W8WG4BQ9Z, -W9AE7VMF5, -W9MNTXSNE (tagihan QRIS); KDG-UMV4WA4F7IN30 (KA Credit,
+    label/tracking/webhook); KDG-UMV4WAREAWWRF (KA Credit, dibatalkan).
+  - Instance UAT dihentikan (`pm2 stop kongsidagang-uat`).
+- **Belum di-deploy ke produksi:** migrasi `20261007150000_kurir_uji_label` + perbaikan driver Ch 8.27–8.28.
+  Tunggu memori VPS diperbaiki (build di VPS memicu OOM).
+- **Rollback:** `git revert kd-kiriminaja-uat` (kode).
