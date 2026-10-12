@@ -277,11 +277,13 @@ function driverAsli(apiKey: string): KurirDriver {
               items: [
                 {
                   name: o.item_name.slice(0, 100),
+                  // KiriminAja menghitung berat tagih dari items (berat×qty, volume×qty): total item = isi paket,
+                  // jadi berat & panjang dibagi rata per item (mis. 2 × 20×30×30 cm = 1 kardus 40×30×30 cm).
                   price: Math.round(o.paket.item_value / (o.qty ?? 1)),
                   weight: Math.max(1, Math.round(o.paket.weight_g / (o.qty ?? 1))),
                   width: o.paket.width_cm,
                   height: o.paket.height_cm,
-                  length: o.paket.length_cm,
+                  length: Math.max(1, Math.round(o.paket.length_cm / (o.qty ?? 1))),
                   qty: o.qty ?? 1,
                 },
               ],
