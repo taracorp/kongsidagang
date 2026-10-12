@@ -874,3 +874,20 @@ Traefik yang sudah ada di VPS, cukup atur port.
   - Foto wajib: formulir langkah 4 menolak tanpa foto (label "*wajib"), server `tawarkanBarang` menolak tanpa file.
 - **Verifikasi:** uji `teksDoku` 6 contoh → semua lolos pola DOKU; tsc + eslint lolos.
 - **Rollback:** `git revert` commit ini.
+
+### Ch 8.32 — Deploy produksi Ch 8.31 (foto wajib, perbaikan DOKU) + insiden 500 singkat
+2026-10-13
+- **Build** di WSL (`~/kd-build`, worktree bersih + `npm ci`, env publik dari `.env` VPS) → rsync → reload.
+- **Insiden:** setelah reload, semua halaman 500 ±1 menit ("Cannot find module '@prisma/client-<hash>/runtime/client'").
+  - Penyebab: Turbopack membuat symlink `.next/node_modules/@prisma/client-<hash>` dan `pg-<hash>` relatif ke **nama
+    folder build** (`../../../../kd-build/node_modules/...`), yang tidak ada di VPS (`/var/www/kongsidagang`).
+  - Tindakan: build lama dikembalikan (200); symlink di build baru ditulis ulang ke `../../(../)node_modules/...`;
+    build baru dipasang dengan rollback otomatis bila bukan 200 → 200.
+  - **Aturan ke depan:** build lokal di folder bernama `kongsidagang` (mis. `~/kd-build/kongsidagang`), atau perbaiki
+    symlink `.next/node_modules` sebelum rsync; selalu pasang dengan rollback otomatis.
+- **Verifikasi:**
+  - `/`, `/tukar`, `/lapak`, `/bayar` 200;
+  - build memuat "Foto barang wajib diunggah";
+  - checkout DOKU asli dengan nama berisi "—"/"·" diterima (tagihan uji `KD-UJI-…`, tidak dibayar, kedaluwarsa 5 menit).
+- **Data:** 1 barang aktif tanpa foto ("Nokia Lumia", milik Tara) dibiarkan; aturan foto wajib berlaku untuk unggahan
+  baru.
