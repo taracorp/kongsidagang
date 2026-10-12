@@ -843,3 +843,20 @@ Traefik yang sudah ada di VPS, cukup atur port.
   - `npm run flow` bagian Tukar Guling lolos (tanpa "Warna kartu", kota dari daftar, barang tayang, foto tersaji);
     kegagalan acak lain berasal dari latensi DB ke VPS yang memorinya penuh;
   - screenshot HP langkah 4.
+
+### Ch 8.30 — Deploy produksi: KiriminAja (Uji Kurir, label, KA Credit) + Tawarkan barang (kota resmi); UAT dihapus
+2026-10-12
+- Atas perintah Tara ("selesaikan semua").
+- **Backup:** `/root/backup-kongsi/kongsi-*-pre-kurir-kota.sql.gz` (34 tabel).
+- **Cara deploy (hemat memori VPS):**
+  - di VPS: `git pull`, `prisma generate`, `migrate deploy` (migrasi `20261007150000_kurir_uji_label` +
+    `20261012080000_barang_dicari`); tanpa `npm ci` (dependensi tidak berubah);
+  - build `next build` di WSL dengan env publik produksi (`NEXT_PUBLIC_DOKU_METODE` = 8 VA, iklan) → rsync `.next` →
+    tukar → `pm2 reload kongsidagang`. HTTP 200.
+- **Data:** `scripts/data/normalisasi-kota.ts --terapkan` → 2 barang "Sleman" → "Kab. Sleman".
+- **Instance UAT dihapus:** pm2 `kongsidagang-uat`, Traefik `kongsidagang-uat.yml`, `/var/www/kongsidagang-uat*`.
+- **Cek publik:** `/`, `/tukar` (menampilkan "Kab. Sleman"), `/lapak`, `/bayar`, `/keranjang`, `/kabar` 200;
+  `/tukar/tawarkan` → `/masuk` untuk tamu.
+- **Catatan:** Mode Kirim tetap terkunci (belum ada key KiriminAja produksi). VPS: swap 2 GB masih penuh → tambah
+  RAM/swap disarankan. SSH sempat tidak menjawab beberapa jam sore ini.
+- **Rollback:** restore backup + `git revert kd-kurir-kota`, lalu deploy ulang.
