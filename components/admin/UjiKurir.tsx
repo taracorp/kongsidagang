@@ -56,7 +56,7 @@ const WILAYAH_TUJUAN: Wilayah = {
 };
 
 const SKENARIO = [
-  { kode: "berat", nama: "Berat barang > berat volume", weight_g: 2000, length_cm: 10, width_cm: 10, height_cm: 10 },
+  { kode: "berat", nama: "Berat barang > berat volume", weight_g: 1000, length_cm: 10, width_cm: 10, height_cm: 10 },
   { kode: "volume", nama: "Berat volume > berat barang", weight_g: 300, length_cm: 30, width_cm: 20, height_cm: 15 },
 ] as const;
 
@@ -159,6 +159,7 @@ export function UjiKurir({
   // 4. Buat paket
   const [pilih, setPilih] = useState<Tarif | null>(null);
   const [asuransi, setAsuransi] = useState(false);
+  const [bayar, setBayar] = useState<"credit" | "qris">("credit");
   const [item, setItem] = useState("Kain batik tulis (UAT)");
   const [qty, setQty] = useState(2);
   const [pengirim, setPengirim] = useState({ name: "Kongsi Dagang UAT", phone: "081234567890", address: "Jl. Palagan Tentara Pelajar No. 77, RT 001/RW 033, Sedan" });
@@ -177,7 +178,8 @@ export function UjiKurir({
       courier: pilih.courier,
       service_type: pilih.service_type,
       asuransi,
-      skenario: `Non-COD · ${skenario.nama}${asuransi ? " · asuransi" : ""}`,
+      bayar,
+      skenario: `Non-COD · ${skenario.nama}${asuransi ? " · asuransi" : ""} · ${bayar === "credit" ? "KA Credit" : "tagihan QRIS"}`,
     });
     setMemuat(false);
     setHasilBuat(
@@ -185,7 +187,9 @@ export function UjiKurir({
         ? { ok: false, teks: error }
         : {
             ok: true,
-            teks: `Order ID ${data!.order_id} terbentuk · pickup ${data!.pickup_number ?? "-"} · pembayaran KA Credit: ${data!.pembayaran ?? "-"}${
+            teks: `Order ID ${data!.order_id} terbentuk · pickup ${data!.pickup_number ?? "-"} · pembayaran ${
+              bayar === "credit" ? "KA Credit" : "tagihan QRIS"
+            }: ${data!.pembayaran ?? "-"}${
               data!.awb ? ` · AWB ${data!.awb}` : " · AWB menyusul (webhook/lacak)"
             }`,
           },
@@ -323,8 +327,8 @@ export function UjiKurir({
       <div className={kartu}>
         <h3 className={judul}>4 · Buat paket Non-COD</h3>
         <p className={sub}>
-          Endpoint request_pickup v6.2 · ongkir dibayar dari saldo <b>KA Credit</b> (payment_method=credit + PIN) · ongkir &
-          asuransi diambil ulang dari tarif server · COD tidak dipakai Kongsi.
+          Endpoint request_pickup v6.2 · ongkir dibayar dari saldo <b>KA Credit</b> (payment_method=credit + PIN) atau tagihan
+          QRIS KiriminAja · ongkir & asuransi diambil ulang dari tarif server · COD tidak dipakai Kongsi.
         </p>
         {pilih ? (
           <>
@@ -358,6 +362,25 @@ export function UjiKurir({
               <input type="checkbox" checked={asuransi} disabled={pilih.force_insurance} onChange={(e) => setAsuransi(e.target.checked)} />
               Pakai asuransi ({formatKeping(pilih.insurance)}){pilih.force_insurance ? " — wajib untuk layanan ini" : ""}
             </label>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
+              <b>Bayar ongkir:</b>
+              {(
+                [
+                  ["credit", "KA Credit (saldo, AWB langsung)"],
+                  ["qris", "Tagihan QRIS (bayar nanti)"],
+                ] as const
+              ).map(([k, t]) => (
+                <button
+                  key={k}
+                  type="button"
+                  aria-pressed={bayar === k}
+                  onClick={() => setBayar(k)}
+                  className={cn(tombol, bayar === k ? utama : "bg-kongsi-parchment")}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
             <button type="button" onClick={buat} disabled={memuat} className={cn(tombol, utama, "mt-3")}>
               {memuat ? "Membuat…" : "Buat paket"}
             </button>
@@ -388,7 +411,7 @@ export function UjiKurir({
                     <div className="text-kongsi-ink-soft">
                       {p.status} · {p.status_text ?? ""} · {jam(p.created_at)}
                       {p.pickup_number ? ` · pickup ${p.pickup_number}` : ""}
-                      {p.pembayaran ? ` · KA Credit: ${p.pembayaran}` : ""}
+                      {p.pembayaran ? ` · pembayaran: ${p.pembayaran}` : ""}
                     </div>
                   </div>
                   <div className="flex gap-2">

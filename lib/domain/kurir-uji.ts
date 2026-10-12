@@ -61,6 +61,7 @@ export type InputUji = {
   courier: string;
   service_type: string;
   asuransi: boolean;
+  bayar: "credit" | "qris";
   skenario: string;
 };
 
@@ -109,6 +110,7 @@ export async function buatPaketUji(adminId: string, i: InputUji) {
     qty,
     schedule,
     note: `UAT Kongsi Dagang — ${i.skenario}`.slice(0, 100),
+    bayar: i.bayar === "qris" ? "qris" : "credit",
   });
   const pihak = (a: Alamat) => ({
     name: a.name,
@@ -119,7 +121,9 @@ export async function buatPaketUji(adminId: string, i: InputUji) {
     city: kotaDari(a.area),
   });
   // AWB kadang belum ada di respons create; ambil lewat tracking (sekaligus sorting code).
-  const l = hasil.awb ? null : await d.lacak(order_id).catch(() => null);
+  // Order bertagihan QRIS (unpaid) belum diproses kurir, jadi belum ada AWB untuk dilacak.
+  const belumBayar = hasil.payment_status && hasil.payment_status !== "paid";
+  const l = hasil.awb || belumBayar ? null : await d.lacak(order_id).catch(() => null);
   return prisma.kurirUji.create({
     data: {
       order_id,
@@ -138,7 +142,9 @@ export async function buatPaketUji(adminId: string, i: InputUji) {
       shipping_cost: tarif.cost,
       insurance,
       status: "requested",
-      status_text: l?.text || (hasil.awb ? "AWB terbit" : "Order dibuat, menunggu AWB"),
+      status_text: belumBayar
+        ? "Order terbentuk · menunggu pembayaran tagihan QRIS KiriminAja"
+        : l?.text || (hasil.awb ? "AWB terbit" : "Order dibuat, menunggu AWB"),
       respon: (hasil.raw ?? null) as Prisma.InputJsonValue,
       dibuat_oleh: adminId,
     },

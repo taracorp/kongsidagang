@@ -49,9 +49,19 @@ export type OrderInput = {
   schedule: string; // "YYYY-MM-DD HH:mm:ss"
   qty?: number;
   note?: string;
+  /**
+   * Cara bayar ongkir ke KiriminAja. "credit" (default bila KIRIMINAJA_PIN ada) = potong saldo KA Credit, AWB langsung
+   * diproses. "qris" = tagihan QRIS per pickup (member non-tempo); order terbentuk berstatus unpaid sampai dibayar.
+   */
+  bayar?: "credit" | "qris";
 };
 
-export type OrderHasil = { pickup_number: string | null; awb: string | null; raw?: unknown };
+export type OrderHasil = {
+  pickup_number: string | null;
+  awb: string | null;
+  payment_status?: string | null; // paid | unpaid
+  raw?: unknown;
+};
 
 /** Hasil pelacakan (POST /api/mitra/tracking), dirangkum. */
 export type Lacakan = {
@@ -238,7 +248,7 @@ function driverAsli(apiKey: string): KurirDriver {
     async buatOrder(o) {
       // Pembayaran ongkir: KA Credit (saldo akun KiriminAja) dengan PIN. Tanpa PIN, order berstatus "unpaid"
       // (harus dibayar QRIS manual) dan AWB tidak terbit.
-      const pin = process.env.KIRIMINAJA_PIN;
+      const pin = o.bayar === "qris" ? undefined : process.env.KIRIMINAJA_PIN;
       if (pin) {
         await call("POST", "api/mitra/v6.2/pin/validate", { pin }).catch((e) => {
           // Sandbox belum menyediakan endpoint ini ("Unable to find your endpoint target"); PIN tetap dikirim di body.
@@ -307,10 +317,15 @@ function driverAsli(apiKey: string): KurirDriver {
           ],
         },
       );
-      if (r.payment_status && r.payment_status !== "paid") {
+      if (o.bayar !== "qris" && r.payment_status && r.payment_status !== "paid") {
         throw new KiriminAjaError(`KiriminAja: ongkir belum terbayar (${r.payment_status}). Cek saldo KA Credit & PIN.`);
       }
-      return { pickup_number: r.pickup_number ?? null, awb: r.details?.[0]?.awb || null, raw: r };
+      return {
+        pickup_number: r.pickup_number ?? null,
+        awb: r.details?.[0]?.awb || null,
+        payment_status: r.payment_status ?? null,
+        raw: r,
+      };
     },
 
     async batalkan(awb, alasan) {

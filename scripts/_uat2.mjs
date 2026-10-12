@@ -43,19 +43,21 @@ async function pilihWilayah(id, kata, cocok) {
   return { ada, teks: await p.locator("li button").allInnerTexts(), opsi };
 }
 
-async function buatPaket(namaSkenario, asuransi, foto1) {
-  // Pilih SPX Economy (tidak wajib asuransi) bila ada, selain itu layanan pertama yang tidak wajib asuransi.
-  let baris = p.locator("tr", { hasText: "SPX Economy" });
+async function buatPaket(namaSkenario, asuransi, foto1, { bayar = "qris", layanan = "SPX Economy" } = {}) {
+  // Pilih layanan yang diminta bila ada, selain itu layanan termurah yang tidak wajib asuransi.
+  let baris = p.locator("tr", { hasText: layanan });
   if (!(await baris.count())) baris = p.locator("tr", { hasNotText: "wajib" }).filter({ has: p.locator('button:text-is("Pilih")') });
   await baris.first().locator('button:text-is("Pilih")').click();
-  const cek = kartu("4 · Buat paket").locator('input[type="checkbox"]');
-  if ((await cek.isChecked()) !== asuransi) await cek.click();
-  await kartu("4 · Buat paket").locator('button:has-text("Buat paket")').click();
+  const k4 = kartu("4 · Buat paket");
+  const cek = k4.locator('input[type="checkbox"]');
+  if (!(await cek.isDisabled()) && (await cek.isChecked()) !== asuransi) await cek.click();
+  await k4.locator(`button:has-text("${bayar === "credit" ? "KA Credit (saldo" : "Tagihan QRIS"}")`).click();
+  await k4.locator('button:has-text("Buat paket")').click();
   await pesan("4 · Buat paket").waitFor({ timeout: 90000 });
   await p.waitForTimeout(500);
   const teks = await pesan("4 · Buat paket").innerText();
   console.log(namaSkenario, "→", teks);
-  await foto(kartu("4 · Buat paket"), foto1);
+  await foto(k4, foto1);
   return teks;
 }
 
@@ -85,7 +87,7 @@ if (fase === "buat") {
   hasil.ongkir_berat = await kartu("2–3 · Cakupan").locator("table").innerText();
   await foto(kartu("2–3 · Cakupan"), "03-ongkir-berat");
 
-  // 4–5. Create Non-COD berat > volume, tanpa & dengan asuransi
+  // 4–5. Create Non-COD berat > volume, tanpa & dengan asuransi (tagihan QRIS — tidak memotong saldo sandbox)
   hasil.buat4 = await buatPaket("Non-COD berat>volume", false, "04-buat-berat");
   hasil.buat5 = await buatPaket("Non-COD berat>volume + asuransi", true, "05-buat-berat-asuransi");
 
@@ -97,6 +99,23 @@ if (fase === "buat") {
   await foto(kartu("2–3 · Cakupan"), "03b-ongkir-volume");
   hasil.buat6 = await buatPaket("Non-COD volume>berat", false, "06-buat-volume");
   hasil.buat7 = await buatPaket("Non-COD volume>berat + asuransi", true, "07-buat-volume-asuransi");
+
+  // 12. KA Credit — rute dekat Sleman → Kota Yogyakarta (hemat saldo sandbox), 2 order: label/lacak/webhook & batal.
+  const y = await pilihWilayah("wil-tujuan", "Wirobrajan", "Kota Yogyakarta");
+  hasil.coverage_yogya = y.teks;
+  if (y.ada) await y.opsi.first().click();
+  await kartu("2–3 · Cakupan").locator('button:has-text("Berat barang > berat volume")').click();
+  await kartu("2–3 · Cakupan").locator('button:has-text("Cek ongkir")').click();
+  await p.locator("text=/layanan tersedia untuk rute ini/").first().waitFor({ timeout: 90000 });
+  hasil.ongkir_yogya = await kartu("2–3 · Cakupan").locator("table").innerText();
+  await foto(kartu("2–3 · Cakupan"), "03c-ongkir-yogya");
+  hasil.buat12a = await buatPaket("KA Credit #1", true, "12-buat-kacredit-1", { bayar: "credit", layanan: "AnterAja Regular" });
+  hasil.buat12b = await buatPaket("KA Credit #2", true, "12-buat-kacredit-2", { bayar: "credit", layanan: "AnterAja Regular" });
+  await kartu("1 · Autentikasi").locator('button:has-text("Uji API key")').click();
+  await pesan("1 · Autentikasi").waitFor({ timeout: 60000 });
+  await p.waitForTimeout(1500);
+  hasil.saldo_setelah = await pesan("1 · Autentikasi").innerText();
+  await foto(kartu("1 · Autentikasi"), "12-saldo-setelah");
 
   await buka();
   await foto(kartu("5–7 · Paket uji"), "08-daftar-paket");
@@ -113,7 +132,7 @@ if (fase === "bersih") {
   for (let i = 0; i < n; i++) {
     const k = kotak.nth(i);
     await k.locator('button:has-text("Lacak")').click();
-    await k.locator("ul, p.mt-3").first().waitFor({ timeout: 60000 });
+    await k.locator(".mt-3").first().waitFor({ timeout: 60000 });
     await p.waitForTimeout(1500);
     await buka();
     const k2 = kartu("5–7 · Paket uji").locator("div.rounded-\\[4px\\]").nth(i);
@@ -126,22 +145,28 @@ if (fase === "bersih") {
 }
 
 if (fase === "label") {
-  for (const [i, href] of (hasil.paket ?? []).entries()) {
-    await p.goto(B + href, { waitUntil: "networkidle" });
+  // Label untuk order KA Credit (sudah dibayar → AWB terbit), urut terlama dulu.
+  await buka();
+  const kotak = kartu("5–7 · Paket uji").locator("div.rounded-\\[4px\\]").filter({ hasText: "KA Credit" });
+  const href = (await kotak.locator('a[href^="/label/uji/"]').evaluateAll((as) => as.map((x) => x.getAttribute("href")))).reverse();
+  hasil.label_href = href;
+  for (const [i, h] of href.entries()) {
+    await p.goto(B + h, { waitUntil: "networkidle" });
     await p.locator(".label-a6").screenshot({ path: `${OUT}/13-label-${i + 1}.png` });
-    console.log("📸 label", i + 1, href);
+    console.log("📸 label", i + 1, h, (await p.locator(".label-a6").innerText()).replace(/\s+/g, " ").slice(0, 200));
     if (i === 0) await p.screenshot({ path: `${OUT}/13-label-halaman.png`, fullPage: true });
   }
+  simpan();
 }
 
 if (fase === "lacak") {
   await buka();
   // Lacak semua paket (AWB & sorting code tersimpan dari respons tracking); bukti = paket tertua (#1).
-  const kotak = kartu("5–7 · Paket uji").locator("div.rounded-\\[4px\\]");
+  const kotak = kartu("5–7 · Paket uji").locator("div.rounded-\\[4px\\]").filter({ hasText: "KA Credit" });
   const n = await kotak.count();
   for (let i = n - 1; i >= 0; i--) {
     await kotak.nth(i).locator('button:has-text("Lacak")').click();
-    await kotak.nth(i).locator("ul, p.mt-3").first().waitFor({ timeout: 60000 });
+    await kotak.nth(i).locator(".mt-3").first().waitFor({ timeout: 60000 });
     await p.waitForTimeout(1500);
     console.log(`LACAK #${n - i}:`, (await kotak.nth(i).innerText()).replace(/\s+/g, " ").slice(0, 300));
   }
