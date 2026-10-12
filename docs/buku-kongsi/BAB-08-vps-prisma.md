@@ -817,3 +817,29 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - **Belum di-deploy ke produksi:** migrasi `20261007150000_kurir_uji_label` + perbaikan driver Ch 8.27–8.28.
   Tunggu memori VPS diperbaiki (build di VPS memicu OOM).
 - **Rollback:** `git revert kd-kiriminaja-uat` (kode).
+
+### Ch 8.29 — Tawarkan barang langkah 4: kota dari daftar resmi, barang dicari berupa pilihan, tanpa "Warna kartu"
+2026-10-12
+- **Masukan Tara** (screenshot langkah 4): "kenapa masih isi manual, menimbulkan ketidakakuratan; warna juga apa ini
+  maksudnya, yang tidak perlu dihapus".
+- **Kota:** dipilih dari daftar resmi 514 kab/kota (Kepmendagri No 300.2.2-2138/2025, data `cahyadsn/wilayah` MIT →
+  `lib/data/kota-indonesia.ts`).
+  - Pencarian `lib/wilayah.ts` (`cariKota`, `kotaSah`); mengetik "slem" → Kab. Sleman.
+  - Server menolak kota di luar daftar.
+  - Isian awal = kota barang terakhir user.
+  - Nilai tersimpan = nama kanonik (mis. "Kab. Sleman"; tidak ada nama ganda).
+- **Mau ditukar dengan:** tombol kategori taksiran (maks 3, pola chip kotak; "Apa saja" = terbuka) + catatan opsional
+  (≤120 huruf).
+  - Kolom baru `barter_items.want_categories text[]` (migrasi `20261012080000_barang_dicari`, aditif;
+    batal: `ALTER TABLE barter_items DROP COLUMN want_categories`).
+  - Kartu `/tukar` menampilkan "Mau ditukar: Elektronik rumah — setrika uap".
+- **"Warna kartu" dihapus** dari formulir. Warna kartu cadangan (bila tanpa foto) ditentukan otomatis dari kategori
+  (`toneKategori`).
+- **Foto:** tombol "Ambil / pilih foto" berbahasa Indonesia + pratinjau (bukan input file bawaan "Choose File").
+- **Data lama:** `scripts/data/normalisasi-kota.ts --terapkan` merapikan kota teks bebas yang cocok tepat satu kab/kota
+  (produksi: "Sleman" ×2 → "Kab. Sleman"; jalankan setelah deploy).
+- **Verifikasi:**
+  - tsc + eslint lolos;
+  - `npm run flow` bagian Tukar Guling lolos (tanpa "Warna kartu", kota dari daftar, barang tayang, foto tersaji);
+    kegagalan acak lain berasal dari latensi DB ke VPS yang memorinya penuh;
+  - screenshot HP langkah 4.

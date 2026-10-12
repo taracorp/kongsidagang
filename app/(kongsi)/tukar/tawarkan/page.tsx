@@ -3,11 +3,19 @@ import { redirect } from "next/navigation";
 import { TawarkanForm } from "@/components/kongsi/TawarkanForm";
 import { getSessionUser } from "@/lib/auth";
 import { loadCategories } from "@/lib/domain/kategori";
+import { prisma } from "@/lib/db";
 
 export default async function TawarkanPage() {
   const user = await getSessionUser();
   if (!user) redirect("/masuk");
-  const categories = await loadCategories();
+  const [categories, terakhir] = await Promise.all([
+    loadCategories(),
+    prisma.barterItem.findFirst({
+      where: { user_id: user.id, city: { not: null } },
+      orderBy: { created_at: "desc" },
+      select: { city: true },
+    }),
+  ]);
 
   return (
     <section className="py-[34px]">
@@ -20,7 +28,7 @@ export default async function TawarkanPage() {
             Tawarkan barangmu
           </h2>
         </div>
-        <TawarkanForm categories={categories} nowYear={new Date().getFullYear()} />
+        <TawarkanForm categories={categories} nowYear={new Date().getFullYear()} kotaAwal={terakhir?.city ?? null} />
         <p className="mt-4 text-center text-[12px] text-kongsi-ink-soft">
           <Link href="/tukar" className="font-bold text-kongsi-grenadine">
             ← Kembali ke Tukar Guling

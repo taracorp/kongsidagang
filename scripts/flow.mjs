@@ -284,6 +284,12 @@ if (!SKIP_AUTH && EMAIL && PASSWORD) {
   check("tukar: taksiran sistem tampil", (await p2.locator("text=Taksiran Kongsi").count()) > 0);
   await p2.click('button:has-text("Lanjut")');
   await p2.setInputFiles("#photo", { name: "uji.png", mimeType: "image/png", buffer: png });
+  check("tukar: tidak ada isian \"Warna kartu\"", (await p2.locator("text=Warna kartu").count()) === 0);
+  if (await p2.locator("#kota").count()) {
+    await p2.fill("#kota", "slem");
+    await p2.click('li button:has-text("Kab. Sleman")');
+  }
+  check("tukar: kota dipilih dari daftar resmi", (await p2.locator("text=Kab. Sleman").count()) > 0);
   await Promise.all([
     p2.waitForURL("**/tukar", { timeout: 20000 }).catch(() => {}),
     p2.click('button:has-text("Unggah Barang")'),

@@ -71,11 +71,12 @@ function BarterCard({
             <span className="text-[11px] text-kongsi-ink-soft">{item.jumlahPembanding} pembanding pasar</span>
           ) : null}
         </div>
-        {item.want_text ? (
-          <div className="mt-[6px] border-t-[1.5px] border-dashed border-kongsi-ink/20 pt-[6px] text-[12px] text-kongsi-ink-soft">
-            Mau ditukar: <b className="text-kongsi-indigo">{item.want_text}</b>
-          </div>
-        ) : null}
+        <div className="mt-[6px] border-t-[1.5px] border-dashed border-kongsi-ink/20 pt-[6px] text-[12px] text-kongsi-ink-soft">
+          Mau ditukar:{" "}
+          <b className="text-kongsi-indigo">
+            {[item.dicari.join(", "), item.want_text].filter(Boolean).join(" — ") || "terbuka untuk tawaran apa saja"}
+          </b>
+        </div>
         {children}
       </div>
     </div>

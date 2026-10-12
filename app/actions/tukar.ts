@@ -2,7 +2,8 @@
 
 import { prisma } from "@/lib/db";
 import { saveUpload } from "@/lib/uploads";
-import { loadCategory } from "@/lib/domain/kategori";
+import { loadCategories, loadCategory } from "@/lib/domain/kategori";
+import { kotaSah } from "@/lib/wilayah";
 import { taksir } from "@/lib/domain/taksiran";
 import { risetHarga, bacaRiset } from "@/lib/taksir/riset";
 import * as Tukar from "@/lib/domain/tukar";
@@ -26,6 +27,14 @@ function parseAnswers(raw: unknown, keys: string[]): Record<string, boolean> {
 }
 
 /** Nilai barang ditaksir di server dari kategori + atribut + checklist; est_value dari client diabaikan. */
+/** Warna kartu cadangan (bila tanpa foto) ditentukan dari kategori — bukan pilihan user. */
+const TONE = ["sage", "beeswax", "olive", "indigo", "grenadine", "beeswax-dark", "grenadine-dark"];
+function toneKategori(slug: string) {
+  let h = 0;
+  for (const c of slug) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return TONE[h % TONE.length];
+}
+
 export async function tawarkanBarang(form: FormData) {
   return run(async () => {
     const user = await requireUser();
@@ -67,6 +76,21 @@ export async function tawarkanBarang(form: FormData) {
       if (dup) throw new Error(`${cat.serial_label ?? "Nomor seri"} ini sedang ditawarkan di barang lain.`);
     }
 
+    // Kota wajib dipilih dari daftar resmi kab/kota (bukan ketik bebas) agar akurat untuk COD & pencarian.
+    const kota = kotaSah(String(form.get("city") ?? ""));
+    if (!kota) throw new Error("Pilih kota/kabupaten dari daftar.");
+    // Barang yang dicari: slug kategori taksiran (maks 3); kosong = terbuka untuk tawaran apa saja.
+    let dicari: string[] = [];
+    try {
+      const raw = JSON.parse(String(form.get("want_categories") ?? "[]"));
+      if (Array.isArray(raw)) dicari = raw.map(String);
+    } catch {
+      dicari = [];
+    }
+    const sahKategori = new Set((await loadCategories()).map((c) => c.slug));
+    dicari = [...new Set(dicari.filter((x) => sahKategori.has(x)))].slice(0, 3);
+    const catatan = String(form.get("want_text") ?? "").trim().slice(0, 120) || null;
+
     let photo_url: string | null = null;
     const file = form.get("photo");
     if (file instanceof File && file.size > 0) {
@@ -93,9 +117,10 @@ export async function tawarkanBarang(form: FormData) {
         research_id: riset?.id ?? null,
         valuation_method: t.metode,
         accuracy: t.akurasi,
-        want_text: String(form.get("want_text") ?? "").trim() || null,
-        city: String(form.get("city") ?? "").trim() || null,
-        tone: String(form.get("tone") ?? "sage"),
+        want_text: catatan,
+        want_categories: dicari,
+        city: kota.nama,
+        tone: toneKategori(cat.slug),
         photo_url,
         status: "aktif",
       },

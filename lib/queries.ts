@@ -39,6 +39,7 @@ export type BarterRow = {
   title: string;
   est_value: number;
   want_text: string | null;
+  dicari: string[]; // nama kategori yang dicari (kosong = terbuka)
   city: string | null;
   tone: Tone;
   photo_url: string | null;
@@ -56,6 +57,7 @@ const BARTER_ROW_SELECT = {
   title: true,
   est_value: true,
   want_text: true,
+  want_categories: true,
   city: true,
   tone: true,
   photo_url: true,
@@ -67,15 +69,25 @@ const BARTER_ROW_SELECT = {
   research: { select: { pembanding: true } },
 } as const;
 
-function toBarterRow({ categoryRef, research, accuracy, appraisal_status, ...b }: {
-  id: string; user_id: string; title: string; est_value: number; want_text: string | null;
+/** Nama kategori (slug → nama) untuk menampilkan "Mau ditukar". */
+async function muatNamaKategori(): Promise<Map<string, string>> {
+  const rows = await prisma.barterCategory.findMany({ select: { slug: true, name: true } });
+  return new Map(rows.map((r) => [r.slug, r.name]));
+}
+
+function toBarterRow(
+  { categoryRef, research, accuracy, appraisal_status, want_categories, ...b }: {
+  id: string; user_id: string; title: string; est_value: number; want_text: string | null; want_categories: string[];
   city: string | null; tone: string; photo_url: string | null; est_low: number | null;
   est_high: number | null; categoryRef: { name: string } | null; accuracy: string | null;
   appraisal_status: string; research: { pembanding: unknown } | null;
-}): BarterRow {
+  },
+  namaKategori: Map<string, string>,
+): BarterRow {
   return {
     ...b,
     tone: asTone(b.tone),
+    dicari: want_categories.map((x) => namaKategori.get(x) ?? x),
     categoryName: categoryRef?.name ?? null,
     accuracy,
     appraisalStatus: appraisal_status,
@@ -91,7 +103,8 @@ export async function getBarterRows(): Promise<BarterRow[]> {
       select: BARTER_ROW_SELECT,
       orderBy: { created_at: "desc" },
     });
-    return data.map(toBarterRow);
+    const nama = await muatNamaKategori();
+    return data.map((x) => toBarterRow(x, nama));
   } catch {
     return [];
   }
@@ -141,7 +154,8 @@ export async function getMyBarter(userId: string): Promise<{
     ]);
 
     const ratedSet = new Set(ratings.map((r) => r.deal_id));
-    const mine = mineRows.map(toBarterRow);
+    const nama = await muatNamaKategori();
+    const mine = mineRows.map((x) => toBarterRow(x, nama));
     const deals: BarterDeal[] = dealRows.map((d) => {
       const a = d.itemA;
       const b = d.itemB;

@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { tawarkanBarang, cariHargaPasar } from "@/app/actions/tukar";
 import { taksir, type Taksiran, type TaksiranCategory } from "@/lib/domain/taksiran";
 import type { Pembanding, Statistik } from "@/lib/taksir/ekstrak";
 import { cn, formatKeping } from "@/lib/utils";
+import { cariKota, kotaSah } from "@/lib/wilayah";
 import { KongsiButton } from "./KongsiButton";
 import { Pill } from "./Pill";
 
@@ -18,7 +19,6 @@ const pilihan =
 const pilihanOn = "bg-kongsi-grenadine text-kongsi-parchment";
 const pilihanOff = "bg-kongsi-parchment text-kongsi-ink hover:bg-kongsi-beeswax";
 
-const tones = ["sage", "beeswax", "beeswax-dark", "grenadine", "grenadine-dark", "olive", "indigo"];
 const LANGKAH = ["Kategori", "Data barang", "Kondisi", "Foto & tukar"];
 const IKON: Record<string, string> = {
   beras: "🌾",
@@ -56,7 +56,17 @@ type Riset = {
   dariCache: boolean;
 };
 
-export function TawarkanForm({ categories, nowYear }: { categories: TaksiranCategory[]; nowYear: number }) {
+const MAKS_DICARI = 3;
+
+export function TawarkanForm({
+  categories,
+  nowYear,
+  kotaAwal = null,
+}: {
+  categories: TaksiranCategory[];
+  nowYear: number;
+  kotaAwal?: string | null; // kota barang terakhir user (sudah tervalidasi) sebagai isian awal
+}) {
   const router = useRouter();
   const photoRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState(0);
@@ -70,14 +80,21 @@ export function TawarkanForm({ categories, nowYear }: { categories: TaksiranCate
   const [koleksi, setKoleksi] = useState(false);
   const [serial, setSerial] = useState("");
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
-  const [want, setWant] = useState("");
-  const [city, setCity] = useState("");
-  const [tone, setTone] = useState("sage");
+  const [want, setWant] = useState(""); // catatan opsional
+  const [dicari, setDicari] = useState<string[]>([]); // slug kategori yang dicari
+  const [city, setCity] = useState(kotaSah(kotaAwal)?.nama ?? ""); // hanya nama kab/kota resmi
+  const [kotaQ, setKotaQ] = useState("");
+  const [foto, setFoto] = useState<{ url: string; nama: string } | null>(null);
   const [riset, setRiset] = useState<Riset | null>(null);
   const [mencari, setMencari] = useState(false);
   const [errRiset, setErrRiset] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Lepas URL pratinjau foto saat diganti / komponen ditutup.
+  useEffect(() => () => {
+    if (foto) URL.revokeObjectURL(foto.url);
+  }, [foto]);
 
   const cat = categories.find((c) => c.slug === slug) ?? null;
   const aset = cat?.kind === "aset";
@@ -142,6 +159,7 @@ export function TawarkanForm({ categories, nowYear }: { categories: TaksiranCate
       if (cat?.needs_serial && !serial.trim()) return `Isi ${cat.serial_label ?? "nomor seri"}.`;
     }
     if (s === 2 && !allAnswered) return "Jawab semua pertanyaan kondisi — ini jadi patokan bila ada sengketa.";
+    if (s === 3 && !kotaSah(city)) return "Pilih kota/kabupaten dari daftar.";
     return null;
   }
 
@@ -157,7 +175,7 @@ export function TawarkanForm({ categories, nowYear }: { categories: TaksiranCate
   }
 
   async function submit() {
-    for (let s = 0; s < 3; s++) {
+    for (let s = 0; s < LANGKAH.length; s++) {
       const v = validate(s);
       if (v) {
         setStep(s);
@@ -180,8 +198,8 @@ export function TawarkanForm({ categories, nowYear }: { categories: TaksiranCate
     f.set("serial_number", serial);
     f.set("answers", JSON.stringify(answers));
     f.set("want_text", want);
+    f.set("want_categories", JSON.stringify(dicari));
     f.set("city", city);
-    f.set("tone", tone);
     const photo = photoRef.current?.files?.[0];
     if (photo) f.set("photo", photo);
     const { error } = await tawarkanBarang(f);
@@ -414,43 +432,129 @@ export function TawarkanForm({ categories, nowYear }: { categories: TaksiranCate
 
       {step === 3 ? (
         <div>
+          {/* Foto — tombol sesuai pakem, bukan input file bawaan browser */}
           <div className="mb-[14px]">
-            <label className={fieldLabel} htmlFor="photo">
-              Foto barang (kamera langsung)
-            </label>
-            <input id="photo" ref={photoRef} type="file" accept="image/*" capture="environment" className="w-full text-sm" />
+            <span className={fieldLabel}>Foto barang</span>
+            <input
+              id="photo"
+              ref={photoRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="sr-only"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                setFoto(f ? { url: URL.createObjectURL(f), nama: f.name } : null);
+              }}
+            />
+            <div className="flex items-center gap-3">
+              {foto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={foto.url} alt="Pratinjau foto barang" className="h-16 w-16 flex-none rounded-[4px] border-2 border-kongsi-ink object-cover" />
+              ) : null}
+              <label htmlFor="photo" className={cn(pilihan, pilihanOff, "inline-block")}>
+                📷 {foto ? "Ganti foto" : "Ambil / pilih foto"}
+              </label>
+            </div>
+            <p className="mt-1 text-[11px] text-kongsi-ink-soft">
+              {foto ? foto.nama : "Foto asli barangmu (di HP langsung membuka kamera). Barang berfoto lebih dipercaya."}
+            </p>
           </div>
+
+          {/* Barang yang dicari — pilih kategori, bukan ketik bebas */}
           <div className="mb-[14px]">
-            <label className={fieldLabel} htmlFor="want_text">
-              Mau ditukar dengan
-            </label>
+            <span className={fieldLabel}>Mau ditukar dengan (pilih maks. {MAKS_DICARI})</span>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                aria-pressed={dicari.length === 0}
+                onClick={() => setDicari([])}
+                className={cn(pilihan, dicari.length === 0 ? pilihanOn : pilihanOff, "px-3 py-[7px] text-[13px]")}
+              >
+                Apa saja
+              </button>
+              {categories.map((c) => {
+                const on = dicari.includes(c.slug);
+                const penuh = !on && dicari.length >= MAKS_DICARI;
+                return (
+                  <button
+                    key={c.slug}
+                    type="button"
+                    aria-pressed={on}
+                    disabled={penuh}
+                    onClick={() => setDicari((d) => (on ? d.filter((x) => x !== c.slug) : [...d, c.slug]))}
+                    className={cn(pilihan, on ? pilihanOn : pilihanOff, "px-3 py-[7px] text-[13px] disabled:opacity-40")}
+                  >
+                    {IKON[c.slug] ?? "📦"} {c.name}
+                  </button>
+                );
+              })}
+            </div>
             <input
               id="want_text"
               value={want}
+              maxLength={120}
               onChange={(e) => setWant(e.target.value)}
-              className={fieldInput}
-              placeholder="cth. sepeda / laptop"
+              className={cn(fieldInput, "mt-2")}
+              placeholder="Catatan (opsional), cth. setrika uap merek apa saja"
             />
           </div>
-          <div className="mb-[14px] grid grid-cols-2 gap-3">
-            <div>
-              <label className={fieldLabel} htmlFor="city">
-                Kota
-              </label>
-              <input id="city" value={city} onChange={(e) => setCity(e.target.value)} className={fieldInput} placeholder="cth. Sleman" />
-            </div>
-            <div>
-              <label className={fieldLabel} htmlFor="tone">
-                Warna kartu
-              </label>
-              <select id="tone" value={tone} onChange={(e) => setTone(e.target.value)} className={fieldInput}>
-                {tones.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
-            </div>
+
+          {/* Kota — dari daftar resmi kab/kota (Kepmendagri), bukan ketik bebas */}
+          <div className="mb-[14px]">
+            <label className={fieldLabel} htmlFor="kota">
+              Kota / kabupaten barang berada
+            </label>
+            {city ? (
+              <div className="flex items-center justify-between gap-2 rounded-[3px] border-2 border-kongsi-ink bg-kongsi-parchment-3 px-3 py-[9px] text-sm">
+                <span>
+                  📍 <b>{city}</b>
+                  <span className="text-kongsi-ink-soft">, {kotaSah(city)?.provinsi}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCity("");
+                    setKotaQ("");
+                  }}
+                  className="cursor-pointer text-[12px] font-bold text-kongsi-grenadine"
+                >
+                  Ganti
+                </button>
+              </div>
+            ) : (
+              <>
+                <input
+                  id="kota"
+                  value={kotaQ}
+                  onChange={(e) => setKotaQ(e.target.value)}
+                  className={fieldInput}
+                  placeholder="Ketik nama kota/kabupaten, cth. Sleman"
+                  autoComplete="off"
+                />
+                {kotaQ.trim().length >= 2 ? (
+                  <ul className="mt-1 overflow-hidden rounded-[3px] border-2 border-kongsi-ink bg-white text-sm">
+                    {cariKota(kotaQ).map((k) => (
+                      <li key={k.kode}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCity(k.nama);
+                            setKotaQ("");
+                          }}
+                          className="w-full cursor-pointer px-3 py-[7px] text-left hover:bg-kongsi-beeswax"
+                        >
+                          <b>{k.nama}</b> <span className="text-kongsi-ink-soft">· {k.provinsi}</span>
+                        </button>
+                      </li>
+                    ))}
+                    {cariKota(kotaQ).length === 0 ? (
+                      <li className="px-3 py-[7px] text-kongsi-ink-soft">Tidak ditemukan — coba ejaan lain.</li>
+                    ) : null}
+                  </ul>
+                ) : null}
+              </>
+            )}
           </div>
         </div>
       ) : null}

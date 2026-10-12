@@ -372,8 +372,9 @@ model BarterItem {
   user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   title      String
   est_value  Int
-  want_text  String?
-  city       String?
+  want_text  String? // catatan bebas (opsional) soal barang yang dicari
+  want_categories String[] @default([]) // slug kategori taksiran yang dicari (maks 3; kosong = terbuka)
+  city       String? // nama kab/kota kanonik (lib/wilayah.ts), mis. "Kab. Sleman"
   tone       String   @default("sage")
   photo_url  String?
   status     String   @default("aktif") // aktif | dalam_tukar | ditutup | ditukar
