@@ -590,6 +590,10 @@ export type AuctionPublic = {
   winning_guess: number | null;
   winner_id: string | null;
   winner_name: string | null;
+  /** pemegang hak beli saat ini (menunggu bayar) */
+  hak_user_id: string | null;
+  hak_peringkat: number | null;
+  hak_tenggat: string | null;
 };
 
 const REVEAL_STATUSES = ["pemenang", "bayar", "selesai"];
@@ -603,8 +607,9 @@ async function getPublicAuctionItems(
   take?: number,
 ): Promise<AuctionPublic[]> {
   const rows = await prisma.auction.findMany({
-    where: { type, status: { not: "selesai" } },
+    where: { type, status: { in: ["kumpul", "tebak", "jeda", "final", "pemenang", "bayar"] } },
     select: {
+      hak: { where: { status: "menunggu" }, select: { user_id: true, peringkat: true, tenggat: true } },
       id: true,
       type: true,
       clue_category: true,
@@ -642,6 +647,9 @@ async function getPublicAuctionItems(
       winner_name: a.winner
         ? a.winner.profile?.full_name || a.winner.name || a.winner.email.split("@")[0]
         : null,
+      hak_user_id: a.hak[0]?.user_id ?? null,
+      hak_peringkat: a.hak[0]?.peringkat ?? null,
+      hak_tenggat: a.hak[0]?.tenggat?.toISOString() ?? null,
     };
   });
 }
@@ -728,12 +736,18 @@ export async function getMyGuesses(
 
 export type AdminAuction = {
   id: string;
+  type: string;
   clue_category: string;
   clue_name_masked: string;
   normal_price: number;
   deal_price: number | null;
   set_price: number | null;
   status: string;
+  produk: string | null;
+  lapak: string | null;
+  peserta: number;
+  batal_alasan: string | null;
+  hak: { peringkat: number; nama: string; guess: number; status: string; tenggat: string | null }[];
 };
 
 export type AdminApplication = {
@@ -752,7 +766,7 @@ export type AdminOverview = {
   lelangPerStatus: { label: string; value: number }[];
 };
 
-const ACTIVE_AUCTION = ["kumpul", "tebak", "jeda", "final"];
+const ACTIVE_AUCTION = ["kumpul", "tebak", "jeda", "final", "pemenang", "bayar"];
 
 export async function getAdminOverview(): Promise<AdminOverview> {
   await connection(); // data DB selalu per-request, jangan diprerender saat build
@@ -775,7 +789,7 @@ export async function getAdminOverview(): Promise<AdminOverview> {
     value: m._count.products,
   }));
 
-  const statusOrder = ["kumpul", "tebak", "jeda", "final", "pemenang", "bayar", "selesai"];
+  const statusOrder = ["draf", "kumpul", "tebak", "jeda", "final", "pemenang", "bayar", "selesai", "gagal", "batal"];
   const counts: Record<string, number> = {};
   for (const g of byStatus) counts[g.status] = g._count._all;
   const lelangPerStatus = statusOrder
@@ -851,14 +865,21 @@ export async function getAdminData(): Promise<{
     prisma.auction.findMany({
       select: {
         id: true,
+        type: true,
         clue_category: true,
         clue_name_masked: true,
         normal_price: true,
         deal_price: true,
         set_price: true,
         status: true,
+        batal_alasan: true,
+        product: { select: { name: true } },
+        merchant: { select: { name: true } },
+        _count: { select: { participants: true } },
+        hak: { orderBy: { peringkat: "asc" }, select: { peringkat: true, guess: true, status: true, tenggat: true, user_id: true } },
       },
-      orderBy: { created_at: "asc" },
+      orderBy: { created_at: "desc" },
+      take: 50,
     }),
     prisma.merchantApplication.findMany({
       select: {
@@ -877,8 +898,22 @@ export async function getAdminData(): Promise<{
     prisma.merchant.count(),
   ]);
 
+  const namaUser = new Map(
+    (
+      await prisma.user.findMany({
+        where: { id: { in: auctions.flatMap((x) => x.hak.map((h) => h.user_id)) } },
+        select: { id: true, name: true, email: true },
+      })
+    ).map((u) => [u.id, u.name || u.email]),
+  );
   return {
-    auctions,
+    auctions: auctions.map(({ product, merchant, _count, hak, ...x }) => ({
+      ...x,
+      produk: product?.name ?? null,
+      lapak: merchant?.name ?? null,
+      peserta: _count.participants,
+      hak: hak.map((h) => ({ peringkat: h.peringkat, nama: namaUser.get(h.user_id) ?? "?", guess: h.guess, status: h.status, tenggat: h.tenggat?.toISOString() ?? null })),
+    })),
     applications: apps.map((a) => ({ ...a, created_at: a.created_at.toISOString() })),
     counts: { auctionsAktif: aktif, pengajuan, loji },
   };

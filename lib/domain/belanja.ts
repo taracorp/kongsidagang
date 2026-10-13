@@ -5,6 +5,8 @@ import { invoiceBaru, isiPundiTersedia, levelFor, type Tx } from "@/lib/domain/p
 import { beriKabar } from "@/lib/domain/kabar-user";
 import { doku } from "@/lib/payment/doku";
 import { cariMetode, platformFee, rincianBayar } from "@/lib/payment/biaya";
+import { antrikanTransfer } from "@/lib/domain/transfer";
+import { BIAYA_TRANSFER, HARI_KERJA_PENCAIRAN, tambahHariKerja } from "@/lib/domain/tukar-aturan";
 
 // Belanja e-voucher lapak — dibayar UANG lewat DOKU (sejak 7 Okt 2026 Keteng hanya untuk Tukar Guling).
 // - Harga diambil dari DB; angka dari browser tidak dipakai sama sekali.
@@ -108,6 +110,19 @@ export function rincianTagihan(subtotal: number, metode: string) {
   return { subtotal, bea: pf.total, biaya_bayar: biaya, total };
 }
 
+/** Baris pesanan siap tagih (harga sudah dari DB / lelang). `titipan` = hak lapak per unit bila beda dari harga. */
+export type ItemPesanan = {
+  product_id: string | null;
+  merchant_id: string;
+  branch_id: string;
+  name: string;
+  branchName: string;
+  unit_price: number;
+  qty: number;
+  valid_days: number;
+  titipan?: number | null;
+};
+
 /**
  * Buat pesanan "menunggu" + sesi DOKU Checkout untuk metode terpilih.
  * Mode demo (tanpa DOKU, ENABLE_TOPUP_DEMO=true): langsung dianggap lunas.
@@ -118,6 +133,31 @@ export async function mulaiBelanja(
   kodeMetode: string,
   siteUrl: string,
 ): Promise<{ url: string; invoice: string }> {
+  const { siap } = await prisma.$transaction((tx) => siapkanBelanja(tx, baris));
+  return buatPesanan(
+    user,
+    siap.map((x) => ({
+      product_id: x.product.id,
+      merchant_id: x.merchant.id,
+      branch_id: x.branch.id,
+      name: x.product.name,
+      branchName: x.branch.name,
+      unit_price: x.product.price,
+      qty: x.qty,
+      valid_days: x.product.valid_days ?? 90, // masa berlaku yang dilihat pembeli saat membayar
+    })),
+    kodeMetode,
+    siteUrl,
+  );
+}
+
+export async function buatPesanan(
+  user: { id: string; name: string; email: string },
+  items: ItemPesanan[],
+  kodeMetode: string,
+  siteUrl: string,
+  opsi: { auctionId?: string; menit?: number } = {},
+): Promise<{ url: string; invoice: string }> {
   const mode = isiPundiTersedia();
   if (!mode) throw new Error("Pembayaran belum tersedia.");
   const metode = cariMetode(kodeMetode);
@@ -125,12 +165,12 @@ export async function mulaiBelanja(
     where: { user_id: user.id, status: "menunggu", created_at: { gt: new Date(Date.now() - 3600_000) } },
   });
   if (menunggu >= MAKS_MENUNGGU_PER_JAM) throw new Error("Masih ada pembayaran yang menunggu. Selesaikan dulu atau tunggu 1 jam.");
-
-  const { siap, subtotal } = await prisma.$transaction((tx) => siapkanBelanja(tx, baris));
+  const jumlah = items.reduce((s, x) => s + x.qty, 0);
+  if (jumlah > MAKS_VOUCHER) throw new Error(`Maksimal ${MAKS_VOUCHER} voucher per transaksi.`);
+  const subtotal = items.reduce((s, x) => s + x.unit_price * x.qty, 0);
   const t = rincianTagihan(subtotal, metode.kode);
   const invoice = invoiceBaru("KD-BLJ");
-  const jumlah = siap.reduce((s, x) => s + x.qty, 0);
-  if (jumlah > MAKS_VOUCHER) throw new Error(`Maksimal ${MAKS_VOUCHER} voucher per transaksi.`);
+  const menit = Math.max(10, Math.min(MENIT_BAYAR, Math.floor(opsi.menit ?? MENIT_BAYAR)));
   const order = await prisma.order.create({
     data: {
       user_id: user.id,
@@ -138,16 +178,18 @@ export async function mulaiBelanja(
       invoice_number: invoice,
       metode: metode.kode,
       provider: mode === "demo" ? "demo" : doku()!.nama,
-      expires_at: new Date(Date.now() + MENIT_BAYAR * 60_000),
+      expires_at: new Date(Date.now() + menit * 60_000),
+      auction_id: opsi.auctionId ?? null,
       items: {
-        create: siap.map((x) => ({
-          product_id: x.product.id,
-          merchant_id: x.merchant.id,
-          branch_id: x.branch.id,
-          name: x.product.name,
-          unit_price: x.product.price,
+        create: items.map((x) => ({
+          product_id: x.product_id,
+          merchant_id: x.merchant_id,
+          branch_id: x.branch_id,
+          name: x.name,
+          unit_price: x.unit_price,
           qty: x.qty,
-          valid_days: x.product.valid_days ?? 90, // masa berlaku yang dilihat pembeli saat membayar
+          valid_days: x.valid_days,
+          titipan: x.titipan ?? null,
         })),
       },
     },
@@ -164,10 +206,10 @@ export async function mulaiBelanja(
     itemName: `E-voucher Kongsi (${jumlah})`,
     customer: { id: user.id, name: user.name || user.email, email: user.email },
     callbackUrl: `${siteUrl.replace(/\/$/, "")}${kembali}`,
-    dueMinutes: MENIT_BAYAR,
+    dueMinutes: menit,
     metode: metode.kode,
     lineItems: [
-      ...siap.map((x) => ({ name: `${x.product.name} · ${x.branch.name}`, price: x.product.price, quantity: x.qty })),
+      ...items.map((x) => ({ name: `${x.name} · ${x.branchName}`, price: x.unit_price, quantity: x.qty })),
       { name: "Platform fee Kongsi", price: t.bea, quantity: 1 },
       { name: `Biaya pembayaran ${metode.nama}`, price: t.biaya_bayar, quantity: 1 },
     ],
@@ -204,6 +246,30 @@ export async function lunasiBelanja(invoice: string, amount: number, channel: st
         data: { status: "lunas", paid_at: new Date(), channel },
       });
       if (res.count !== 1) return "sudah";
+
+      // Pembayaran pemenang lelang: hanya sah bila hak belinya masih berlaku. Terlambat (hak sudah turun ke peringkat
+      // berikutnya) → tidak ada voucher; uang dikembalikan dipotong biaya DOKU & transfer (risiko pembayar yang telat).
+      if (o.auction_id) {
+        const hak = await tx.auctionHak.findFirst({ where: { auction_id: o.auction_id, user_id: o.user_id, status: "menunggu" } });
+        if (!hak) {
+          await antrikanTransfer(tx, {
+            jenis: "refund_belanja",
+            userId: o.user_id,
+            nominal: o.total - o.biaya_bayar - BIAYA_TRANSFER,
+            biaya: BIAYA_TRANSFER,
+            ref: o.invoice_number,
+            keterangan: "Pembayaran lelang melewati batas waktu — hak beli sudah berpindah. Dikembalikan dipotong biaya pembayaran & transfer.",
+            tenggat: tambahHariKerja(new Date(), HARI_KERJA_PENCAIRAN),
+          });
+          return "lunas";
+        }
+        await tx.auctionHak.update({ where: { id: hak.id }, data: { status: "lunas", order_id: o.id } });
+        await tx.auction.update({
+          where: { id: o.auction_id },
+          data: { status: "selesai", winner_id: o.user_id, winning_guess: hak.guess, selesai_at: new Date(), phase_ends_at: null },
+        });
+        await tx.auctionHak.updateMany({ where: { auction_id: o.auction_id, status: "antri" }, data: { status: "hangus" } });
+      }
 
       const now = Date.now();
       let jumlahVoucher = 0;

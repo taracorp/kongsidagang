@@ -162,6 +162,7 @@ model Merchant {
   vouchers      Voucher[]
   setoran       SetoranLapak[]
   potongan      PotonganLapak[]
+  auctions      Auction[]
 
   @@map("merchants")
 }
@@ -188,6 +189,7 @@ model MerchantProduct {
 
   orderItems OrderItem[]
   vouchers   Voucher[]
+  auctions   Auction[]
 
   @@index([merchant_id])
   @@map("merchant_products")
@@ -230,6 +232,7 @@ model Order {
   paid_at        DateTime?
   expires_at     DateTime?
   created_at     DateTime  @default(now())
+  auction_id     String? // pembayaran pemenang lelang
 
   items OrderItem[]
 
@@ -251,6 +254,7 @@ model OrderItem {
   unit_price  Int
   qty         Int
   valid_days  Int? // snapshot masa berlaku saat dipesan (lapak tidak bisa memendekkan voucher yang sudah dibayar)
+  titipan     Int? // hak lapak per unit bila beda dari unit_price (lelang: deal_price); null = unit_price
 
   vouchers Voucher[]
 
@@ -313,7 +317,7 @@ model Auction {
   facilities       String[]  @default([])
   deal_price       Int? // RAHASIA
   set_price        Int? // RAHASIA (harga yang ditebak)
-  status           String    @default("kumpul") // kumpul|tebak|jeda|final|pemenang|bayar|selesai
+  status           String    @default("draf") // draf|kumpul|tebak|jeda|final|pemenang|bayar|selesai|gagal|batal
   capacity         Int       @default(10)
   starts_at        DateTime?
   phase_ends_at    DateTime?
@@ -322,8 +326,20 @@ model Auction {
   winning_guess    Int?
   created_at       DateTime  @default(now())
 
+  // Lelang v2 (Ch 8.39): barang = produk lapak; pemenang wajib bayar set_price + platform fee + biaya DOKU.
+  merchant_id     String?
+  merchant        Merchant?        @relation(fields: [merchant_id], references: [id], onDelete: Restrict)
+  product_id      String?
+  product         MerchantProduct? @relation(fields: [product_id], references: [id], onDelete: Restrict)
+  dibuat_oleh     String?
+  dimulai_oleh    String?
+  dibatalkan_oleh String?
+  batal_alasan    String?
+  selesai_at      DateTime?
+
   participants AuctionParticipant[]
   guesses      AuctionGuess[]
+  hak          AuctionHak[]
 
   @@map("auctions")
 }
@@ -935,4 +951,24 @@ model PotonganLapak {
 
   @@index([merchant_id, setoran_id])
   @@map("potongan_lapak")
+}
+
+// Hak beli pemenang lelang: peringkat 1 wajib bayar dalam tenggat; tidak bayar → hangus, hak turun ke peringkat 2 lalu 3.
+model AuctionHak {
+  id           String    @id @default(uuid())
+  auction_id   String
+  auction      Auction   @relation(fields: [auction_id], references: [id], onDelete: Cascade)
+  user_id      String
+  peringkat    Int
+  guess        Int
+  status       String    @default("antri") // antri | menunggu | lunas | hangus
+  tenggat      DateTime?
+  order_id     String?
+  pengingat_at DateTime?
+  created_at   DateTime  @default(now())
+
+  @@unique([auction_id, peringkat])
+  @@unique([auction_id, user_id])
+  @@index([status, tenggat])
+  @@map("auction_hak")
 }

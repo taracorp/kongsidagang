@@ -19,6 +19,8 @@ export const HARI_TAHAN_SETOR = 3; // jeda setelah ditebus: kesempatan pembeli k
 const HARI = 86_400_000;
 
 const rp = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;
+/** Hak lapak per voucher: titipan (lelang: harga deal) atau harga jual. */
+const hakLapak = (i: { unit_price: number; titipan: number | null } | null) => (i ? (i.titipan ?? i.unit_price) : 0);
 
 /** Voucher lapak yang boleh disetor (filter Prisma). */
 export function syaratSiapSetor(now = new Date()): Prisma.VoucherWhereInput {
@@ -74,8 +76,8 @@ export type RingkasanLapak = {
 };
 
 async function jumlahHarga(where: Prisma.VoucherWhereInput) {
-  const v = await prisma.voucher.findMany({ where, select: { orderItem: { select: { unit_price: true } } } });
-  return { total: v.reduce((t, x) => t + (x.orderItem?.unit_price ?? 0), 0), jumlah: v.length };
+  const v = await prisma.voucher.findMany({ where, select: { orderItem: { select: { unit_price: true, titipan: true } } } });
+  return { total: v.reduce((t, x) => t + hakLapak(x.orderItem), 0), jumlah: v.length };
 }
 
 export async function ringkasanLapak(merchantIds?: string[]): Promise<RingkasanLapak[]> {
@@ -133,10 +135,10 @@ export async function buatSetoran(adminId: string, merchantId: string) {
     if (!m.rek_nomor) throw new Error("Lapak belum mengisi rekening setoran.");
     const vouchers = await tx.voucher.findMany({
       where: { merchant_id: merchantId, ...syaratSiapSetor() },
-      select: { id: true, orderItem: { select: { unit_price: true } } },
+      select: { id: true, orderItem: { select: { unit_price: true, titipan: true } } },
     });
     if (!vouchers.length) throw new Error("Belum ada voucher yang siap disetor.");
-    const kotor = vouchers.reduce((t, v) => t + (v.orderItem?.unit_price ?? 0), 0);
+    const kotor = vouchers.reduce((t, v) => t + hakLapak(v.orderItem), 0);
     const pot = await tx.potonganLapak.findMany({ where: { merchant_id: merchantId, setoran_id: null }, select: { id: true, nominal: true } });
     const potongan = pot.reduce((t, p) => t + p.nominal, 0);
     if (kotor <= potongan) throw new Error(`Potongan ${rp(potongan)} masih melebihi titipan siap setor ${rp(kotor)}.`);

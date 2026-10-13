@@ -252,6 +252,13 @@ tidak ada ganti rugi antar-user (aman dari akun kembar).
   tagihan dibuat. Tujuan gagal → Keteng tetap di Pundi + kabar lonceng. Idempoten (`tujuan_status`).
 - Komponen UI: `components/kongsi/BayarLangsung.tsx`; halaman hasil `/bayar/selesai?inv=`.
 
+### 6.1d Balai Lelang v2 (Fase 4, Ch 8.39)
+- Lelang = produk e-voucher lapak; dibuat pengurus (draf) di `/admin/lelang` dengan harga normal ≥ set ≥ deal + biaya
+  transfer; hanya tombol Mulai & Batalkan (sebelum pemenang). Sekali jalan, tidak berulang.
+- Pengurus & pemilik lapak tidak boleh ikut. Pemenang = tebakan terakhir terdekat (seri → paling awal), peringkat 1–3
+  (`auction_hak`). Pemenang wajib bayar set + platform fee + biaya DOKU dalam 12 jam (`/lelang/bayar/[id]`); voucher
+  terbit setelah lunas; tidak bayar → peringkat berikutnya → gagal. Hak lapak = harga deal (`order_items.titipan`).
+
 ### 6.2 Juru Tunjuk (concierge) — kuis tap-tap
 - 3 langkah, jawaban chip (bukan ketik) — enak di HP.
 - Alur: kategori → selera/atribut → kisaran harga → hasil produk.

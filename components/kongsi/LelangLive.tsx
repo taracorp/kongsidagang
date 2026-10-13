@@ -13,7 +13,7 @@ const statusLabel: Record<string, string> = {
   jeda: "Jeda menuju final",
   final: "Babak final",
   pemenang: "Pemenang ditentukan",
-  bayar: "Menunggu pembayaran",
+  bayar: "Menunggu pembayaran pemenang",
   selesai: "Selesai",
 };
 
@@ -33,9 +33,7 @@ export function LelangLive({
 
   const open = auction.status === "kumpul" || auction.status === "tebak";
   const decided = auction.revealed_price != null;
-  const iWon = Boolean(
-    userId && auction.winner_id && auction.winner_id === userId,
-  );
+  const iWon = Boolean(userId && auction.hak_user_id && auction.hak_user_id === userId);
 
   async function join() {
     if (!userId) return;
@@ -113,8 +111,12 @@ export function LelangLive({
           </b>
         </div>
         <div className="mt-1 text-[12px] font-bold text-kongsi-olive">
-          👥 {auction.peserta_count} peserta
+          👥 {auction.peserta_count} / {auction.capacity} peserta
         </div>
+        <p className="mt-1 text-[11px] text-kongsi-ink-soft">
+          Menang = wajib membayar harga set + platform fee + biaya pembayaran dalam 12 jam. Tidak bayar → hak pindah ke
+          peringkat berikutnya, dan 2 kali dalam 30 hari = tidak bisa ikut lelang 30 hari.
+        </p>
 
         {decided ? (
           <div className="mt-5">
@@ -155,13 +157,15 @@ export function LelangLive({
               </div>
             </div>
             {iWon ? (
-              <div className="rounded-[4px] border-2 border-kongsi-ok bg-[#E4EFE5] px-3 py-3 text-[13px] font-bold text-kongsi-ok">
-                🏆 Kamu menang! Surat Jalan sudah terbit —{" "}
-                <a href="/pakhuis" className="underline">
-                  lihat di Pakhuis
+              <div className="rounded-[4px] border-2 border-kongsi-ok bg-kongsi-sage/30 px-3 py-3 text-[13px] font-bold text-kongsi-ok">
+                🏆 Kamu pemegang hak beli{auction.hak_peringkat && auction.hak_peringkat > 1 ? ` (peringkat ${auction.hak_peringkat})` : ""}! Bayar sebelum batas
+                waktu untuk mendapatkan Surat Jalan.
+                <a href={`/lelang/bayar/${auction.id}`} className="mt-2 block rounded-[3px] border-2 border-kongsi-ink bg-kongsi-grenadine px-3 py-2 text-kongsi-parchment">
+                  Bayar sekarang →
                 </a>
-                .
               </div>
+            ) : auction.hak_peringkat && auction.hak_peringkat > 1 ? (
+              <p className="text-[12px] text-kongsi-ink-soft">Pemenang pertama tidak membayar — hak beli pindah ke peringkat {auction.hak_peringkat}.</p>
             ) : null}
           </div>
         ) : !userId ? (

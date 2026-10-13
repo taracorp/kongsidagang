@@ -1090,3 +1090,32 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - Artikel yang diperbarui (Ch 8.35 & 8.37) baru tampil di produksi setelah `scripts/data/tenant-asli.ts` dijalankan
   di VPS (menunggu izin Tara — skrip ini juga menyentuh data lapak).
 - Rollback: `git revert kd-setoran-lapak..` + deploy ulang; DB: restore backup di atas.
+
+### Ch 8.39 — Fase 4: Balai Lelang dibangun ulang (pemenang wajib bayar)
+2026-10-13
+- **Keputusan Tara:** "langsung bangun ulang" — pemenang membayar harga set + platform fee + biaya DOKU; sekali jalan;
+  hak beli turun ke peringkat 2 lalu 3.
+- **Lelang = produk e-voucher lapak** (`auctions.merchant_id/product_id`). Dibuat pengurus di `/admin/lelang` (draf):
+  harga normal ≥ harga set ≥ harga deal + biaya transfer setoran (Kongsi tidak rugi); pemilik lapak tidak bisa melelang
+  produknya sendiri. Tombol terbatas **Mulai** (draf → kumpul) & **Batalkan** (sebelum pemenang, alasan wajib, tercatat
+  `dibatalkan_oleh`). Dropdown status bebas dihapus.
+- **Alur sekali jalan:** draf → kumpul → tebak → jeda → final → pemenang → bayar → selesai | gagal | batal (fase 60 dtk
+  seperti sebelumnya). Tebakan & peserta tidak dihapus. Kapasitas peserta ditegakkan.
+- **Peserta:** pengurus (tahu harga rahasia) & pemilik lapak barang itu tidak boleh ikut; 2 hak hangus dalam 30 hari →
+  tidak bisa ikut lelang 30 hari.
+- **Pemenang:** tebakan terakhir tiap peserta; terdekat ke harga set; seri → tebakan paling awal. Peringkat 1–3 di
+  `auction_hak` (unik per lelang & per user → anti-dobel). Peringkat 1 diberi tenggat 12 jam (`tenggatBayar`, jam tidur
+  → 10.00 WIB), pengingat 2 jam sebelum.
+- **Bayar** (`/lelang/bayar/[id]`): pilih cabang + metode → pesanan belanja (`orders.auction_id`, harga = set,
+  `order_items.titipan` = harga deal). **Surat Jalan lapak terbit hanya setelah lunas.** Hak tidak hangus selama
+  pembayaran masih berjalan. Tidak bayar → hangus → peringkat berikutnya; habis → lelang **gagal** (tanpa kewajiban
+  ke lapak). Bayar setelah hak berpindah → tanpa voucher, uang kembali dipotong biaya DOKU + transfer.
+- **Setoran** memakai `titipan` (hak lapak = harga deal); margin harga set − deal = pendapatan Kongsi.
+- Harga set tetap hanya dibuka ke publik saat pengumuman pemenang; harga deal tidak pernah keluar.
+- **Migrasi** `20261013150000_lelang_v2` (dev ✓): kolom lelang v2, tabel `auction_hak`, `orders.auction_id`,
+  `order_items.titipan`, check status & harga. Lelang lama tanpa produk → `batal` (produksi: tidak ada lelang).
+  - Batal: `DROP TABLE auction_hak;` + drop kolom baru + drop check v2.
+- **Uji** `scripts/uji/lelang.ts` 26 ✓ (validasi harga, draf/mulai, larangan pengurus/pemilik, kapasitas, peringkat &
+  seri, tebakan terakhir, hangus → peringkat 2, bayar → voucher + titipan deal, sekali jalan, pembayaran berjalan
+  menahan hangus, gagal, bayar terlambat → refund dipotong, blokir, batal).
+- **Rollback:** `git revert` commit ini + SQL batal di atas.
