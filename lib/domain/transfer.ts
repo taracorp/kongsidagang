@@ -27,6 +27,7 @@ export async function antrikanTransfer(
     nominal: number;
     biaya: number;
     dealId?: string | null;
+    merchantId?: string | null;
     ref?: string | null;
     keterangan: string;
     tenggat: Date;
@@ -41,21 +42,33 @@ export async function antrikanTransfer(
       nominal,
       biaya: Math.max(0, Math.round(t.biaya)),
       deal_id: t.dealId ?? null,
+      merchant_id: t.merchantId ?? null,
       ref: t.ref ?? null,
       keterangan: t.keterangan.slice(0, 300),
       tenggat: t.tenggat,
     },
   });
-  const rek = await tx.rekeningUser.findUnique({ where: { user_id: t.userId }, select: { user_id: true } });
+  const rek = t.merchantId
+    ? await tx.merchant.findFirst({ where: { id: t.merchantId, rek_nomor: { not: null } }, select: { id: true } })
+    : await tx.rekeningUser.findUnique({ where: { user_id: t.userId }, select: { user_id: true } });
   await beriKabar(tx, t.userId, {
     kind: "pundi",
     title: `${LABEL_TRANSFER[t.jenis]}: Rp ${nominal.toLocaleString("id-ID")}`,
     body: `${t.keterangan} Ditransfer paling lambat ${t.tenggat.toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta", weekday: "long", day: "numeric", month: "long" })}.${
-      rek ? "" : " Isi rekening pencairan di Pakhuis agar bisa ditransfer."
+      rek ? "" : t.merchantId ? " Isi rekening setoran di Kelola Lapak agar bisa ditransfer." : " Isi rekening pencairan di Pakhuis agar bisa ditransfer."
     }`,
     href: "/pakhuis#transfer",
   });
   return row.id;
+}
+
+/** Rekening tujuan: rekening setoran lapak (transfer lapak) atau rekening pencairan user. */
+async function rekeningTujuan(db: Tx | typeof prisma, t: { user_id: string; merchant_id: string | null }) {
+  if (t.merchant_id) {
+    const m = await db.merchant.findUnique({ where: { id: t.merchant_id }, select: { rek_bank: true, rek_nomor: true, rek_atas_nama: true } });
+    return m?.rek_nomor ? { bank: m.rek_bank ?? "", nomor: m.rek_nomor, atas_nama: m.rek_atas_nama ?? "" } : null;
+  }
+  return db.rekeningUser.findUnique({ where: { user_id: t.user_id } });
 }
 
 /** Pengurus menandai transfer sudah dibayar. Rekening penerima terbaru disalin ke catatan. */
@@ -68,8 +81,8 @@ export async function tandaiDibayar(adminId: string, id: string, referensi: stri
     if (!t) throw new Error("Transfer tidak ditemukan.");
     if (t.status !== "antri") throw new Error(`Transfer berstatus ${t.status}.`);
     if (t.user_id === adminId) throw new Error("Tidak boleh menandai transfer untuk dirimu sendiri — minta pengurus lain.");
-    const rek = await tx.rekeningUser.findUnique({ where: { user_id: t.user_id } });
-    if (!rek) throw new Error("Penerima belum mengisi rekening pencairan.");
+    const rek = await rekeningTujuan(tx, t);
+    if (!rek) throw new Error(t.merchant_id ? "Lapak belum mengisi rekening setoran." : "Penerima belum mengisi rekening pencairan.");
     await tx.transferKeluar.update({
       where: { id },
       data: {
@@ -82,6 +95,9 @@ export async function tandaiDibayar(adminId: string, id: string, referensi: stri
         dibayar_oleh: adminId,
       },
     });
+    if (t.jenis === "setoran_lapak" && t.ref) {
+      await tx.setoranLapak.updateMany({ where: { id: t.ref, status: "antri" }, data: { status: "dibayar", dibayar_at: new Date() } });
+    }
     await beriKabar(tx, t.user_id, {
       kind: "pundi",
       title: `Uang ditransfer: Rp ${t.nominal.toLocaleString("id-ID")}`,
@@ -114,14 +130,21 @@ export async function daftarTransferAdmin(): Promise<{ antri: BarisTransfer[]; r
     prisma.transferKeluar.findMany({ where: { status: { not: "antri" } }, orderBy: { dibayar_at: "desc" }, take: 30 }),
   ]);
   const ids = [...new Set([...antri, ...riwayat].map((t) => t.user_id))];
-  const [users, reks] = await Promise.all([
+  const mids = [...new Set([...antri, ...riwayat].map((t) => t.merchant_id).filter((x): x is string => Boolean(x)))];
+  const [users, reks, lapak] = await Promise.all([
     prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true, email: true } }),
     prisma.rekeningUser.findMany({ where: { user_id: { in: ids } } }),
+    prisma.merchant.findMany({ where: { id: { in: mids } }, select: { id: true, name: true, rek_bank: true, rek_nomor: true, rek_atas_nama: true } }),
   ]);
   const sekarang = Date.now();
   const ke = (t: (typeof antri)[number]): BarisTransfer => {
     const u = users.find((x) => x.id === t.user_id);
-    const r = reks.find((x) => x.user_id === t.user_id);
+    const ml = t.merchant_id ? lapak.find((x) => x.id === t.merchant_id) : null;
+    const r = t.merchant_id
+      ? ml?.rek_nomor
+        ? { bank: ml.rek_bank ?? "", nomor: ml.rek_nomor, atas_nama: ml.rek_atas_nama ?? "" }
+        : null
+      : reks.find((x) => x.user_id === t.user_id);
     return {
       id: t.id,
       jenis: t.jenis,
@@ -134,7 +157,7 @@ export async function daftarTransferAdmin(): Promise<{ antri: BarisTransfer[]; r
       dealId: t.deal_id,
       referensi: t.referensi,
       dibayarAt: t.dibayar_at?.toISOString() ?? null,
-      penerima: { id: t.user_id, name: u?.name || "(akun dihapus)", email: u?.email ?? "" },
+      penerima: { id: t.user_id, name: ml ? `${ml.name} (lapak)` : u?.name || "(akun dihapus)", email: u?.email ?? "" },
       // Yang sudah dibayar menampilkan salinan saat dibayar; yang antri menampilkan rekening terbaru.
       rekening:
         t.status === "antri"

@@ -235,6 +235,10 @@ tidak ada ganti rugi antar-user (aman dari akun kembar).
   + biaya pembayaran DOKU metode pilihan (gross-up incl. PPN, `lib/payment/biaya.ts`) → Kongsi terima bersih.
   Tidak ada bea gratis per level/Cap.
 - Ditebus petugas lapak di `/pakhuis/lapak` (cabang harus cocok, atomik); voucher lelang ditebus admin di `/admin`.
+- **Setoran lapak (Fase 3, Ch 8.37):** titipan disetor hanya untuk voucher ditebus ≥ 3 hari tanpa laporan atau
+  kedaluwarsa (`/admin/setoran` → `transfer_keluar` ke rekening lapak). Laporan pembeli membekukan voucher; laporan
+  diterima / cabang tutup → pembeli kembali utuh, biaya (platform fee + DOKU + transfer) jadi `potongan_lapak`.
+  Pembeli boleh pindah cabang gratis selama voucher aktif.
 - Data tenant asli: `scripts/data/tenant-asli.ts` (idempoten). Jangan buat data contoh/dummy lagi.
 - Notifikasi: `beriKabar(tx, …)` di `lib/domain/kabar-user.ts`, dipanggil di dalam transaksi peristiwanya.
 

@@ -149,12 +149,19 @@ model Merchant {
   website     String?
   hours       String? // mis. "Senin–Minggu 09.00–18.00"
 
+  // Rekening setoran lapak (Ch 8.37): titipan voucher ditransfer ke sini.
+  rek_bank      String?
+  rek_nomor     String?
+  rek_atas_nama String?
+
   products      MerchantProduct[]
   priceListings PriceListing[]
   follows       Follow[]
   branches      MerchantBranch[]
   orderItems    OrderItem[]
   vouchers      Voucher[]
+  setoran       SetoranLapak[]
+  potongan      PotonganLapak[]
 
   @@map("merchants")
 }
@@ -720,22 +727,26 @@ model Voucher {
   title      String
   note       String?
   kind       String    @default("lelang") // lelang | evoucher | hadiah
-  status     String    @default("aktif") // aktif | terpakai | kadaluarsa
+  status     String    @default("aktif") // aktif | terpakai | kadaluarsa | dikembalikan
   expires_at DateTime?
   created_at DateTime  @default(now())
 
   // Kode tebus + asal voucher. Voucher lapak ditebus petugas lapak di cabangnya; voucher lelang oleh admin.
-  code          String?          @unique
-  merchant_id   String?
-  merchant      Merchant?        @relation(fields: [merchant_id], references: [id], onDelete: SetNull)
-  product_id    String?
-  product       MerchantProduct? @relation(fields: [product_id], references: [id], onDelete: SetNull)
-  branch_id     String?
-  branch        MerchantBranch?  @relation(fields: [branch_id], references: [id], onDelete: SetNull)
-  order_item_id String?
-  orderItem     OrderItem?       @relation(fields: [order_item_id], references: [id], onDelete: SetNull)
-  redeemed_at   DateTime?
-  redeemed_by   String? // user id petugas/admin
+  code            String?          @unique
+  merchant_id     String?
+  merchant        Merchant?        @relation(fields: [merchant_id], references: [id], onDelete: SetNull)
+  product_id      String?
+  product         MerchantProduct? @relation(fields: [product_id], references: [id], onDelete: SetNull)
+  branch_id       String?
+  branch          MerchantBranch?  @relation(fields: [branch_id], references: [id], onDelete: SetNull)
+  order_item_id   String?
+  orderItem       OrderItem?       @relation(fields: [order_item_id], references: [id], onDelete: SetNull)
+  redeemed_at     DateTime?
+  redeemed_by     String? // user id petugas/admin
+  // Setoran & komplain (Ch 8.37)
+  setoran_id      String? // sudah masuk setoran lapak
+  komplain_status String? // terbuka | diterima | ditolak
+  dikembalikan_at DateTime?
 
   @@index([merchant_id, status])
   @@map("vouchers")
@@ -841,6 +852,7 @@ model TransferKeluar {
   nominal      Int // yang diterima penerima
   biaya        Int       @default(0) // biaya transfer (sudah ditagih dari pihak yang tepat)
   deal_id      String?
+  merchant_id  String? // setoran lapak: rekening diambil dari lapak, bukan dari user
   ref          String?
   keterangan   String
   status       String    @default("antri") // antri | dibayar | batal
@@ -871,4 +883,56 @@ model SanksiTukar {
 
   @@index([user_id, created_at])
   @@map("sanksi_tukar")
+}
+
+// Komplain pembeli atas voucher lapak: "ditebus tapi belum dilayani" (≤ 3 hari) atau "lapak menolak / cabang tutup".
+// Selama terbuka, voucher dibekukan dari setoran sampai pengurus memutus.
+model KomplainVoucher {
+  id           String    @id @default(uuid())
+  voucher_id   String
+  user_id      String
+  alasan       String
+  status       String    @default("terbuka") // terbuka | diterima | ditolak
+  putus_oleh   String?
+  putus_alasan String?
+  putus_at     DateTime?
+  created_at   DateTime  @default(now())
+
+  @@index([status, created_at])
+  @@index([voucher_id])
+  @@map("komplain_voucher")
+}
+
+// Setoran titipan ke lapak: hanya voucher ditebus ≥ 3 hari tanpa komplain atau kedaluwarsa, dikurangi potongan.
+model SetoranLapak {
+  id             String    @id @default(uuid())
+  merchant_id    String
+  merchant       Merchant  @relation(fields: [merchant_id], references: [id], onDelete: Restrict)
+  nominal_kotor  Int
+  potongan       Int       @default(0)
+  nominal        Int
+  jumlah_voucher Int
+  status         String    @default("antri") // antri | dibayar
+  transfer_id    String?
+  dibuat_oleh    String
+  created_at     DateTime  @default(now())
+  dibayar_at     DateTime?
+
+  @@index([merchant_id, created_at(sort: Desc)])
+  @@map("setoran_lapak")
+}
+
+// Potongan setoran akibat kesalahan lapak (refund pembeli: platform fee + biaya DOKU + biaya transfer).
+model PotonganLapak {
+  id          String   @id @default(uuid())
+  merchant_id String
+  merchant    Merchant @relation(fields: [merchant_id], references: [id], onDelete: Restrict)
+  voucher_id  String?
+  nominal     Int
+  alasan      String
+  setoran_id  String? // terisi saat dipotong dari setoran
+  created_at  DateTime @default(now())
+
+  @@index([merchant_id, setoran_id])
+  @@map("potongan_lapak")
 }

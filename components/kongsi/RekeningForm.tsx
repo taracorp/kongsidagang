@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { simpanRekening } from "@/app/actions/tukar";
+import { simpanRekeningLapak } from "@/app/actions/loji";
 import { BANK } from "@/lib/data/bank";
 import { KongsiButton } from "./KongsiButton";
 
@@ -10,7 +11,14 @@ const input =
   "w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-3 py-[10px] font-work text-sm focus:outline-2 focus:outline-kongsi-beeswax";
 const label = "mb-[5px] block text-[13px] font-bold";
 
-export function RekeningForm({ awal }: { awal: { bank: string; nomor: string; atas_nama: string } | null }) {
+type Rek = { bank: string; nomor: string; atas_nama: string };
+
+/** Rekening setoran lapak (hanya pemilik lapak). */
+export function RekeningLapakForm({ merchantId, awal }: { merchantId: string; awal: Rek | null }) {
+  return <RekeningForm awal={awal} simpan={(r) => simpanRekeningLapak(merchantId, r)} />;
+}
+
+export function RekeningForm({ awal, simpan = simpanRekening }: { awal: Rek | null; simpan?: (r: Rek) => Promise<{ error: string | null }> }) {
   const router = useRouter();
   const [bank, setBank] = useState(awal?.bank ?? BANK[0].kode);
   const [nomor, setNomor] = useState(awal?.nomor ?? "");
@@ -22,7 +30,7 @@ export function RekeningForm({ awal }: { awal: { bank: string; nomor: string; at
     e.preventDefault();
     setBusy(true);
     setMsg(null);
-    const { error } = await simpanRekening({ bank, nomor, atas_nama: nama });
+    const { error } = await simpan({ bank, nomor, atas_nama: nama });
     setBusy(false);
     if (error) return setMsg({ ok: false, teks: error });
     setMsg({ ok: true, teks: "✓ Rekening tersimpan." });

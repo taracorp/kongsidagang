@@ -1048,3 +1048,36 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - **Cek:** `/`, `/tukar`, `/lapak`, `/bayar`, `/kabar` 200; `/pakhuis/rekening`, `/admin/transfer` → masuk (307);
   cron advance-barter menjawab normal.
 - **Rollback:** `git revert kd-tukar-v3..` + deploy ulang; DB: restore backup di atas.
+
+### Ch 8.37 — Fase 3: setoran lapak, laporan pembeli, pengembalian belanja, pindah cabang
+2026-10-13
+- **Keputusan Tara:** voucher kedaluwarsa (pembeli lalai) → uang untuk lapak; lapak gagal melayani → pembeli
+  dikembalikan lewat transfer dan semua biaya ditanggung lapak (dipotong dari setorannya).
+- **Setoran** (`lib/domain/setoran.ts`, `/admin/setoran`):
+  - hanya voucher **ditebus ≥ 3 hari tanpa laporan** atau **kedaluwarsa**; voucher aktif tidak pernah disetor;
+  - "Buat setoran" per lapak: jumlah harga voucher siap setor − potongan terbuka → `setoran_lapak` + antrian
+    `transfer_keluar` (jenis `setoran_lapak`, rekening LAPAK); biaya transfer setoran ditanggung Kongsi (platform fee);
+  - pengurus tidak bisa membuat setoran / menandai transfer untuk lapaknya sendiri; transfer dibayar → setoran dibayar.
+- **Rekening setoran lapak** (`merchants.rek_*`) di Kelola Lapak — hanya pemilik lapak yang bisa mengubah; perubahan
+  dikabarkan. Kelola Lapak kini menampilkan "Uang lapak" (aktif, ditahan, siap setor, potongan, sudah disetor) +
+  riwayat setoran.
+- **Laporan pembeli** (Surat Jalan → "Laporkan masalah"): untuk voucher aktif (cabang tutup / petugas menolak) atau
+  ditebus < 3 hari ("belum dilayani"). Selama terbuka voucher dibekukan dari setoran. Pengurus memutus (alasan wajib,
+  tidak boleh yang melibatkan dirinya): **terima** → pembeli kembali utuh (harga + bagian platform fee + bagian biaya
+  DOKU) lewat transfer `refund_belanja`; **tolak** → voucher kembali normal. Satu laporan per voucher.
+- **Pengembalian tanpa laporan** (`/admin/setoran`, kode voucher + alasan): untuk cabang tutup permanen / lapak menolak.
+- **Potongan lapak** (`potongan_lapak`) = bagian platform fee + bagian biaya DOKU + biaya transfer; harga voucher yang
+  dikembalikan memang tidak pernah disetor. Dipotong dari setoran berikutnya; setoran tidak bisa dibuat bila potongan
+  melebihi titipan siap setor.
+- **Pindah cabang** (Surat Jalan → "Pindah cabang"): gratis, voucher aktif, ke cabang aktif lapak yang sama.
+- Kartu "Titipan lapak" di `/admin` diganti ringkasan: aktif · ditahan · siap setor · potongan · antri/sudah disetor.
+- Artikel "Cara membeli dan menebus e-voucher" ditambah: pindah cabang, laporan & pengembalian, voucher kedaluwarsa.
+- **Migrasi** `20261013140000_setoran_lapak` (dev ✓): `merchants.rek_bank/rek_nomor/rek_atas_nama`,
+  `vouchers.setoran_id/komplain_status/dikembalikan_at` (+ status `dikembalikan`), `transfer_keluar.merchant_id`,
+  tabel `komplain_voucher`, `setoran_lapak`, `potongan_lapak`.
+  - Batal: `DROP TABLE potongan_lapak, setoran_lapak, komplain_voucher;` + drop kolom baru + kembalikan check status
+    voucher (hanya bila belum ada data).
+- **Uji** `scripts/uji/setoran.ts` 29 ✓ (pindah cabang, siap setor ≥ 3 hari/kedaluwarsa, laporan diterima → refund
+  utuh + potongan, laporan ditolak, setoran − potongan, anti setoran ganda, konflik kepentingan, transfer ke rekening
+  lapak, pengembalian tanpa laporan, voucher dikembalikan tidak bisa ditebus); belanja & bayar-langsung tetap lolos.
+- **Rollback:** `git revert` commit ini + SQL batal di atas.

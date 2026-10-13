@@ -928,6 +928,10 @@ export type PakhuisData = {
     expires_at: string | null;
     redeemed_at: string | null;
     branch: { name: string; address: string } | null;
+    /** voucher lapak: cabang lain yang bisa dipilih (aktif saja) */
+    cabangLain: { id: string; name: string }[];
+    bisaLapor: boolean;
+    komplain: string | null;
   }[];
   ledger: { amount: number; kind: string; note: string | null; created_at: string }[];
   isSaudagar: boolean;
@@ -948,6 +952,11 @@ export async function getPakhuis(): Promise<PakhuisData | null> {
     expires_at: true,
     redeemed_at: true,
     branch: { select: { name: true, address: true } },
+    merchant_id: true,
+    branch_id: true,
+    order_item_id: true,
+    setoran_id: true,
+    komplain_status: true,
   } as const;
   // Voucher aktif SELALU tampil semua (sudah dibayar); riwayat (terpakai/kedaluwarsa) cukup 30 terakhir.
   const [wallet, profile, aktif, riwayat, lapakCount, ledger] = await Promise.all([
@@ -976,13 +985,25 @@ export async function getPakhuis(): Promise<PakhuisData | null> {
     }),
   ]);
 
+  const merchantIds = [...new Set(aktif.map((v) => v.merchant_id).filter((x): x is string => Boolean(x)))];
+  const cabang = merchantIds.length
+    ? await prisma.merchantBranch.findMany({ where: { merchant_id: { in: merchantIds }, is_active: true }, select: { id: true, name: true, merchant_id: true }, orderBy: { sort: "asc" } })
+    : [];
+  const batasLapor = Date.now() - 3 * 86_400_000;
   return {
     name: profile?.full_name || user.name || user.email.split("@")[0] || "Saudagar",
     balance: wallet?.balance ?? 0,
     level: profile?.level ?? "pelanggan_kecil",
     stamps: profile?.stamps ?? 0,
     totalSpend: profile?.total_spend ?? 0,
-    vouchers: [...aktif, ...riwayat].map((v) => ({
+    vouchers: [...aktif, ...riwayat].map(({ merchant_id, branch_id, order_item_id, setoran_id, komplain_status, ...v }) => ({
+      cabangLain:
+        v.status === "aktif" && merchant_id ? cabang.filter((c) => c.merchant_id === merchant_id && c.id !== branch_id).map((c) => ({ id: c.id, name: c.name })) : [],
+      // Lapor: voucher lapak aktif, atau ditebus < 3 hari; belum pernah dilaporkan & belum disetor.
+      bisaLapor:
+        Boolean(merchant_id && order_item_id && !setoran_id && !komplain_status) &&
+        (v.status === "aktif" || (v.status === "terpakai" && !!v.redeemed_at && v.redeemed_at.getTime() > batasLapor)),
+      komplain: komplain_status,
       ...v,
       expires_at: v.expires_at?.toISOString() ?? null,
       redeemed_at: v.redeemed_at?.toISOString() ?? null,

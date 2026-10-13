@@ -26,6 +26,9 @@ export const ARTIKEL: ArtikelData[] = [
       "Begitu pembayaran berhasil, satu Surat Jalan terbit untuk setiap voucher yang kamu beli. Kalau kamu membeli dua kali Facial Acne, akan ada dua Surat Jalan dengan kode yang berbeda. Semuanya tersimpan di Pakhuis, bagian Surat Jalan, lengkap dengan kode, QR, alamat cabang, dan tanggal berlaku.",
       "Saat datang ke cabang, tunjukkan QR atau sebutkan kode 10 karakter di Surat Jalan kepada petugas. Petugas memindai atau mengetik kode itu di halaman validasi lapak. Begitu disahkan, status voucher berubah menjadi ditebus dan kamu menerima kabar di lonceng Kongsi.",
       "Satu kode hanya bisa dipakai sekali, dan hanya di cabang yang tertera. Jangan bagikan kode atau foto QR-mu ke orang lain sebelum kamu tiba di klinik. Voucher yang lewat masa berlakunya otomatis berstatus kedaluwarsa.",
+      "Salah pilih cabang? Selama voucher masih aktif, kamu bisa memindahkannya ke cabang lain dari lapak yang sama, gratis, lewat tombol Pindah cabang di Surat Jalan.",
+      "Kalau ada masalah — cabang ternyata tutup, petugas menolak voucher yang sah, atau voucher sudah ditebus tapi kamu belum dilayani — tekan Laporkan masalah di Surat Jalan. Laporan untuk voucher yang sudah ditebus bisa dikirim sampai 3 hari setelah ditebus. Selama diperiksa, uang voucher itu ditahan Kongsi dan tidak diteruskan ke lapak. Bila lapak terbukti tidak melayani, uangmu kembali utuh ke rekening (harga, platform fee, dan biaya pembayaran) paling lambat 2 hari kerja; biayanya ditanggung lapak.",
+      "Voucher yang tidak dipakai sampai masa berlakunya habis tidak bisa diuangkan kembali — kursi dan waktu petugas sudah disiapkan lapak untukmu.",
     ],
   },
   {

@@ -309,6 +309,8 @@ export type LapakKelola = {
   whatsapp: string | null;
   hours: string | null;
   logo: string | null;
+  isOwner: boolean;
+  rekening: { bank: string; nomor: string; atas_nama: string } | null;
   branches: { id: string; name: string; address: string; city: string | null; is_active: boolean }[];
   products: {
     id: string;
@@ -345,6 +347,8 @@ export async function getLapakKelola(userId: string, admin: boolean): Promise<La
     whatsapp: m.whatsapp,
     hours: m.hours,
     logo: m.logo_url,
+    isOwner: m.owner_id === userId,
+    rekening: m.rek_nomor ? { bank: m.rek_bank ?? "", nomor: m.rek_nomor, atas_nama: m.rek_atas_nama ?? "" } : null,
     branches: m.branches.map((b) => ({ id: b.id, name: b.name, address: b.address, city: b.city, is_active: b.is_active })),
     products: m.products.map((p) => ({
       id: p.id,

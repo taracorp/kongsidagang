@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { approveMerchantApplication } from "@/lib/domain/saudagar";
 import { tandaiDibayar } from "@/lib/domain/transfer";
+import * as Setoran from "@/lib/domain/setoran";
 import { isSuperadminEmail } from "@/lib/roles";
 import { run, requireAdminUp, requireKabarEditor, requireKetua } from "./_util";
 
@@ -157,5 +158,31 @@ export async function tandaiTransferDibayar(id: string, referensi: string) {
     const s = await requireAdminUp();
     await tandaiDibayar(s.userId!, String(id), String(referensi ?? ""));
     revalidatePath("/admin/transfer");
+  });
+}
+
+/** Buat setoran titipan untuk satu lapak (voucher ditebus ≥ 3 hari / kedaluwarsa, dikurangi potongan). */
+export async function buatSetoranLapak(merchantId: string) {
+  return run(async () => {
+    const s = await requireAdminUp();
+    await Setoran.buatSetoran(s.userId!, String(merchantId));
+    revalidatePath("/admin/setoran");
+  });
+}
+
+/** Putus laporan pembeli atas voucher lapak. */
+export async function putusKomplainVoucher(id: string, keputusan: "terima" | "tolak", alasan: string) {
+  return run(async () => {
+    const s = await requireAdminUp();
+    await Setoran.putusKomplain(s.userId!, String(id), keputusan, String(alasan ?? ""));
+    revalidatePath("/admin/setoran");
+  });
+}
+
+/** Kembalikan uang voucher aktif (cabang tutup permanen / lapak menolak voucher sah). */
+export async function kembalikanVoucherLapak(kode: string, alasan: string) {
+  return run(async () => {
+    const s = await requireAdminUp();
+    return Setoran.kembalikanVoucher(s.userId!, String(kode ?? ""), String(alasan ?? ""));
   });
 }

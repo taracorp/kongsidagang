@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { cariProdukTag, getKotaCabang } from "@/lib/queries-lapak";
 import { getSessionUser } from "@/lib/auth";
 import { pastikanCabangBolehNonaktif } from "@/lib/domain/belanja";
+import * as Setoran from "@/lib/domain/setoran";
 import { getStaffSession, isAdminUp } from "@/lib/roles";
 import { run, requireUser, toInt } from "./_util";
 
@@ -216,4 +217,14 @@ export async function cariJuruTunjuk(tag: string, min: number, max: number, kota
 
 export async function kotaJuruTunjuk() {
   return run(() => getKotaCabang());
+}
+
+/** Rekening setoran lapak — hanya pemilik lapak (pengurus tidak boleh mengubah rekening tujuan uang lapak). */
+export async function simpanRekeningLapak(merchantId: string, input: { bank: string; nomor: string; atas_nama: string }) {
+  return run(async () => {
+    const user = await requireUser();
+    const m = await prisma.merchant.findUnique({ where: { id: String(merchantId) }, select: { owner_id: true } });
+    if (!m || m.owner_id !== user.id) throw new Error("Hanya pemilik lapak yang bisa mengubah rekening setoran.");
+    await Setoran.simpanRekeningLapak(String(merchantId), input);
+  });
 }

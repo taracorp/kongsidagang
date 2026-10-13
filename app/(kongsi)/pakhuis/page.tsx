@@ -4,6 +4,7 @@ import { CompassRose, WaxSeal } from "@/components/kongsi/icons";
 import { Pill } from "@/components/kongsi/Pill";
 import { LogoutButton } from "@/components/kongsi/LogoutButton";
 import { IsiPundiPaket } from "@/components/kongsi/PundiActions";
+import { VoucherAksi } from "@/components/kongsi/VoucherAksi";
 import { getPakhuis } from "@/lib/queries";
 import { getSessionUser } from "@/lib/auth";
 import { isiPundiTersedia, rekonsiliasiIsiPundi } from "@/lib/domain/pundi";
@@ -148,6 +149,7 @@ export default async function PakhuisPage({
                     {v.kind === "lelang" ? "Tunjukkan kode ke admin Kongsi" : "Tunjukkan kode/QR ke petugas cabang"}
                     {v.expires_at ? ` · berlaku s/d ${tgl(v.expires_at)}` : ""}
                   </div>
+                  <VoucherAksi id={v.id} cabangLain={v.cabangLain} bisaLapor={v.bisaLapor} komplain={v.komplain} />
                 </div>
               </div>
             ))}
@@ -162,9 +164,12 @@ export default async function PakhuisPage({
                   <span>
                     {v.title} <span className="text-kongsi-ink-soft">· {v.note}</span>
                   </span>
-                  <Pill variant={v.status === "terpakai" ? "sage" : "indigo"}>
-                    {v.status === "terpakai" ? `ditebus${v.redeemed_at ? ` ${tgl(v.redeemed_at)}` : ""}` : "kedaluwarsa"}
-                  </Pill>
+                  <span className="text-right">
+                    <Pill variant={v.status === "terpakai" ? "sage" : "indigo"}>
+                      {v.status === "terpakai" ? `ditebus${v.redeemed_at ? ` ${tgl(v.redeemed_at)}` : ""}` : v.status === "dikembalikan" ? "uang dikembalikan" : "kedaluwarsa"}
+                    </Pill>
+                    <VoucherAksi id={v.id} cabangLain={[]} bisaLapor={v.bisaLapor} komplain={v.komplain} />
+                  </span>
                 </li>
               ))}
             </ul>

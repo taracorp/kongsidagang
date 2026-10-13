@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/db";
 import { mulaiBelanja, tebusVoucherLapak, tebusVoucherAdmin, type BarisBelanja } from "@/lib/domain/belanja";
+import * as Setoran from "@/lib/domain/setoran";
 import { run, requireUser, requireAdminUp } from "./_util";
 
 /**
@@ -41,5 +42,21 @@ export async function tebusVoucherKantor(kode: string) {
   return run(async () => {
     const s = await requireAdminUp();
     return tebusVoucherAdmin(s.userId!, String(kode ?? ""));
+  });
+}
+
+/** Pembeli melaporkan voucher (lapak menolak / cabang tutup / sudah ditebus tapi belum dilayani). */
+export async function laporkanVoucher(voucherId: string, alasan: string) {
+  return run(async () => {
+    const user = await requireUser();
+    await Setoran.ajukanKomplain(user.id, String(voucherId), String(alasan ?? ""));
+  });
+}
+
+/** Pembeli memindahkan voucher aktif ke cabang lain di lapak yang sama. */
+export async function pindahCabangVoucher(voucherId: string, branchId: string) {
+  return run(async () => {
+    const user = await requireUser();
+    await Setoran.pindahCabang(user.id, String(voucherId), String(branchId));
   });
 }
