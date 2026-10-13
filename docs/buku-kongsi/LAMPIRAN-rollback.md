@@ -39,7 +39,7 @@ Titik rollback = **git tag annotated** `kd-*`. Lihat semua: `git tag -l 'kd-*' -
 | `kd-platform-fee` | 5ceac36 | 2026-10-07 | Platform fee Rp4.000 + biaya DOKU ditanggung pembeli; belanja pakai uang; Keteng khusus Tukar Guling; tanpa bonus | migrasi `20261007120000_bayar_uang_platform_fee`, `20261007130000_topup_tanpa_bonus` |
 | `kd-kiriminaja-uat` | 743e456 | 2026-10-12 | KiriminAja: Uji Kurir, label Code128A, KA Credit + prefix KDG-, perbaikan qty/items, retry; UAT sandbox | migrasi `20261007150000_kurir_uji_label` (produksi ✓ 12 Okt) |
 | `kd-kurir-kota` | bf12ba3 | 2026-10-12 | Deploy produksi: KiriminAja (Uji Kurir, label, KA Credit) + kota resmi & barang dicari di Tukar Guling | migrasi `20261007150000_kurir_uji_label`, `20261012080000_barang_dicari` (produksi ✓) |
-| `kd-pengaman-uang` | 4cfac48 | 2026-10-13 | Fase 1 pengaman uang: saklar uji mati di produksi, KA Credit aman (perlu_cek/perlu_batal), rekonsiliasi DOKU + pembayaran bermasalah, COD anti-tipu, kartu tidak untuk Keteng (Ch 8.33) | migrasi `20261013090000_pengaman_uang`, `20261013100000_bermasalah_selesai`, `20261013110000_status_paket` (dev ✓, produksi: menunggu izin deploy) |
+| `kd-pengaman-uang` | 4cfac48 | 2026-10-13 | Fase 1 pengaman uang: saklar uji mati di produksi, KA Credit aman (perlu_cek/perlu_batal), rekonsiliasi DOKU + pembayaran bermasalah, COD anti-tipu, kartu tidak untuk Keteng (Ch 8.33) | migrasi `20261013090000_pengaman_uang`, `20261013100000_bermasalah_selesai`, `20261013110000_status_paket` (dev ✓, produksi ✓ 13 Okt) |
 
 ## Prosedur
 

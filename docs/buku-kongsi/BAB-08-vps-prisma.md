@@ -963,3 +963,17 @@ Traefik yang sudah ada di VPS, cukup atur port.
     `.next/node_modules/*` dari akar yang ia tebak (`../../../../kdb/kongsidagang/node_modules/pg`). Skrip menulis ulang
     setiap symlink menjadi relatif di dalam proyek (`../../node_modules/pg`) dan batal bila ada symlink ke luar
     `node_modules` proyek.
+
+### Ch 8.34 — Deploy produksi Fase 1 (pengaman uang)
+2026-10-13
+- Atas perintah Tara ("lanjutkan"), lewat `bash scripts/deploy-lokal.sh fase1` (build commit `b9e404b` di laptop).
+- **Backup:** `/root/backup-kongsi/kongsi-20261013-0915-pre-fase1.sql.gz` (36 tabel).
+- **Migrasi produksi ✓:** `20261013090000_pengaman_uang`, `20261013100000_bermasalah_selesai`,
+  `20261013110000_status_paket`.
+- **Symlink** `.next/node_modules` ditulis ulang otomatis (`../../node_modules/pg`, `../../../node_modules/@prisma/client`)
+  → tidak ada insiden 500 seperti Ch 8.32.
+- **Cek:** `/`, `/tukar`, `/lapak`, `/bayar`, `/kabar`, `/keranjang` 200 (dari luar); `/admin`, `/pakhuis` → masuk
+  (307); cron tanpa token 401; cron dengan token menjawab
+  `{"paket":{"dicek":0,…},"pembayaran":{"dicek":0,"lunas":0}}`. Log hanya berisi "Failed to find Server Action" dari
+  tab lama (wajar setelah deploy).
+- **Rollback:** `git revert kd-pengaman-uang..` lalu deploy ulang; DB: restore backup di atas.
