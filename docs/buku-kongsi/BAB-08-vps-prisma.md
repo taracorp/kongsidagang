@@ -1081,3 +1081,12 @@ Traefik yang sudah ada di VPS, cukup atur port.
   utuh + potongan, laporan ditolak, setoran − potongan, anti setoran ganda, konflik kepentingan, transfer ke rekening
   lapak, pengembalian tanpa laporan, voucher dikembalikan tidak bisa ditebus); belanja & bayar-langsung tetap lolos.
 - **Rollback:** `git revert` commit ini + SQL batal di atas.
+
+### Ch 8.38 — Deploy produksi Fase 3 (setoran lapak)
+2026-10-13
+- `bash scripts/deploy-lokal.sh fase3` (build `0639ae2`). Backup `/root/backup-kongsi/kongsi-20261013-1355-pre-fase3.sql.gz`
+  (40 tabel). Migrasi produksi ✓ `20261013140000_setoran_lapak`.
+- Cek: `/`, `/tukar`, `/lapak`, `/bayar`, `/kabar` 200; `/pakhuis/lapak`, `/admin/setoran` → masuk (307).
+- Artikel yang diperbarui (Ch 8.35 & 8.37) baru tampil di produksi setelah `scripts/data/tenant-asli.ts` dijalankan
+  di VPS (menunggu izin Tara — skrip ini juga menyentuh data lapak).
+- Rollback: `git revert kd-setoran-lapak..` + deploy ulang; DB: restore backup di atas.
