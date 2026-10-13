@@ -1,5 +1,6 @@
 import { dokuConfig } from "@/lib/payment/doku";
 import { kirimAktif } from "@/lib/shipping/kiriminaja";
+import { saklarUji } from "@/lib/mode-uji";
 
 type Status = { nama: string; aktif: boolean; ket: string; langkah?: string[] };
 
@@ -18,13 +19,13 @@ export async function KartuIntegrasi() {
   const daftar: Status[] = [
     {
       nama: "DOKU (Isi Pundi)",
-      aktif: !!dokuConfig() && process.env.DOKU_MOCK !== "true",
-      ket: process.env.DOKU_MOCK === "true" ? "mode tiruan" : (process.env.DOKU_BASE_URL ?? "https://api.doku.com"),
+      aktif: !!dokuConfig() && !saklarUji("DOKU_MOCK"),
+      ket: saklarUji("DOKU_MOCK") ? "mode tiruan" : (process.env.DOKU_BASE_URL ?? "https://api.doku.com"),
       langkah: ["Isi DOKU_CLIENT_ID & DOKU_SECRET_KEY (SK-…) di .env VPS", "URL notifikasi Back Office: /api/doku/notifikasi"],
     },
     {
       nama: "KiriminAja (Tukar Guling mode Kirim)",
-      aktif: kirimAktif() && process.env.KIRIMINAJA_MOCK !== "true",
+      aktif: kirimAktif() && !saklarUji("KIRIMINAJA_MOCK"),
       ket: kirimAktif() ? "aktif" : "menunggu API key — mode Kirim & Alamat kirim disembunyikan",
       langkah: [
         "Isi KIRIMINAJA_API_KEY (+ KIRIMINAJA_PIN untuk KA Credit) di .env VPS",

@@ -3,6 +3,7 @@ import { getAdminOverview } from "@/lib/queries";
 import { KartuIntegrasi } from "@/components/admin/KartuIntegrasi";
 import { TebusVoucherKantor } from "@/components/admin/TebusVoucherKantor";
 import { TitipanLapak } from "@/components/admin/TitipanLapak";
+import { PembayaranBermasalah } from "@/components/admin/PembayaranBermasalah";
 import { getStaffSession, isAdminUp } from "@/lib/roles";
 
 export default async function RingkasanPage() {
@@ -45,6 +46,7 @@ export default async function RingkasanPage() {
       </div>
       {admin ? (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <PembayaranBermasalah />
           <TitipanLapak />
           <KartuIntegrasi />
           <TebusVoucherKantor />

@@ -39,7 +39,9 @@ export async function getStaffSession(): Promise<StaffSession> {
   const name =
     profile?.full_name || user.name || user.email.split("@")[0] || "Pengurus";
 
-  const isSuper = isSuperadminEmail(user.email);
+  // Superadmin hanya bila email TERVERIFIKASI (login Google / verifikasi). Tanpa ini, siapa pun yang mendaftar
+  // memakai email di SUPERADMIN_EMAILS (sebelum pemiliknya) otomatis jadi Ketua.
+  const isSuper = user.emailVerified && isSuperadminEmail(user.email);
   return {
     userId: user.id,
     email: user.email,

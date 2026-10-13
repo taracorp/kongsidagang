@@ -1,4 +1,5 @@
 import "server-only";
+import { saklarUji } from "@/lib/mode-uji";
 
 // Klien KiriminAja Mitra API (express). Docs: github.com/kiriminaja/docs
 // Env:
@@ -143,7 +144,10 @@ function fmtJakarta(d: Date) {
 // Driver asli
 // ============================================================
 
-class KiriminAjaError extends Error {}
+/** KiriminAja MENJAWAB dengan penolakan (status false) → permintaan pasti tidak diproses. */
+export class KiriminAjaError extends Error {}
+/** Order terbentuk tetapi belum terbayar (saldo KA Credit/PIN bermasalah) → order ADA, perlu tindakan admin. */
+export class KiriminAjaBelumBayar extends KiriminAjaError {}
 
 function driverAsli(apiKey: string): KurirDriver {
   const base = (process.env.KIRIMINAJA_BASE_URL || "https://client.kiriminaja.com").replace(/\/$/, "");
@@ -318,7 +322,7 @@ function driverAsli(apiKey: string): KurirDriver {
         },
       );
       if (o.bayar !== "qris" && r.payment_status && r.payment_status !== "paid") {
-        throw new KiriminAjaError(`KiriminAja: ongkir belum terbayar (${r.payment_status}). Cek saldo KA Credit & PIN.`);
+        throw new KiriminAjaBelumBayar(`KiriminAja: ongkir belum terbayar (${r.payment_status}). Cek saldo KA Credit & PIN.`);
       }
       return {
         pickup_number: r.pickup_number ?? null,
@@ -392,17 +396,23 @@ const driverTiruan: KurirDriver = {
   async jadwalPickup() {
     return fmtJakarta(new Date(Date.now() + 2 * 3600_000));
   },
+  // Skenario uji (hanya driver tiruan): KIRIMINAJA_MOCK_ORDER=putus → order terbentuk tetapi jawaban hilang;
+  // KIRIMINAJA_MOCK_BATAL=success|pending|tolak; KIRIMINAJA_MOCK_LACAK=hilang → order tidak ditemukan.
   async buatOrder(o) {
     urutTiruan++;
+    if (process.env.KIRIMINAJA_MOCK_ORDER === "putus") throw new Error("fetch failed (tiruan)");
     return { pickup_number: `MOCK-PID-${Date.now()}-${urutTiruan}`, awb: `MOCK${o.order_id}` };
   },
   async batalkan() {
-    return { text: "Paket akan dibatalkan (tiruan)", data: { success: "pending" } };
+    const m = process.env.KIRIMINAJA_MOCK_BATAL ?? "pending";
+    if (m === "tolak") throw new KiriminAjaError("Paket sudah dijemput kurir (tiruan)");
+    return { text: m === "success" ? "Paket dibatalkan (tiruan)" : "Paket akan dibatalkan (tiruan)", data: { success: m } };
   },
   async saldoKredit() {
     return 500_000;
   },
   async lacak(id) {
+    if (process.env.KIRIMINAJA_MOCK_LACAK === "hilang") throw new KiriminAjaError("Paket tidak ditemukan (tiruan)");
     return {
       text: "Paket dibuat (tiruan)",
       awb: id.startsWith("MOCK") ? id : `MOCK${id}`,
@@ -419,7 +429,7 @@ const driverTiruan: KurirDriver = {
 export function kurir(): KurirDriver | null {
   const key = process.env.KIRIMINAJA_API_KEY;
   if (key) return driverAsli(key);
-  if (process.env.KIRIMINAJA_MOCK === "true") return driverTiruan;
+  if (saklarUji("KIRIMINAJA_MOCK")) return driverTiruan;
   return null;
 }
 
@@ -440,6 +450,6 @@ export function kirimAktif(): boolean {
 /** Token yang wajib ada di header Authorization webhook (KiriminAja mengirim Bearer {api_key}). */
 export function tokenWebhook(): string | null {
   if (process.env.KIRIMINAJA_API_KEY) return process.env.KIRIMINAJA_API_KEY;
-  if (process.env.KIRIMINAJA_MOCK === "true") return "tiruan";
+  if (saklarUji("KIRIMINAJA_MOCK")) return "tiruan";
   return null;
 }

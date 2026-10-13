@@ -41,6 +41,16 @@ function rapikan(tujuan: Tujuan, m: unknown): Muatan {
   }
 }
 
+/** Identitas aksi (untuk mencegah tagihan ganda): tawaran = barang sendiri + barang incaran, deal = id deal. */
+function kunciMuatan(tujuan: Tujuan, m: Muatan | null): string {
+  if (!m) return "";
+  if (tujuan === "tukar_ajukan") {
+    const a = m as MuatanAjukan;
+    return `${a.myItemId}>${a.targetId}`;
+  }
+  return (m as MuatanTerima | MuatanOngkir).dealId ?? "";
+}
+
 /** Keteng yang dibutuhkan tujuan, dihitung di server (sekaligus memvalidasi input sebelum user membayar). */
 export async function hitungKebutuhan(userId: string, tujuan: Tujuan, m: Muatan): Promise<number> {
   switch (tujuan) {
@@ -88,6 +98,18 @@ export async function mulaiBayarLangsung(
   if (keteng <= 0) throw new Error("Saldo Keteng sudah cukup — bayar pakai Keteng saja.");
   if (keteng > TOPUP_MAX) throw new Error(`Maksimal Rp ${TOPUP_MAX.toLocaleString("id-ID")} per pembayaran.`);
   const data = { tujuan, muatan: muatan as unknown as Prisma.InputJsonValue };
+
+  // Satu tagihan menunggu per aksi: mencegah user membayar dua kali untuk tawaran/deal yang sama.
+  const kunci = kunciMuatan(tujuan, muatan);
+  const menunggu = await prisma.topupOrder.findMany({
+    where: { user_id: user.id, tujuan, status: "pending", expires_at: { gt: new Date() } },
+    select: { invoice_number: true, muatan: true, keteng: true, metode: true, payment_url: true },
+  });
+  const ganda = menunggu.find((o) => kunciMuatan(tujuan, o.muatan as unknown as Muatan) === kunci);
+  if (ganda) {
+    if (ganda.payment_url && ganda.keteng === keteng && ganda.metode === metode) return { url: ganda.payment_url, invoice: ganda.invoice_number };
+    throw new Error("Masih ada tagihan yang menunggu dibayar untuk aksi ini. Selesaikan tagihan itu atau tunggu sampai kedaluwarsa.");
+  }
 
   if (mode === "demo") {
     // Tanpa DOKU (dev): anggap langsung lunas.

@@ -42,14 +42,14 @@ export const auth = betterAuth({
   plugins: [nextCookies()],
 });
 
-export type SessionUser = { id: string; email: string; name: string };
+export type SessionUser = { id: string; email: string; name: string; emailVerified: boolean };
 
 /** User yang sedang login (atau null). Di-cache per request. */
 export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) return null;
-  const { id, email, name } = session.user;
-  return { id, email, name };
+  const { id, email, name, emailVerified } = session.user;
+  return { id, email, name, emailVerified: Boolean(emailVerified) };
 });
 
 /** Wajib login — dipakai di server actions. */

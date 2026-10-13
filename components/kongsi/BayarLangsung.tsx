@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { bayarLangsung } from "@/app/actions/pundi";
 import type { CaraBayar, Tujuan } from "@/lib/domain/bayar-langsung";
-import { rincianBayar, METODE_AWAL } from "@/lib/payment/biaya";
+import { rincianBayar, METODE_AWAL_KETENG } from "@/lib/payment/biaya";
 import { nominalLangsung, tautanIsi } from "@/lib/pundi-paket";
 import { cn, formatKeping } from "@/lib/utils";
 import { KongsiButton } from "./KongsiButton";
@@ -33,7 +33,7 @@ export function BayarLangsung({
   disabled?: boolean;
   kecil?: boolean; // tombol ringkas (lembar Ajukan Tukar)
 }) {
-  const [metode, setMetode] = useState(METODE_AWAL);
+  const [metode, setMetode] = useState(METODE_AWAL_KETENG);
   const [busy, setBusy] = useState<CaraBayar | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -96,7 +96,7 @@ export function BayarLangsung({
   const kNeto = keteng(sebagian ? "kurang" : "penuh") ?? 0;
   return (
     <div className="space-y-2">
-      <PilihMetode ringkas neto={kNeto} value={metode} onChange={setMetode} />
+      <PilihMetode ringkas keteng neto={kNeto} value={metode} onChange={setMetode} />
       {sebagian ? [tombolBayar("kurang", true), tombolBayar("penuh", false)] : tombolBayar("penuh", true)}
       <p className="text-[11px] text-kongsi-ink-soft">
         Yang kamu bayar dibelikan Keteng (1 Rupiah = 1 Keteng, minimal 10.000) lalu langsung dipakai untuk tukar ini,

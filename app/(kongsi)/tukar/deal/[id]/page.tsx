@@ -45,6 +45,9 @@ const statusPaket: Record<string, string> = {
   returned: "diretur",
   problem: "bermasalah",
   failed: "gagal dibuat",
+  perlu_cek: "memastikan ke kurir",
+  perlu_batal: "pembatalan diproses kurir",
+  batal_gagal: "tidak bisa dibatalkan (sudah dijemput)",
 };
 
 const kartu = "rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-5 shadow-hard";
@@ -88,7 +91,7 @@ function KartuPaket({ p, mine, theirs }: { p: DealPaket; mine: string; theirs: s
     <div className="rounded-[4px] border-[1.5px] border-kongsi-ink/30 bg-kongsi-parchment-3 p-3 text-[13px]">
       <div className="flex items-center justify-between gap-2">
         <b>{p.iReceive ? `${theirs} → aku` : `${mine} → dia`}</b>
-        <Pill variant={p.status === "delivered" ? "sage" : ["problem", "failed", "canceled", "returned"].includes(p.status) ? "live" : "gold"}>
+        <Pill variant={p.status === "delivered" ? "sage" : ["problem", "failed", "canceled", "returned", "perlu_batal", "batal_gagal"].includes(p.status) ? "live" : "gold"}>
           {statusPaket[p.status] ?? p.status}
         </Pill>
       </div>

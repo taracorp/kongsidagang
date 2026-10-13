@@ -65,6 +65,13 @@ async function main() {
     const o1 = await order(k1.invoice);
     ok(o1.keteng === butuh - 100_000 && o1.price === rincianBayar(o1.keteng, "QRIS").total && o1.biaya_bayar === o1.price - o1.keteng,
       `pakai saldo: beli ${o1.keteng} Keteng, bayar ${o1.price} (biaya QRIS ${o1.biaya_bayar})`);
+    const k1b = await L.mulaiBayarLangsung(akun(U), "tukar_ajukan", ajukan, "kurang", "QRIS", SITE);
+    ok(k1b.invoice === k1.invoice, "klik ulang aksi yang sama → tagihan yang sama dipakai lagi (bukan tagihan baru)");
+    ok((await galat(() => L.mulaiBayarLangsung(akun(U), "tukar_ajukan", ajukan, "penuh", "VIRTUAL_ACCOUNT_BRI", SITE))).includes("menunggu"),
+      "tagihan lain untuk aksi yang sama ditolak selama tagihan pertama menunggu");
+    ok((await galat(() => P.mulaiIsiPundi(akun(U), "50000", "CREDIT_CARD", SITE))).includes("Kartu"), "kartu kredit ditolak untuk Keteng (Isi Pundi)");
+    await prisma.topupOrder.deleteMany({ where: { invoice_number: k1.invoice } });
+    ok((await galat(() => L.mulaiBayarLangsung(akun(U), "tukar_ajukan", ajukan, "penuh", "CREDIT_CARD", SITE))).includes("Kartu"), "kartu kredit ditolak untuk Bayar Langsung");
     const k2 = await L.mulaiBayarLangsung(akun(U), "tukar_ajukan", ajukan, "penuh", "VIRTUAL_ACCOUNT_BRI", SITE);
     const o2 = await order(k2.invoice);
     ok(o2.keteng === butuh && o2.biaya_bayar >= 4_440 && o2.metode === "VIRTUAL_ACCOUNT_BRI", `bayar penuh: ${o2.keteng} Keteng + biaya VA ${o2.biaya_bayar}`);
@@ -85,6 +92,9 @@ async function main() {
     ok(oe.keteng === butuh && oe.price === rincianBayar(butuh, "QRIS").total, `ajukan: ${butuh} Keteng (bea 10rb + tambah ${sel.diff}) + biaya QRIS`);
     await notif(e.invoice, oe.price - 100);
     ok((await order(e.invoice)).status === "pending", "nominal tidak cocok → ditolak");
+    ok((await prisma.pembayaranBermasalah.count({ where: { invoice: e.invoice, jenis: "nominal_tidak_cocok" } })) === 1, "nominal tidak cocok dicatat sebagai pembayaran bermasalah");
+    await notif(e.invoice, oe.price - 100);
+    ok((await prisma.pembayaranBermasalah.count({ where: { invoice: e.invoice } })) === 1, "notifikasi ulang tidak mencatat dobel");
     await notif(e.invoice, oe.price);
     const o = await order(e.invoice);
     const deal = o.tujuan_ref ? await prisma.barterDeal.findUnique({ where: { id: o.tujuan_ref } }) : null;
@@ -104,6 +114,9 @@ async function main() {
       ok(s === (await bal(id)), `${id}: Σ transaksi = saldo (ditahan ${ditahan})`);
     }
   } finally {
+    const inv = (await prisma.topupOrder.findMany({ where: { user_id: { in: ids } }, select: { invoice_number: true } })).map((o) => o.invoice_number);
+    await prisma.pembayaranBermasalah.deleteMany({ where: { invoice: { in: inv } } });
+    await prisma.notification.deleteMany({ where: { title: { in: inv.map((i) => `Pembayaran bermasalah: ${i}`) } } });
     await prisma.barterDeal.deleteMany({ where: { OR: [{ item_a: { in: items } }, { item_b: { in: items } }] } });
     await prisma.user.deleteMany({ where: { id: { in: ids } } });
     await prisma.$disconnect();

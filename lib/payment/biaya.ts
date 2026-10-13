@@ -64,6 +64,19 @@ export function cariMetode(kode: string): Metode {
   return m;
 }
 
+/**
+ * Keteng (Isi Pundi / Bayar Langsung) TIDAK boleh dibeli dengan kartu: chargeback kartu bisa datang berminggu-minggu
+ * setelah Keteng dibelanjakan di Tukar Guling, dan Kongsi yang menanggung. Kartu hanya untuk belanja e-voucher.
+ */
+export const bolehUntukKeteng = (m: Metode) => m.grup !== "kartu";
+export const METODE_AWAL_KETENG = (METODE_AKTIF.find((m) => m.grup === "qris") ?? METODE_AKTIF.find(bolehUntukKeteng) ?? METODE[0]).kode;
+
+export function cariMetodeKeteng(kode: string): Metode {
+  const m = cariMetode(kode);
+  if (!bolehUntukKeteng(m)) throw new Error("Kartu kredit/debit tidak bisa dipakai untuk Keteng. Pilih QRIS, Virtual Account, atau e-wallet.");
+  return m;
+}
+
 /** Potongan DOKU (termasuk PPN) atas nominal yang dibayar pembeli. */
 export function potonganDoku(total: number, m: Metode): number {
   return Math.ceil((total * m.persen + m.flat) * (1 + PPN));

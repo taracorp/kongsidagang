@@ -4,10 +4,11 @@ import { getSessionUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { formatKeping } from "@/lib/utils";
 import { tautanHasil } from "@/lib/domain/bayar-langsung";
+import { saklarUji } from "@/lib/mode-uji";
 
 /** Halaman bayar tiruan pengganti DOKU (hanya DOKU_MOCK=true, untuk dev/uji). */
 export default async function BayarTiruanPage({ searchParams }: { searchParams: Promise<{ invoice?: string }> }) {
-  if (process.env.DOKU_MOCK !== "true") notFound();
+  if (!saklarUji("DOKU_MOCK")) notFound();
   const user = await getSessionUser();
   if (!user) redirect("/masuk");
   const { invoice } = await searchParams;

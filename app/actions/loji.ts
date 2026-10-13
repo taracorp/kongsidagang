@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/db";
 import { cariProdukTag, getKotaCabang } from "@/lib/queries-lapak";
 import { getSessionUser } from "@/lib/auth";
+import { pastikanCabangBolehNonaktif } from "@/lib/domain/belanja";
 import { getStaffSession, isAdminUp } from "@/lib/roles";
 import { run, requireUser, toInt } from "./_util";
 
@@ -137,7 +138,9 @@ export async function hapusProduk(productId: string) {
   return run(async () => {
     const user = await requireUser();
     await assertOwnsProduct(user.id, productId);
-    const terjual = await prisma.voucher.count({ where: { product_id: productId } });
+    const terjual =
+      (await prisma.voucher.count({ where: { product_id: productId } })) +
+      (await prisma.orderItem.count({ where: { product_id: productId } }));
     if (terjual > 0) throw new Error("Produk sudah punya voucher terbit — nonaktifkan saja, jangan dihapus.");
     await prisma.merchantProduct.delete({ where: { id: productId } });
   });
@@ -172,6 +175,8 @@ export async function aturCabangAktif(branchId: string, isActive: boolean) {
   return run(async () => {
     const user = await requireUser();
     await assertOwnsBranch(user.id, branchId);
+    // Pembeli sudah membayar voucher untuk cabang ini → cabang wajib tetap melayani sampai voucher habis/kedaluwarsa.
+    if (!isActive) await pastikanCabangBolehNonaktif(branchId);
     await prisma.merchantBranch.update({ where: { id: branchId }, data: { is_active: isActive } });
   });
 }

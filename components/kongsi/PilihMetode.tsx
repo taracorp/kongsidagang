@@ -1,9 +1,9 @@
 "use client";
 
-import { METODE_AKTIF as METODE, NAMA_GRUP, rincianBayar, type GrupMetode } from "@/lib/payment/biaya";
+import { METODE_AKTIF, NAMA_GRUP, bolehUntukKeteng, rincianBayar, type GrupMetode } from "@/lib/payment/biaya";
 import { cn, formatKeping } from "@/lib/utils";
 
-const GRUP: GrupMetode[] = (["qris", "va", "ewallet", "kartu"] as GrupMetode[]).filter((g) => METODE.some((m) => m.grup === g));
+const URUTAN: GrupMetode[] = ["qris", "va", "ewallet", "kartu"];
 // Tombol pilihan = pola .jt-chip (kotak, border tebal, bayangan keras) — sama dengan TawarkanForm.
 const pilihan =
   "cursor-pointer rounded-[6px] border-2 border-kongsi-ink px-3 py-[10px] shadow-hard-sm transition-transform hover:translate-x-[1px] hover:translate-y-[1px]";
@@ -15,18 +15,23 @@ const masukan =
 /**
  * Pilih metode pembayaran DOKU. Tiap metode menampilkan biaya pembayarannya (ditanggung pembeli) untuk `neto`
  * — nominal bersih yang harus diterima Kongsi. `ringkas` = dropdown (untuk lembar sempit).
+ * `keteng` = pembelian Keteng: kartu disembunyikan (server juga menolaknya).
  */
 export function PilihMetode({
   neto,
   value,
   onChange,
   ringkas,
+  keteng,
 }: {
   neto: number;
   value: string;
   onChange: (kode: string) => void;
   ringkas?: boolean;
+  keteng?: boolean;
 }) {
+  const METODE = keteng ? METODE_AKTIF.filter(bolehUntukKeteng) : METODE_AKTIF;
+  const GRUP = URUTAN.filter((g) => METODE.some((m) => m.grup === g));
   const biaya = (kode: string) => (neto > 0 ? rincianBayar(neto, kode).biaya : 0);
 
   if (ringkas) {

@@ -3,9 +3,10 @@ import { prisma } from "@/lib/db";
 import type { Prisma, UserLevel } from "@/lib/generated/prisma/client";
 import { randomBytes } from "node:crypto";
 import { nominalIsi } from "@/lib/pundi-paket";
-import { cariMetode, rincianBayar } from "@/lib/payment/biaya";
+import { cariMetodeKeteng, rincianBayar } from "@/lib/payment/biaya";
 import { doku } from "@/lib/payment/doku";
 import { beriKabar } from "@/lib/domain/kabar-user";
+import { saklarUji } from "@/lib/mode-uji";
 
 // Port dari plpgsql spend/topup/redeem/checkout/recompute_level (migrasi Supabase 0014 & 0015).
 // Ambang level (akumulasi belanja, Rp): besar 250rb | tuan_kecil 1jt | tuan_besar 5jt | juragan 20jt.
@@ -119,7 +120,7 @@ export async function refundHold(tx: Tx, holdId: string, note: string) {
  * `pilihan` = nominal rupiah ("1500000"); Keteng masuk 1:1.
  */
 export async function topupDemo(userId: string, pilihan: string): Promise<number> {
-  if (process.env.ENABLE_TOPUP_DEMO !== "true") {
+  if (!saklarUji("ENABLE_TOPUP_DEMO")) {
     throw new Error("Isi Pundi belum tersedia.");
   }
   const n = nominalIsi(pilihan);
@@ -135,7 +136,7 @@ const MAKS_PENDING_PER_JAM = 3;
 
 export function isiPundiTersedia(): "doku" | "demo" | null {
   if (doku()) return "doku";
-  if (process.env.ENABLE_TOPUP_DEMO === "true") return "demo";
+  if (saklarUji("ENABLE_TOPUP_DEMO")) return "demo";
   return null;
 }
 
@@ -160,7 +161,7 @@ export async function buatPesananBayar(
 ): Promise<{ url: string; invoice: string }> {
   const drv = doku();
   if (!drv) throw new Error("Pembayaran DOKU belum tersedia.");
-  const metode = cariMetode(r.metode);
+  const metode = cariMetodeKeteng(r.metode);
   const { total, biaya } = rincianBayar(r.keteng, metode.kode);
   const pending = await prisma.topupOrder.count({
     where: { user_id: user.id, status: "pending", created_at: { gt: new Date(Date.now() - 3600_000) } },

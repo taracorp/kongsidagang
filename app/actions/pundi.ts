@@ -11,6 +11,7 @@ import { jalankanTujuan, mulaiBayarLangsung, statusPesanan, type CaraBayar, type
 import { prisma } from "@/lib/db";
 import { lunasiBelanja } from "@/lib/domain/belanja";
 import { run, requireUser, type ActionResult } from "./_util";
+import { saklarUji } from "@/lib/mode-uji";
 
 /**
  * Isi Pundi (Keteng, khusus Tukar Guling): DOKU → kembalikan URL halaman bayar; mode demo → langsung masuk.
@@ -41,7 +42,7 @@ export async function isiPundi(pilihan: string, metode: string): Promise<ActionR
 /** Halaman bayar tiruan (DOKU_MOCK=true saja): anggap pembayaran sukses. */
 export async function bayarTiruan(invoice: string) {
   return run(async () => {
-    if (process.env.DOKU_MOCK !== "true") throw new Error("Mode tiruan tidak aktif.");
+    if (!saklarUji("DOKU_MOCK")) throw new Error("Mode tiruan tidak aktif.");
     const user = await requireUser();
     const order = await prisma.order.findFirst({ where: { invoice_number: String(invoice), user_id: user.id } });
     if (order) return lunasiBelanja(order.invoice_number!, order.total, "TIRUAN");

@@ -824,27 +824,34 @@ export async function getPakhuis(): Promise<PakhuisData | null> {
   const user = await getSessionUser();
   if (!user) return null;
 
-  const [wallet, profile, vouchers, lapakCount, ledger] = await Promise.all([
+  const pilihVoucher = {
+    id: true,
+    title: true,
+    note: true,
+    status: true,
+    kind: true,
+    code: true,
+    expires_at: true,
+    redeemed_at: true,
+    branch: { select: { name: true, address: true } },
+  } as const;
+  // Voucher aktif SELALU tampil semua (sudah dibayar); riwayat (terpakai/kedaluwarsa) cukup 30 terakhir.
+  const [wallet, profile, aktif, riwayat, lapakCount, ledger] = await Promise.all([
     prisma.wallet.findUnique({ where: { user_id: user.id }, select: { balance: true } }),
     prisma.profile.findUnique({
       where: { id: user.id },
       select: { level: true, stamps: true, full_name: true, total_spend: true },
     }),
     prisma.voucher.findMany({
-      where: { user_id: user.id },
-      select: {
-        id: true,
-        title: true,
-        note: true,
-        status: true,
-        kind: true,
-        code: true,
-        expires_at: true,
-        redeemed_at: true,
-        branch: { select: { name: true, address: true } },
-      },
-      orderBy: [{ status: "asc" }, { created_at: "desc" }],
-      take: 50,
+      where: { user_id: user.id, status: "aktif" },
+      select: pilihVoucher,
+      orderBy: [{ expires_at: "asc" }, { created_at: "desc" }],
+    }),
+    prisma.voucher.findMany({
+      where: { user_id: user.id, status: { not: "aktif" } },
+      select: pilihVoucher,
+      orderBy: { created_at: "desc" },
+      take: 30,
     }),
     prisma.merchant.count({ where: { owner_id: user.id } }),
     prisma.walletTransaction.findMany({
@@ -861,7 +868,7 @@ export async function getPakhuis(): Promise<PakhuisData | null> {
     level: profile?.level ?? "pelanggan_kecil",
     stamps: profile?.stamps ?? 0,
     totalSpend: profile?.total_spend ?? 0,
-    vouchers: vouchers.map((v) => ({
+    vouchers: [...aktif, ...riwayat].map((v) => ({
       ...v,
       expires_at: v.expires_at?.toISOString() ?? null,
       redeemed_at: v.redeemed_at?.toISOString() ?? null,

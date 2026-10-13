@@ -58,6 +58,11 @@ async function provision(
 }
 
 async function main() {
+  // Seed menulis saldo langsung (tanpa buku besar) untuk akun uji → dilarang di DB produksi ("kongsi").
+  const db = new URL(process.env.DATABASE_URL ?? "postgresql://x/x").pathname.replace(/^\//, "");
+  if ((db === "kongsi" || process.env.NODE_ENV === "production") && process.env.IZINKAN_SEED_PRODUKSI !== "true") {
+    throw new Error(`Seed ditolak di database produksi (${db}).`);
+  }
   console.log("Akun awal…");
   const { SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD, SEED_TESTER_EMAIL, SEED_TESTER_PASSWORD } = process.env;
   if (SEED_ADMIN_EMAIL && SEED_ADMIN_PASSWORD) {

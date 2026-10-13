@@ -46,7 +46,10 @@ export default async function BayarSelesaiPage({ searchParams }: { searchParams:
         <div className="font-fraunces text-xl font-black text-kongsi-grenadine">
           Pembayaran {o.status === "expired" ? "kedaluwarsa" : "gagal"}
         </div>
-        <p className="mt-2 text-sm text-kongsi-ink-soft">Tidak ada uang atau Keteng yang berpindah. Silakan coba lagi.</p>
+        <p className="mt-2 text-sm text-kongsi-ink-soft">
+          DOKU belum menerima pembayaran untuk tagihan ini. Bila kamu terlanjur membayar, kami mengecek ulang ke DOKU
+          otomatis selama 48 jam dan memprosesnya — jangan bayar dua kali.
+        </p>
         <KongsiLinkButton href="/tukar" variant="primary" className="mt-4">
           Coba lagi
         </KongsiLinkButton>
@@ -133,7 +136,10 @@ async function HasilBelanja({ userId, invoice }: { userId: string; invoice: stri
         <div className="font-fraunces text-xl font-black text-kongsi-grenadine">
           Pembayaran {o.status === "kedaluwarsa" ? "kedaluwarsa" : "gagal"}
         </div>
-        <p className="mt-2 text-sm text-kongsi-ink-soft">Tidak ada uang yang berpindah. Keranjangmu masih utuh.</p>
+        <p className="mt-2 text-sm text-kongsi-ink-soft">
+          DOKU belum menerima pembayaran untuk pesanan ini; keranjangmu masih utuh. Bila kamu terlanjur membayar, kami
+          mengecek ulang ke DOKU otomatis selama 48 jam lalu menerbitkan Surat Jalan — jangan bayar dua kali.
+        </p>
         <KongsiLinkButton href="/bayar" variant="primary" className="mt-4">
           Coba lagi
         </KongsiLinkButton>

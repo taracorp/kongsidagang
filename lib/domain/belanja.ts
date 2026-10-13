@@ -16,6 +16,7 @@ import { cariMetode, platformFee, rincianBayar } from "@/lib/payment/biaya";
 
 const MAKS_BARIS = 20;
 const MAKS_QTY = 20;
+const MAKS_VOUCHER = 50; // per pesanan: menjaga transaksi penerbitan tetap singkat
 const MENIT_BAYAR = 60;
 const MAKS_MENUNGGU_PER_JAM = 3;
 const HURUF_KODE = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"; // tanpa 0/O/1/I/L agar mudah dibaca petugas
@@ -67,7 +68,7 @@ export async function siapkanBelanja(tx: Tx, baris: BarisBelanja[]) {
   cekBaris(baris);
   // Berurutan: satu koneksi transaksi tidak boleh menjalankan query paralel.
   const siap: {
-    product: { id: string; name: string; price: number };
+    product: { id: string; name: string; price: number; valid_days: number | null };
     merchant: { id: string; name: string };
     branch: { id: string; name: string };
     qty: number;
@@ -79,6 +80,7 @@ export async function siapkanBelanja(tx: Tx, baris: BarisBelanja[]) {
         id: true,
         name: true,
         price: true,
+        valid_days: true,
         kind: true,
         is_active: true,
         merchant: { select: { id: true, name: true, is_active: true, status: true } },
@@ -128,6 +130,7 @@ export async function mulaiBelanja(
   const t = rincianTagihan(subtotal, metode.kode);
   const invoice = invoiceBaru("KD-BLJ");
   const jumlah = siap.reduce((s, x) => s + x.qty, 0);
+  if (jumlah > MAKS_VOUCHER) throw new Error(`Maksimal ${MAKS_VOUCHER} voucher per transaksi.`);
   const order = await prisma.order.create({
     data: {
       user_id: user.id,
@@ -144,6 +147,7 @@ export async function mulaiBelanja(
           name: x.product.name,
           unit_price: x.product.price,
           qty: x.qty,
+          valid_days: x.product.valid_days ?? 90, // masa berlaku yang dilihat pembeli saat membayar
         })),
       },
     },
@@ -204,7 +208,7 @@ export async function lunasiBelanja(invoice: string, amount: number, channel: st
       const now = Date.now();
       let jumlahVoucher = 0;
       for (const it of o.items) {
-        const hari = it.product?.valid_days ?? 90;
+        const hari = it.valid_days ?? it.product?.valid_days ?? 90;
         for (let i = 0; i < it.qty; i++) {
           await tx.voucher.create({
             data: {
@@ -267,6 +271,17 @@ export async function rekonsiliasiBelanja(userId: string, invoice: string) {
   });
 }
 
+/** Cabang yang masih punya voucher aktif / pesanan menunggu wajib tetap melayani → tidak boleh dinonaktifkan. */
+export async function pastikanCabangBolehNonaktif(branchId: string) {
+  const [aktif, menunggu] = await Promise.all([
+    prisma.voucher.count({ where: { branch_id: branchId, status: "aktif" } }),
+    prisma.orderItem.count({ where: { branch_id: branchId, order: { status: "menunggu" } } }),
+  ]);
+  if (aktif + menunggu > 0) {
+    throw new Error(`Cabang ini masih punya ${aktif + menunggu} voucher aktif/pesanan menunggu. Layani dulu sampai habis atau kedaluwarsa.`);
+  }
+}
+
 // ============================================================
 // Validasi (tebus) oleh petugas lapak / admin
 // ============================================================
@@ -322,7 +337,9 @@ export async function tebusVoucherAdmin(adminId: string, input: string) {
     await tx.$queryRaw`SELECT id FROM vouchers WHERE code = ${code} FOR UPDATE`;
     const v = await tx.voucher.findUnique({ where: { code }, include: { user: { select: { name: true, email: true } } } });
     if (!v) throw new Error("Kode tidak dikenal.");
-    if (v.merchant_id) throw new Error("Voucher lapak ditebus oleh petugas lapaknya.");
+    // Hanya voucher hadiah lelang lama (tanpa lapak & bukan hasil belanja). Voucher belanja yang lapaknya terhapus
+    // tidak boleh "ditebus" admin — itu kasus refund.
+    if (v.merchant_id || v.order_item_id || v.kind !== "lelang") throw new Error("Voucher ini tidak bisa ditebus Kantor Kongsi.");
     if (v.status !== "aktif") throw new Error(`Voucher berstatus ${v.status}.`);
     if (v.expires_at && v.expires_at < new Date()) throw new Error("Voucher sudah kedaluwarsa.");
     await tx.voucher.update({ where: { id: v.id }, data: { status: "terpakai", redeemed_at: new Date(), redeemed_by: adminId } });

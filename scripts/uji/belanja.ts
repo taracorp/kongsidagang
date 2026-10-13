@@ -55,7 +55,12 @@ async function main() {
     ok((await prisma.order.count({ where: { user_id: U } })) === 0, "tidak ada pesanan dibuat untuk input tidak sah");
 
     // Pesanan sah: 2× Facial Acne (Jakal) + 1× Wash and Dry (Bantul), bayar QRIS. Harga dari DB.
+    ok((await galat(() => mulai([{ productId: facial.id, branchId: jakal.id, qty: 20 }, { productId: facial.id, branchId: bantul.id, qty: 20 }, { productId: hair.id, branchId: jakal.id, qty: 20 }]))).includes("Maksimal 50"),
+      "lebih dari 50 voucher per pesanan ditolak");
+    await prisma.order.deleteMany({ where: { user_id: U } });
     const a = await mulai([{ productId: facial.id, branchId: jakal.id, qty: 2 }, { productId: hair.id, branchId: bantul.id, qty: 1 }]);
+    // Lapak memendekkan masa berlaku SETELAH pembeli membayar → tidak berpengaruh (snapshot di OrderItem).
+    await prisma.merchantProduct.update({ where: { id: facial.id }, data: { valid_days: 7 } });
     const subtotal = 2 * facial.price + hair.price;
     let o = await prisma.order.findUniqueOrThrow({ where: { invoice_number: a.invoice }, include: { items: true } });
     const harap = rincianBayar(subtotal + 4_000, "QRIS");
@@ -75,7 +80,10 @@ async function main() {
     ok((await bal()) === 0, "saldo Keteng tetap 0");
     ok(new Set(v.map((x) => x.code)).size === 3 && v.every((x) => /^[2-9A-HJKMNP-Z]{10}$/.test(x.code!)), "kode unik 10 karakter tanpa huruf ambigu");
     ok(v.filter((x) => x.branch_id === jakal.id).length === 2 && v.some((x) => x.branch_id === bantul.id), "voucher terikat cabang yang dipilih");
-    ok(v.every((x) => x.expires_at && Math.abs(x.expires_at.getTime() - Date.now() - 90 * 864e5) < 864e5), "berlaku 90 hari");
+    ok(v.every((x) => x.expires_at && Math.abs(x.expires_at.getTime() - Date.now() - facial.valid_days * 864e5) < 864e5),
+      `berlaku ${facial.valid_days} hari sesuai saat dibayar (lapak mengubah jadi 7 hari sesudahnya tidak berpengaruh)`);
+    await prisma.merchantProduct.update({ where: { id: facial.id }, data: { valid_days: facial.valid_days } });
+    ok((await galat(() => B.pastikanCabangBolehNonaktif(jakal.id))).includes("voucher aktif"), "cabang dengan voucher aktif tidak bisa dinonaktifkan");
     ok((await prisma.merchant.findUniqueOrThrow({ where: { id: bc.id } })).tebusan_count === tebusAwal + 3, "jumlah tebusan lapak bertambah 3");
     const prof = await prisma.profile.findUniqueOrThrow({ where: { id: U } });
     ok(prof.total_spend === subtotal && prof.stamps === 1, "akumulasi belanja = harga voucher, +1 Cap");
@@ -87,6 +95,15 @@ async function main() {
     await notif(b2.invoice, o2.total, "EXPIRED");
     ok((await prisma.order.findUniqueOrThrow({ where: { id: o2.id } })).status === "kedaluwarsa" && (await prisma.voucher.count({ where: { user_id: U } })) === 3,
       "kedaluwarsa → tanpa voucher");
+    // VA dibayar setelah kami menandai kedaluwarsa & notifikasi hilang → cron rekonsiliasi menerbitkan voucher.
+    const R = await import("@/lib/domain/pembayaran");
+    await prisma.order.update({ where: { id: o2.id }, data: { created_at: new Date(Date.now() - 20 * 60_000) } });
+    process.env.DOKU_MOCK_STATUS = JSON.stringify({ [b2.invoice]: { status: "SUCCESS", amount: o2.total } });
+    const rk = await R.rekonsiliasiPembayaran();
+    delete process.env.DOKU_MOCK_STATUS;
+    ok(rk.lunas >= 1 && (await prisma.order.findUniqueOrThrow({ where: { id: o2.id } })).status === "lunas" && (await prisma.voucher.count({ where: { user_id: U } })) === 4,
+      "rekonsiliasi: lunas di DOKU setelah kedaluwarsa → voucher terbit");
+    ok((await R.rekonsiliasiPembayaran()).lunas === 0 && (await prisma.voucher.count({ where: { user_id: U } })) === 4, "rekonsiliasi ulang tidak dobel");
 
     // Validasi petugas
     const vJakal = v.find((x) => x.branch_id === jakal.id)!;
@@ -108,6 +125,7 @@ async function main() {
     const kabar = await prisma.notification.findMany({ where: { user_id: U } });
     ok(kabar.some((k) => k.title.includes("Surat Jalan terbit")) && kabar.filter((k) => k.title.startsWith("Voucher ditebus")).length === 2, `notifikasi tercatat (${kabar.length})`);
   } finally {
+    await prisma.merchantProduct.update({ where: { id: facial.id }, data: { valid_days: facial.valid_days } });
     await prisma.user.deleteMany({ where: { id: { in: [U, S] } } });
     await prisma.merchant.update({ where: { id: bc.id }, data: { tebusan_count: tebusAwal } });
     await prisma.$disconnect();

@@ -162,7 +162,9 @@ export async function mintaTera(itemId: string, catatan: string) {
 /** Penaksir (admin) menetapkan nilai barang. Hanya untuk barang aktif (tidak sedang dalam tukar). */
 export async function teraPenaksir(itemId: string, nilai: number, catatan: string) {
   return run(async () => {
-    await requireAdminUp();
+    const s = await requireAdminUp();
+    const pemilik = await prisma.barterItem.findUnique({ where: { id: String(itemId) }, select: { user_id: true } });
+    if (pemilik?.user_id === s.userId) throw new Error("Tidak boleh menera barangmu sendiri — minta pengurus lain.");
     if (!Number.isInteger(nilai) || nilai < 1_000 || nilai > 10_000_000_000) throw new Error("Nilai tidak valid.");
     const note = String(catatan ?? "").trim().slice(0, 500);
     if (note.length < 5) throw new Error("Tulis dasar penilaian (min. 5 huruf).");
@@ -361,7 +363,14 @@ export async function nilaiTukar(dealId: string, stars: number, comment?: string
 /** Syahbandar memutus sengketa. */
 export async function putusSengketa(dealId: string, keputusan: "selesai" | "batal") {
   return run(async () => {
-    await requireAdminUp();
+    const s = await requireAdminUp();
+    const d = await prisma.barterDeal.findUnique({
+      where: { id: String(dealId) },
+      select: { itemA: { select: { user_id: true } }, itemB: { select: { user_id: true } } },
+    });
+    if (d && (d.itemA.user_id === s.userId || d.itemB.user_id === s.userId)) {
+      throw new Error("Tidak boleh memutus sengketa tukarmu sendiri — minta pengurus lain.");
+    }
     if (keputusan !== "selesai" && keputusan !== "batal") throw new Error("Putusan tidak dikenal.");
     await Tukar.putus(String(dealId), keputusan);
   });

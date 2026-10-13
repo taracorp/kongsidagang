@@ -2,7 +2,6 @@
 
 import { prisma } from "@/lib/db";
 import { mulaiBelanja, tebusVoucherLapak, tebusVoucherAdmin, type BarisBelanja } from "@/lib/domain/belanja";
-import { getStaffSession, isAdminUp } from "@/lib/roles";
 import { run, requireUser, requireAdminUp } from "./_util";
 
 /**
@@ -23,16 +22,16 @@ export async function bayarKeranjang(baris: BarisBelanja[], metode: string) {
   });
 }
 
-/** Petugas menebus voucher di lapak miliknya (pemilik lapak atau admin Kongsi). */
+/**
+ * Petugas menebus voucher di lapak miliknya. HANYA pemilik lapak — admin Kongsi tidak boleh menebus voucher lapak
+ * (menebus = lapak menyatakan sudah melayani; dasar setoran uang ke lapak).
+ */
 export async function tebusVoucher(merchantId: string, branchId: string, kode: string) {
   return run(async () => {
     const user = await requireUser();
     const m = await prisma.merchant.findUnique({ where: { id: String(merchantId) }, select: { owner_id: true } });
     if (!m) throw new Error("Lapak tidak ditemukan.");
-    if (m.owner_id !== user.id) {
-      const s = await getStaffSession();
-      if (!isAdminUp(s.role)) throw new Error("Hanya pengelola lapak ini.");
-    }
+    if (m.owner_id !== user.id) throw new Error("Hanya pemilik lapak ini yang bisa menebus voucher.");
     return tebusVoucherLapak(user.id, String(merchantId), String(branchId ?? ""), String(kode ?? ""));
   });
 }

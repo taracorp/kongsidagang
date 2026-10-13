@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { approveMerchantApplication } from "@/lib/domain/saudagar";
 import { isSuperadminEmail } from "@/lib/roles";
@@ -131,5 +132,20 @@ export async function aturPeran(userId: string, role: "" | "pewarta" | "admin" |
       create: { user_id: userId, role, granted_by: me.userId },
       update: { role, granted_by: me.userId },
     });
+  });
+}
+
+/** Tandai pembayaran bermasalah sudah ditangani (wajib catatan tindakan, mis. refund manual + referensi). */
+export async function selesaikanBermasalah(id: string, catatan: string) {
+  return run(async () => {
+    const s = await requireAdminUp();
+    const teks = String(catatan ?? "").trim().slice(0, 500);
+    if (teks.length < 5) throw new Error("Tulis tindakan yang diambil (mis. refund manual, ref …).");
+    const r = await prisma.pembayaranBermasalah.updateMany({
+      where: { id: String(id), selesai_at: null },
+      data: { selesai_at: new Date(), selesai_oleh: s.userId, catatan_selesai: teks },
+    });
+    if (r.count !== 1) throw new Error("Catatan sudah diselesaikan.");
+    revalidatePath("/admin");
   });
 }

@@ -99,6 +99,34 @@ async function main() {
     await T.putus(d6, "batal");
     ok((await deal(d6)).status === "resolved" && (await bal(A)) === a0, "Syahbandar batalkan → rekber kembali");
 
+    // COD anti-tipu: setelah ada pindaian, tidak bisa "batal di tempat"; lewat batas → Syahbandar (bukan refund otomatis)
+    const d7 = await T.ajukan(A, buku.id, kaos.id, 0);
+    await T.terima(C, d7, { meetType: "mal", meetPlace: "Plaza Ambarrukmo" });
+    const k7 = await deal(d7);
+    await T.pindai(C, d7, T.kodeKetemu(d7, "a", k7.agreed_at!)); // C sudah memindai kode A (barang A sudah di tangan C)
+    ok(await gagal(() => T.batalDiTempat(C, d7, "barang tidak sesuai")), "pihak yang sudah memindai tidak bisa batal di tempat");
+    ok(await gagal(() => T.batalDiTempat(A, d7, "berubah pikiran")), "lawannya juga tidak bisa batal di tempat setelah ada pindaian");
+    await prisma.barterDeal.update({ where: { id: d7 }, data: { expires_at: new Date(Date.now() - 1000) } });
+    await T.majukanTukar();
+    ok((await deal(d7)).status === "disputed" && (await prisma.walletHold.count({ where: { deal_id: d7, status: "ditahan" } })) === 2,
+      "lewat batas setelah satu pindaian → Syahbandar, rekber tetap ditahan");
+    await T.putus(d7, "batal");
+
+    // Batas salah kode per orang: A yang salah terus tidak mengunci C
+    const d8 = await T.ajukan(A, buku.id, kaos.id, 0);
+    await T.terima(C, d8, { meetType: "mal", meetPlace: "Plaza Ambarrukmo" });
+    const k8 = await deal(d8);
+    const kodeB8 = T.kodeKetemu(d8, "b", k8.agreed_at!);
+    const salah = kodeB8 === "000000" ? "111111" : "000000";
+    const MAKS_GAGAL = R.MAKS_GAGAL_PINDAI;
+    for (let i = 0; i < MAKS_GAGAL; i++) await gagal(() => T.pindai(A, d8, salah));
+    ok(await gagal(() => T.pindai(A, d8, kodeB8)), `A terkunci setelah ${MAKS_GAGAL} kode salah`);
+    ok(!(await T.pindai(C, d8, T.kodeKetemu(d8, "a", k8.agreed_at!))).done, "C tetap bisa memindai (batas dihitung per orang)");
+    const x8 = await deal(d8);
+    ok(x8.scan_fails_a === MAKS_GAGAL && x8.scan_fails_b === 0, "salah kode tercatat atas nama A saja");
+    await T.sengketa(C, d8, "Lawan memasukkan kode salah berulang");
+    await T.putus(d8, "batal");
+
     for (const u of ids) {
       const s = (await prisma.walletTransaction.aggregate({ where: { user_id: u }, _sum: { amount: true } }))._sum.amount ?? 0;
       ok(s === (await bal(u)), `Σ transaksi = saldo (${u})`);

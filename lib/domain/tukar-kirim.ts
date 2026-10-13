@@ -2,10 +2,20 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
-import { hold, captureHold, type Tx } from "@/lib/domain/pundi";
+import { hold, captureHold, credit, refundHold, type Tx } from "@/lib/domain/pundi";
 import { JAM_KONFIRMASI, pastikanBoleh } from "@/lib/domain/tukar-aturan";
 import { kabarDeal, kunciDeal, pihakDari, sengketaSistem, terima, type DealRow } from "@/lib/domain/tukar";
-import { kurir, prefixOrder, termurah, type Alamat, type Paket, type Tarif, type Wilayah } from "@/lib/shipping/kiriminaja";
+import {
+  KiriminAjaBelumBayar,
+  KiriminAjaError,
+  kurir,
+  prefixOrder,
+  termurah,
+  type Alamat,
+  type Paket,
+  type Tarif,
+  type Wilayah,
+} from "@/lib/shipping/kiriminaja";
 
 // Mode Kirim Tukar Guling (KiriminAja, express).
 // 1. B menerima + memilih alamat → tarif termurah dua arah dihitung, dua paket "quoted" dibuat,
@@ -206,9 +216,20 @@ function orderIdBaru(dealId: string, leg: Leg) {
   return `${prefixOrder()}${dealId.replace(/-/g, "").slice(0, Math.max(4, sisa)).toUpperCase()}${leg === "a_to_b" ? "A" : "B"}${randomBytes(2).toString("hex").toUpperCase()}`.slice(0, 20);
 }
 
+/** Tagih ongkir pembayar (hold → pendapatan, menutup KA Credit yang dipakai) bila masih ditahan. Idempoten. */
+async function tagihOngkir(tx: Tx, dealId: string, s: { payer_id: string; service_name: string; leg: string }, judul: string) {
+  const h = await tx.walletHold.findFirst({ where: { deal_id: dealId, user_id: s.payer_id, kind: "ongkir", status: "ditahan" } });
+  if (h) await captureHold(tx, h.id, "ongkir_tukar", `Ongkir ${s.service_name}: ${judul}`);
+}
+
 /**
  * Buat order di KiriminAja untuk paket yang sudah lunas (atau gagal sebelumnya).
- * Paket diklaim atomik (paid|failed → requested) sehingga panggilan ganda tidak membuat order dobel.
+ * Pengaman uang platform (KA Credit):
+ * - paket diklaim di bawah kunci deal & hanya bila deal masih "agreed" (tidak berlomba dengan pembatalan);
+ * - KiriminAja menolak (KiriminAjaError) → pasti tidak terbentuk → "failed", boleh diulang;
+ * - galat lain (timeout/jaringan) atau terbentuk-tapi-belum-bayar → "perlu_cek": order_id DIPERTAHANKAN dan
+ *   dipastikan lewat pelacakan (rekonsiliasiPaket), TIDAK dibuat ulang → tidak ada ongkir dobel;
+ * - sukses → data order disimpan segera, ongkir pembayar ditagih (diulang cron bila gagal).
  */
 export async function kirimkanPaket(dealId: string): Promise<{ dibuat: number; gagal: string[] }> {
   const drv = kurir();
@@ -226,14 +247,21 @@ export async function kirimkanPaket(dealId: string): Promise<{ dibuat: number; g
   for (const s of d.shipments) {
     if (s.status !== "paid" && s.status !== "failed") continue;
     const order_id = orderIdBaru(d.id, s.leg as Leg);
-    const klaim = await prisma.barterShipment.updateMany({
-      where: { id: s.id, status: { in: ["paid", "failed"] } },
-      data: { status: "requested", order_id, status_text: "Membuat order di kurir…" },
+    const judul = s.leg === "a_to_b" ? d.itemA.title : d.itemB.title;
+    const diklaim = await prisma.$transaction(async (tx) => {
+      const x = await kunciDeal(tx, dealId);
+      if (x.status !== "agreed") return false;
+      const r = await tx.barterShipment.updateMany({
+        where: { id: s.id, status: { in: ["paid", "failed"] } },
+        data: { status: "requested", order_id, status_text: "Membuat order di kurir…" },
+      });
+      return r.count === 1;
     });
-    if (klaim.count !== 1) continue;
+    if (!diklaim) continue;
+    let hasil: Awaited<ReturnType<typeof drv.buatOrder>>;
     try {
       jadwal ??= await drv.jadwalPickup();
-      const hasil = await drv.buatOrder({
+      hasil = await drv.buatOrder({
         order_id,
         sender: s.origin as Alamat,
         receiver: s.destination as Alamat,
@@ -247,44 +275,145 @@ export async function kirimkanPaket(dealId: string): Promise<{ dibuat: number; g
           etd: s.etd,
           group: "",
         },
-        item_name: s.leg === "a_to_b" ? d.itemA.title : d.itemB.title,
+        item_name: judul,
         schedule: jadwal,
       });
-      await prisma.$transaction(async (tx) => {
-        await tx.barterShipment.update({
-          where: { id: s.id },
-          data: {
-            pickup_number: hasil.pickup_number,
-            awb: hasil.awb,
-            status_text: `Menunggu pickup kurir (${jadwal})`,
-            events: tambahEvent(s.events, { at: new Date().toISOString(), method: "request_pickup", pickup: hasil.pickup_number }),
-          },
-        });
-        const h = await tx.walletHold.findFirst({
-          where: { deal_id: d.id, user_id: s.payer_id, kind: "ongkir", status: "ditahan" },
-        });
-        if (h) await captureHold(tx, h.id, "ongkir_tukar", `Ongkir ${s.service_name}: ${s.leg === "a_to_b" ? d.itemA.title : d.itemB.title}`);
-      });
-      dibuat++;
     } catch (e) {
       const m = e instanceof Error ? e.message : "Gagal membuat order";
       gagal.push(m);
+      const pastiTidakAda = e instanceof KiriminAjaError && !(e instanceof KiriminAjaBelumBayar);
       await prisma.barterShipment.update({
         where: { id: s.id },
-        data: { status: "failed", order_id: null, status_text: m.slice(0, 300) },
+        data: pastiTidakAda
+          ? { status: "failed", order_id: null, status_text: m.slice(0, 300) }
+          : { status: "perlu_cek", status_text: `Menunggu kepastian dari kurir: ${m}`.slice(0, 300) },
       });
+      continue;
     }
+    // Order PASTI terbentuk: simpan dulu (satu perintah), baru tagih ongkir.
+    await prisma.barterShipment.update({
+      where: { id: s.id },
+      data: {
+        pickup_number: hasil.pickup_number,
+        awb: hasil.awb,
+        status_text: `Menunggu pickup kurir (${jadwal})`,
+        events: tambahEvent(s.events, { at: new Date().toISOString(), method: "request_pickup", pickup: hasil.pickup_number }),
+      },
+    });
+    await prisma.$transaction((tx) => tagihOngkir(tx, d.id, s, judul)).catch((e) => console.error("[tukar] tagih ongkir ditunda:", e));
+    dibuat++;
   }
 
-  // Dua paket sudah dibuat → deal berjalan (penahanan silang dipantau cron).
+  await majukanKeDikirim(dealId);
+  return { dibuat, gagal };
+}
+
+/** Dua paket sudah terbentuk di kurir → deal berjalan (penahanan silang dipantau cron). */
+async function majukanKeDikirim(dealId: string) {
   await prisma.$transaction(async (tx) => {
     const x = await kunciDeal(tx, dealId);
-    if (x.status === "agreed" && x.shipments.length === 2 && x.shipments.every((s) => s.order_id && s.status !== "failed")) {
+    const terbentuk = (s: { order_id: string | null; status: string }) => !!s.order_id && !["failed", "perlu_cek", "perlu_batal", "canceled"].includes(s.status);
+    if (x.status === "agreed" && x.shipments.length === 2 && x.shipments.every(terbentuk)) {
       await tx.barterDeal.update({ where: { id: x.id }, data: { status: "dikirim", expires_at: null } });
       await kabarDeal(tx, x, "keduanya", "Paket dibuat — siapkan barangmu", "Kurir menjemput sesuai jadwal. Kemas barang dengan aman.");
     }
   });
-  return { dibuat, gagal };
+}
+
+/** Kembalikan ongkir (Keteng) setelah KiriminAja PASTI membatalkan (KA Credit kembali). Atomik & idempoten. */
+async function selesaikanBatalPaket(tx: Tx, shipmentId: string, sebab: string) {
+  const s = await tx.barterShipment.findUnique({ where: { id: shipmentId } });
+  if (!s) return false;
+  const r = await tx.barterShipment.updateMany({
+    where: { id: s.id, status: "perlu_batal" },
+    data: { status: "canceled", status_text: `Dibatalkan di kurir: ${sebab}`.slice(0, 300) },
+  });
+  if (r.count !== 1) return false;
+  const amt = ongkirDari(s);
+  // Ongkir masih ditahan (belum ditagih) → kembalikan tahanannya; sudah ditagih → kredit balik (KA Credit sudah kembali).
+  const h = await tx.walletHold.findFirst({ where: { deal_id: s.deal_id, user_id: s.payer_id, kind: "ongkir", status: "ditahan" } });
+  if (h) await refundHold(tx, h.id, "Ongkir Tukar Guling dikembalikan (order kurir dibatalkan)");
+  else if (amt > 0) await credit(tx, s.payer_id, amt, "refund_ongkir", "Ongkir Tukar Guling dikembalikan (order kurir dibatalkan)");
+  return true;
+}
+
+/**
+ * Rekonsiliasi paket (cron): memastikan uang platform tidak bocor ke kurir.
+ * 1. "perlu_cek": lacak order → ada → lanjut seperti sukses (tagih ongkir); tidak ditemukan → "failed".
+ * 2. Order terbentuk tetapi ongkir masih ditahan → tagih.
+ * 3. "perlu_batal": batalkan di KiriminAja → sukses → ongkir kembali; ditolak karena sudah jalan → ongkir hangus.
+ */
+export async function rekonsiliasiPaket(): Promise<{ dicek: number; dibatalkan: number; hangus: number }> {
+  const drv = kurir();
+  const hasil = { dicek: 0, dibatalkan: 0, hangus: 0 };
+  if (!drv) return hasil;
+  const daftar = await prisma.barterShipment.findMany({
+    where: { status: { in: ["perlu_cek", "perlu_batal", "requested", "shipped", "delivered"] }, order_id: { not: null } },
+    include: { deal: { include: { itemA: { select: { title: true } }, itemB: { select: { title: true } } } } },
+    take: 100,
+  });
+  const batasRagu = new Date(Date.now() - 5 * 60_000);
+  for (const s of daftar) {
+    const judul = s.leg === "a_to_b" ? s.deal.itemA.title : s.deal.itemB.title;
+    // "Ragu" = jawaban buatOrder tidak pernah tersimpan (galat jaringan / proses terputus di tengah).
+    // Diberi jeda 5 menit agar tidak mendahului buatOrder yang masih berjalan.
+    const ragu = s.status === "perlu_cek" || (s.status === "requested" && !s.pickup_number && !s.awb);
+    if (ragu && s.updated_at > batasRagu) continue;
+    if (ragu) {
+      const l = await drv.lacak(s.order_id!).catch((e: Error) => e);
+      if (l instanceof Error) {
+        if (/tidak ditemukan|not found|tidak ada/i.test(l.message)) {
+          await prisma.barterShipment.update({ where: { id: s.id }, data: { status: "failed", order_id: null, status_text: "Order tidak terbentuk di kurir — boleh dicoba lagi" } });
+        }
+        continue; // galat sementara → coba lagi nanti
+      }
+      await prisma.barterShipment.update({
+        where: { id: s.id },
+        data: { status: "requested", awb: l.awb ?? s.awb, sorting_code: l.sorting_code ?? s.sorting_code, status_text: l.text.slice(0, 300) },
+      });
+      await prisma.$transaction((tx) => tagihOngkir(tx, s.deal_id, s, judul));
+      await majukanKeDikirim(s.deal_id);
+      hasil.dicek++;
+      continue;
+    }
+    if (s.status === "perlu_batal") {
+      let awb = s.awb;
+      if (!awb) {
+        const l = await drv.lacak(s.order_id!).catch((e: Error) => e);
+        if (l instanceof Error) {
+          // Order ternyata tidak pernah terbentuk → tidak ada biaya kurir → ongkir kembali utuh.
+          if (/tidak ditemukan|not found|tidak ada/i.test(l.message)) {
+            await prisma.$transaction((tx) => selesaikanBatalPaket(tx, s.id, "order tidak terbentuk"));
+            hasil.dibatalkan++;
+          }
+          continue;
+        }
+        awb = l.awb;
+      }
+      if (!awb) continue; // belum ada AWB → tunggu
+      const r = await drv.batalkan(awb, "Tukar Guling dibatalkan").catch((e: Error) => e);
+      if (r instanceof Error) {
+        if (r instanceof KiriminAjaError) {
+          // Ditolak (mis. sudah dijemput) → ongkir hangus: menutup KA Credit yang sudah terpakai.
+          await prisma.barterShipment.update({ where: { id: s.id }, data: { status: "batal_gagal", status_text: `Tidak bisa dibatalkan di kurir: ${r.message}`.slice(0, 300) } });
+          await prisma.$transaction((tx) => tagihOngkir(tx, s.deal_id, s, judul));
+          hasil.hangus++;
+        }
+        continue;
+      }
+      const sukses = (r.data as { success?: string } | null)?.success === "success";
+      if (sukses) {
+        await prisma.$transaction((tx) => selesaikanBatalPaket(tx, s.id, r.text || "berhasil"));
+        hasil.dibatalkan++;
+      } else {
+        await prisma.barterShipment.update({ where: { id: s.id }, data: { awb, status_text: `Pembatalan diproses kurir: ${r.text}`.slice(0, 300) } });
+      }
+      continue;
+    }
+    // Terbentuk & berjalan: pastikan ongkir sudah ditagih.
+    await prisma.$transaction((tx) => tagihOngkir(tx, s.deal_id, s, judul));
+  }
+  return hasil;
 }
 
 // ============================================================
@@ -319,6 +448,12 @@ export async function prosesWebhook(method: string, data: WebhookData[]): Promis
   for (const row of data) {
     if (!row.order_id) continue;
     const s = await prisma.barterShipment.findUnique({ where: { order_id: row.order_id } });
+    if (s && s.status === "perlu_batal" && method === "canceled_packages") {
+      // Pembatalan yang kita minta sudah diproses kurir → KA Credit kembali → ongkir user dikembalikan.
+      if (await prisma.$transaction((tx) => selesaikanBatalPaket(tx, s.id, row.reason ?? "dikonfirmasi kurir"))) n++;
+      continue;
+    }
+    if (s && ["perlu_batal", "batal_gagal", "canceled"].includes(s.status)) continue; // deal sudah ditutup
     if (!s) {
       // Paket uji dari halaman admin "Uji Kurir".
       const u = await prisma.kurirUji.updateMany({

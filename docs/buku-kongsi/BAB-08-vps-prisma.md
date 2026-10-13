@@ -891,3 +891,68 @@ Traefik yang sudah ada di VPS, cukup atur port.
   - checkout DOKU asli dengan nama berisi "—"/"·" diterima (tagihan uji `KD-UJI-…`, tidak dibayar, kedaluwarsa 5 menit).
 - **Data:** 1 barang aktif tanpa foto ("Nokia Lumia", milik Tara) dibiarkan; aturan foto wajib berlaku untuk unggahan
   baru.
+
+### Ch 8.33 — Fase 1 "pengaman uang": platform tidak menanggung risiko, uang yang sudah masuk tidak nyangkut
+2026-10-13
+- **Arahan keras Tara:** platform tidak boleh rugi/menanggung risiko; risiko jatuh ke pihak yang salah; user jujur
+  tidak dirugikan. Rencana 5 fase (audit menyeluruh): Fase 1 pengaman cepat (Ch ini), Fase 2 Tukar Guling v3
+  (selisih = uang rekber, Keteng hanya jaminan), Fase 3 setoran lapak & refund, Fase 4 lelang dibangun ulang,
+  Fase 5 klaim asuransi kurir.
+- **Saklar uji tidak bisa menyala di produksi:** `lib/mode-uji.ts` — `ENABLE_TOPUP_DEMO`, `DOKU_MOCK`,
+  `KIRIMINAJA_MOCK` diabaikan bila `NODE_ENV=production` kecuali `IZINKAN_MOCK=true`. `prisma/seed.ts` menolak DB
+  `kongsi`/produksi (kecuali `IZINKAN_SEED_PRODUKSI=true`).
+- **Superadmin** dari `SUPERADMIN_EMAILS` hanya berlaku bila email terverifikasi (cegah orang mendaftar duluan memakai
+  email pemilik). Produksi: akun Tara terverifikasi (Google + sandi).
+- **Konflik kepentingan:**
+  - hanya pemilik lapak yang menebus voucher lapaknya (admin tidak);
+  - Kantor Kongsi hanya menebus voucher hadiah lelang lama (tanpa lapak/pesanan);
+  - admin tidak bisa menera barangnya sendiri / memutus sengketa tukarnya sendiri.
+- **COD anti-tipu:**
+  - setelah ada pindaian, "batal di tempat" ditolak (barang sudah berpindah);
+  - deal lewat batas dengan pindaian setengah → Syahbandar, bukan refund otomatis;
+  - batas salah kode dihitung per orang (`scan_fails_a/b`), satu pihak tidak bisa mengunci pihak lain.
+- **Kirim — KA Credit platform aman:**
+  - `kirimkanPaket` mengklaim paket di bawah kunci deal & hanya bila deal masih `agreed`;
+  - KiriminAja menolak → `failed` (boleh diulang); galat jaringan/terputus → `perlu_cek`, order_id dipertahankan,
+    dipastikan lewat lacak (tidak dibuat ulang → tidak ada ongkir dobel);
+  - ongkir pembayar baru diambil setelah order pasti ada.
+  - Deal batal: paket yang sudah di kurir → `perlu_batal`; ongkir **tidak** dikembalikan saat batal, melainkan
+    setelah KiriminAja memastikan batal (cron `rekonsiliasiPaket` / webhook `canceled_packages`). Kurir menolak
+    (sudah dijemput) → `batal_gagal`, ongkir hangus menutup KA Credit. Paket `failed` ikut dibatalkan.
+  - Cron `advance-barter` kini juga menjalankan `rekonsiliasiPaket` (jeda 5 menit untuk order yang mungkin masih
+    berjalan).
+- **Bayar Langsung:** satu tagihan menunggu per aksi (barang+incaran / deal); klik ulang memakai tagihan yang sama,
+  tagihan berbeda ditolak.
+- **Kartu kredit/debit tidak bisa membeli Keteng** (risiko chargeback setelah Keteng dibelanjakan) — ditolak server
+  (`cariMetodeKeteng`) dan disembunyikan di pilihan metode Isi Pundi/Bayar Langsung. Kartu tetap boleh untuk belanja.
+- **Belanja e-voucher:**
+  - masa berlaku disimpan di `order_items.valid_days` saat pesan (lapak tidak bisa memendekkan voucher yang sudah
+    dibayar);
+  - maks 50 voucher per pesanan;
+  - Pakhuis menampilkan **semua** voucher aktif + 30 riwayat terakhir (dulu hanya 50 voucher);
+  - cabang dengan voucher aktif / pesanan menunggu tidak bisa dinonaktifkan; produk dengan pesanan tidak bisa dihapus.
+- **Rekonsiliasi pembayaran DOKU** (`lib/domain/pembayaran.ts`, dipanggil cron + notifikasi):
+  - tagihan belanja/Keteng yang `menunggu/kedaluwarsa/gagal` ≤ 48 jam dicek ke DOKU; lunas → diproses
+    (VA yang dibayar setelah kedaluwarsa tetap menerbitkan voucher/Keteng);
+  - Bayar Langsung yang lunas tetapi aksinya terputus dijalankan ulang;
+  - nominal tidak cocok / tujuan gagal → tabel `pembayaran_bermasalah` + kabar ke pengurus; kartu baru di `/admin`
+    ("Pembayaran bermasalah") untuk menandai selesai dengan catatan tindakan (pencatat tersimpan).
+  - Halaman hasil bayar tidak lagi menulis "tidak ada uang berpindah" sebelum DOKU memastikan.
+- **Transaksi DB:** batas bawaan dinaikkan 5 → 15 detik (`lib/db.ts`); `terima` 30 detik (tarif kurir dipanggil di
+  dalam transaksi).
+- **Migrasi** (dev ✓, produksi: saat deploy Fase 1):
+  - `20261013090000_pengaman_uang` — `barter_deals.scan_fails_a/b`, `order_items.valid_days`, tabel
+    `pembayaran_bermasalah`;
+  - `20261013100000_bermasalah_selesai` — kolom `selesai_oleh`, `catatan_selesai`;
+  - `20261013110000_status_paket` — check status paket + `perlu_cek`, `perlu_batal`, `batal_gagal`.
+  - Batal: `DROP TABLE pembayaran_bermasalah; ALTER TABLE barter_deals DROP COLUMN scan_fails_a, DROP COLUMN
+    scan_fails_b; ALTER TABLE order_items DROP COLUMN valid_days;` + kembalikan check status paket ke daftar lama
+    (hanya bila tidak ada paket berstatus baru).
+- **Uji** (`scripts/uji/*`, driver tiruan + skenario `KIRIMINAJA_MOCK_ORDER/BATAL/LACAK`, `DOKU_MOCK_STATUS`):
+  - tukar: COD batal setelah pindai ditolak, setengah-pindai → sengketa, batas salah kode per orang;
+  - kirim: batal → perlu_batal → refund hanya setelah cancel sukses, idempoten; cancel ditolak → ongkir hangus;
+    galat jaringan → perlu_cek tanpa order dobel → lacak; order tak terbentuk → failed → batal, rekber utuh;
+  - bayar-langsung: tagihan ganda, kartu ditolak, nominal tidak cocok tercatat sekali;
+  - belanja: >50 voucher ditolak, snapshot masa berlaku, cabang ber-voucher terkunci, rekonsiliasi menerbitkan
+    voucher dari pesanan kedaluwarsa yang lunas di DOKU.
+- **Rollback:** `git revert` commit ini + SQL batal di atas.

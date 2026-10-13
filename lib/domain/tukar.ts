@@ -130,7 +130,15 @@ export async function batalkan(
   fault: Pihak | null = null,
 ) {
   const holds = await tx.walletHold.findMany({ where: { deal_id: d.id, status: "ditahan" } });
-  for (const h of holds) await refundHold(tx, h.id, `Rekber Tukar Guling dikembalikan (${reason})`);
+  // Ongkir untuk paket yang (mungkin) sudah dibuat di kurir TIDAK dikembalikan di sini: KA Credit platform sudah
+  // terpakai. Paket ditandai "perlu_batal"; ongkir kembali hanya bila KiriminAja memastikan batal
+  // (rekonsiliasiPaket / webhook), selain itu ongkir hangus menutup biaya kurir.
+  const DI_KURIR = ["requested", "perlu_cek", "perlu_batal", "shipped", "delivered", "batal_gagal"];
+  const ongkirDiKurir = new Set(d.shipments.filter((x) => x.order_id && DI_KURIR.includes(x.status)).map((x) => x.payer_id));
+  for (const h of holds) {
+    if (h.kind === "ongkir" && ongkirDiKurir.has(h.user_id)) continue;
+    await refundHold(tx, h.id, `Rekber Tukar Guling dikembalikan (${reason})`);
+  }
   // Barang dilepas hanya bila memang terkunci oleh deal ini.
   if (["agreed", "dikirim", "diterima", "disputed"].includes(d.status)) {
     await tx.barterItem.updateMany({
@@ -139,8 +147,13 @@ export async function batalkan(
     });
   }
   await tx.barterShipment.updateMany({
-    where: { deal_id: d.id, status: { in: ["quoted", "paid"] } },
+    where: { deal_id: d.id, status: { in: ["quoted", "paid", "failed"] } },
     data: { status: "canceled", status_text: reason },
+  });
+  // Order kurir yang belum dijemput → minta dibatalkan (diproses rekonsiliasiPaket di luar transaksi).
+  await tx.barterShipment.updateMany({
+    where: { deal_id: d.id, status: { in: ["requested", "perlu_cek"] }, order_id: { not: null } },
+    data: { status: "perlu_batal", status_text: `Meminta pembatalan ke kurir (${reason})`.slice(0, 300) },
   });
   await tx.barterDeal.update({
     where: { id: d.id },
@@ -343,7 +356,7 @@ export async function terima(
         d.mode === "kirim" ? `Lunasi ongkir dalam ${JAM_BAYAR_ONGKIR} jam agar paket dijemput kurir.` : `Ketemuan di ${meet?.meet_place} dalam ${JAM_COD} jam.`,
       );
     },
-    { timeout: 20_000 },
+    { timeout: 30_000 } // mode Kirim memanggil tarif kurir di dalam transaksi,
   );
 }
 
@@ -371,6 +384,11 @@ export async function batalDiTempat(userId: string, dealId: string, alasan: stri
     pastikanBoleh(d.status, p, d.mode === "kirim" ? "batal_sebelum_kirim" : "batal_di_tempat", d.mode);
     if (d.shipments.some((s) => s.order_id && s.status !== "failed")) {
       throw new Error("Paket sudah dibuat di kurir — ajukan ke Syahbandar bila ada masalah.");
+    }
+    // Anti-tipu: begitu satu kode dipindai (satu pihak sudah menyerahkan barang & kode), tukar tidak bisa dibatalkan
+    // sepihak — kalau bisa, penipu membawa barang lalu membatalkan dan semua uang kembali kepadanya.
+    if (d.scanned_a_at || d.scanned_b_at) {
+      throw new Error("Salah satu kode sudah dipindai — tukar tidak bisa dibatalkan sepihak. Ajukan ke Syahbandar bila ada masalah.");
     }
     const why = alasan.trim().slice(0, 200) || "tanpa alasan";
     const kapan = d.mode === "kirim" ? "sebelum dikirim" : "di tempat";
@@ -406,13 +424,18 @@ export async function pindai(userId: string, dealId: string, input: string): Pro
     const p = pihakDari(d, userId);
     pastikanBoleh(d.status, p, "pindai", d.mode);
     if (!d.agreed_at) throw new Error("Tawaran belum disepakati.");
-    if (d.scan_fails >= MAKS_GAGAL_PINDAI) {
+    // Batas salah kode dihitung per orang: satu pihak tidak bisa mengunci pindaian pihak lain.
+    const gagalKu = p === "a" ? d.scan_fails_a : d.scan_fails_b;
+    if (gagalKu >= MAKS_GAGAL_PINDAI) {
       throw new Error("Terlalu banyak kode salah. Ajukan ke Syahbandar bila ada masalah.");
     }
     const target = lawan(p);
     const benar = kodeKetemu(d.id, target, d.agreed_at);
     if (!samaKode(ambilKode(input, d.id), benar)) {
-      await tx.barterDeal.update({ where: { id: d.id }, data: { scan_fails: { increment: 1 } } });
+      await tx.barterDeal.update({
+        where: { id: d.id },
+        data: p === "a" ? { scan_fails: { increment: 1 }, scan_fails_a: { increment: 1 } } : { scan_fails: { increment: 1 }, scan_fails_b: { increment: 1 } },
+      });
       return { ok: false as const };
     }
     const now = new Date();
@@ -508,6 +531,12 @@ export async function majukanTukar(now = new Date()) {
       if (d.status !== "proposed" && d.status !== "agreed") return null;
       if (d.shipments.some((s) => s.order_id && s.status !== "failed")) {
         await sengketaSistem(tx, d, "Batas waktu lewat tetapi sebagian paket sudah dibuat di kurir");
+        return "sengketa" as const;
+      }
+      // COD lewat batas dengan salah satu kode sudah dipindai → bukan dikembalikan otomatis (bisa menguntungkan
+      // penipu yang sudah membawa barang), tetapi diputus Syahbandar.
+      if (d.status === "agreed" && d.mode === "cod" && (d.scanned_a_at || d.scanned_b_at)) {
+        await sengketaSistem(tx, d, `Batas ${JAM_COD} jam lewat setelah salah satu kode dipindai — perlu diputus Syahbandar`);
         return "sengketa" as const;
       }
       const why =

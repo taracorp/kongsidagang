@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { isiPundi, bayarTiruan } from "@/app/actions/pundi";
 import { NOMINAL_CEPAT, TOPUP_MIN, TOPUP_MAX, nominalIsi } from "@/lib/pundi-paket";
-import { rincianBayar, METODE_AWAL } from "@/lib/payment/biaya";
+import { rincianBayar, METODE_AWAL_KETENG } from "@/lib/payment/biaya";
 import { cn } from "@/lib/utils";
 import { PilihMetode } from "./PilihMetode";
 
@@ -19,7 +19,7 @@ export function IsiPundiPaket({ mode, saran }: { mode: "doku" | "demo" | null; s
   const router = useRouter();
   const [pick, setPick] = useState<string>(saran ? String(saran) : String(NOMINAL_CEPAT[2]));
   const [lain, setLain] = useState<string>(saran && !NOMINAL_CEPAT.includes(saran) ? String(saran) : "");
-  const [metode, setMetode] = useState(METODE_AWAL);
+  const [metode, setMetode] = useState(METODE_AWAL_KETENG);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -109,7 +109,7 @@ export function IsiPundiPaket({ mode, saran }: { mode: "doku" | "demo" | null; s
         <>
           <div className={judulBagian}>Bayar pakai</div>
           <div className="mt-2 text-kongsi-ink">
-            <PilihMetode ringkas neto={nominal ?? 0} value={metode} onChange={setMetode} />
+            <PilihMetode ringkas keteng neto={nominal ?? 0} value={metode} onChange={setMetode} />
           </div>
         </>
       ) : null}

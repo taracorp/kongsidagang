@@ -116,6 +116,85 @@ async function main() {
     x = await deal(d4);
     ok(x.status === "disputed" && (x.cancel_reason ?? "").includes("Alamat tidak ditemukan"), "paket bermasalah → Syahbandar dengan alasan kurir");
 
+    // --- Pengaman uang platform: batal setelah order dibuat di kurir
+    const leg = async (id: string, l: string) => (await deal(id)).shipments.find((s) => s.leg === l)!;
+    const ongkirLeg = (s: { shipping_cost: number; insurance: number }) => s.shipping_cost + s.insurance;
+    const mundur = (id: string) => prisma.$executeRaw`UPDATE barter_shipments SET updated_at = now() - interval '10 minutes' WHERE deal_id = ${id}`;
+
+    // (a) Syahbandar batal: paket B→A belum dijemput → perlu_batal; ongkir A kembali HANYA setelah kurir memastikan batal
+    const l4 = (await deal(d4)).shipments.find((s) => s.status === "requested")!.leg; // paket yang tidak bermasalah
+    await T.putus(d4, "batal");
+    const s4 = await leg(d4, l4);
+    ok(s4.status === "perlu_batal", "batal → paket yang sudah di kurir ditandai perlu_batal");
+    const p4 = s4.payer_id, saldo4 = await bal(p4);
+    // d3 (dibatalkan Syahbandar di atas) juga punya paket yang belum dijemput milik pembayar yang sama.
+    const antre = await prisma.barterShipment.findMany({ where: { payer_id: p4, status: "perlu_batal", deal_id: { in: [d3, d4] } } });
+    const kembali4 = antre.reduce((t, x) => t + ongkirLeg(x), 0);
+    process.env.KIRIMINAJA_MOCK_BATAL = "pending";
+    await K.rekonsiliasiPaket();
+    ok((await leg(d4, l4)).status === "perlu_batal" && (await bal(p4)) === saldo4, "kurir masih memproses → belum ada pengembalian");
+    process.env.KIRIMINAJA_MOCK_BATAL = "success";
+    await K.rekonsiliasiPaket();
+    ok((await leg(d4, l4)).status === "canceled" && (await bal(p4)) === saldo4 + kembali4, `kurir memastikan batal → ongkir kembali ke pembayarnya (${antre.length} paket)`);
+    await K.rekonsiliasiPaket();
+    await K.prosesWebhook("canceled_packages", [{ order_id: s4.order_id! }]);
+    ok((await bal(p4)) === saldo4 + kembali4, "rekonsiliasi/webhook ulang tidak mengembalikan dobel");
+
+    // (b) Kurir menolak pembatalan (sudah dijemput) → ongkir hangus (menutup KA Credit), tidak dikembalikan
+    const d5 = await T.ajukan(A, buku2.id, kaos2.id, 0, { mode: "kirim", addressId: adrA });
+    await K.terimaKirim(B, d5, adrB);
+    await K.bayarOngkir(A, d5);
+    await K.prosesWebhook("problem_packages", [{ order_id: (await leg(d5, "a_to_b")).order_id!, reason: "Uji" }]);
+    await T.putus(d5, "batal");
+    const s5 = await leg(d5, "b_to_a"), saldo5 = await bal(s5.payer_id);
+    process.env.KIRIMINAJA_MOCK_BATAL = "tolak";
+    await K.rekonsiliasiPaket();
+    ok((await leg(d5, "b_to_a")).status === "batal_gagal" && (await bal(s5.payer_id)) === saldo5, "kurir menolak batal → batal_gagal, ongkir hangus");
+    delete process.env.KIRIMINAJA_MOCK_BATAL;
+
+    // (c) Jawaban buatOrder hilang → perlu_cek, order_id dipertahankan, ongkir belum diambil; dipastikan lewat lacak
+    const d6 = await T.ajukan(A, buku2.id, kaos2.id, 0, { mode: "kirim", addressId: adrA });
+    await K.terimaKirim(B, d6, adrB);
+    process.env.KIRIMINAJA_MOCK_ORDER = "putus";
+    await K.bayarOngkir(A, d6);
+    delete process.env.KIRIMINAJA_MOCK_ORDER;
+    x = await deal(d6);
+    ok(x.status === "agreed" && x.shipments.every((s) => s.status === "perlu_cek" && s.order_id), "galat jaringan → perlu_cek, order_id disimpan");
+    ok((await prisma.walletHold.count({ where: { deal_id: d6, kind: "ongkir", status: "ditahan" } })) === 2, "ongkir belum diambil selama belum pasti");
+    ok((await K.kirimkanPaket(d6)).dibuat === 0, "perlu_cek tidak dibuat ulang (tidak ada order dobel)");
+    await K.rekonsiliasiPaket();
+    ok((await deal(d6)).shipments.every((s) => s.status === "perlu_cek"), "rekonsiliasi menunggu 5 menit (tidak mendahului order yang masih berjalan)");
+    await mundur(d6);
+    await K.rekonsiliasiPaket();
+    x = await deal(d6);
+    ok(x.status === "dikirim" && x.shipments.every((s) => s.status === "requested"), "lacak: order ada → requested, deal dikirim");
+    ok((await prisma.walletHold.count({ where: { deal_id: d6, kind: "ongkir", status: "diambil" } })) === 2, "ongkir baru diambil setelah order pasti ada");
+    await K.prosesWebhook("problem_packages", [{ order_id: x.shipments[0].order_id!, reason: "Uji" }]);
+    process.env.KIRIMINAJA_MOCK_BATAL = "success";
+    await T.putus(d6, "batal");
+    await K.rekonsiliasiPaket();
+    delete process.env.KIRIMINAJA_MOCK_BATAL;
+
+    // (d) Order ternyata tidak terbentuk → failed, boleh dicoba lagi; deal lewat batas → batal, ongkir kembali utuh
+    const a7 = await bal(A), b7 = await bal(B);
+    const d7 = await T.ajukan(A, buku2.id, kaos2.id, 0, { mode: "kirim", addressId: adrA });
+    await K.terimaKirim(B, d7, adrB);
+    process.env.KIRIMINAJA_MOCK_ORDER = "putus";
+    await K.bayarOngkir(A, d7);
+    delete process.env.KIRIMINAJA_MOCK_ORDER;
+    await mundur(d7);
+    process.env.KIRIMINAJA_MOCK_LACAK = "hilang";
+    await K.rekonsiliasiPaket();
+    x = await deal(d7);
+    ok(x.shipments.every((s) => s.status === "failed" && !s.order_id), "lacak: tidak ditemukan → failed (boleh dicoba lagi)");
+    await prisma.barterDeal.update({ where: { id: d7 }, data: { expires_at: new Date(Date.now() - 1000) } });
+    await T.majukanTukar();
+    delete process.env.KIRIMINAJA_MOCK_LACAK;
+    x = await deal(d7);
+    ok(x.status === "expired" && x.shipments.every((s) => s.status === "canceled"), "lewat batas → batal, paket failed ikut dibatalkan");
+    ok((await prisma.walletHold.count({ where: { deal_id: d7, status: "ditahan" } })) === 0 && (await bal(A)) === a7 && (await bal(B)) === b7,
+      "semua rekber d7 kembali utuh (order tak pernah terbentuk → tidak ada biaya kurir)");
+
     for (const u of ids) {
       const s = (await prisma.walletTransaction.aggregate({ where: { user_id: u }, _sum: { amount: true } }))._sum.amount ?? 0;
       ok(s === (await bal(u)), `Σ transaksi = saldo (${u})`);

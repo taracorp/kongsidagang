@@ -1,5 +1,6 @@
 import "server-only";
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { saklarUji } from "@/lib/mode-uji";
 
 // DOKU Checkout (non-SNAP). Rujukan: plugin resmi doku-woocommerce-plugin (JokulCheckoutService,
 // JokulNotificationService, JokulCheckStatusService).
@@ -164,8 +165,14 @@ const driverTiruan: DokuDriver = {
   async buatCheckout(i) {
     return { url: `/pakhuis/isi/tiruan?invoice=${encodeURIComponent(i.invoice)}`, expiresAt: new Date(Date.now() + i.dueMinutes * 60_000) };
   },
-  async cekStatus() {
-    return { status: "PENDING", amount: null, channel: null };
+  // Skenario uji: DOKU_MOCK_STATUS='{"<invoice>":{"status":"SUCCESS","amount":123}}' (hanya driver tiruan).
+  async cekStatus(invoice) {
+    let peta: Record<string, { status: StatusTransaksi; amount?: number }> = {};
+    try {
+      peta = JSON.parse(process.env.DOKU_MOCK_STATUS ?? "{}");
+    } catch {}
+    const m = peta[invoice];
+    return m ? { status: m.status, amount: m.amount ?? null, channel: "QRIS" } : { status: "PENDING", amount: null, channel: null };
   },
 };
 
@@ -177,7 +184,7 @@ export function dokuConfig(): { clientId: string; secret: string } | null {
 
 /** Driver aktif: kredensial → DOKU; DOKU_MOCK=true → tiruan; selain itu null. */
 export function doku(): DokuDriver | null {
-  if (process.env.DOKU_MOCK === "true") return driverTiruan;
+  if (saklarUji("DOKU_MOCK")) return driverTiruan;
   const c = dokuConfig();
   return c ? driverAsli(c.clientId, c.secret) : null;
 }
