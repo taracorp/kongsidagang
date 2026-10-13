@@ -1149,3 +1149,15 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - `bash scripts/deploy-lokal.sh fase5`; migrasi produksi ✓ `20261013160000_klaim_asuransi`; halaman utama 200
   (rincian di log deploy). Dengan ini kelima fase rencana "pengaman uang" terpasang di produksi.
 - Rollback: `git revert kd-klaim-asuransi..` + deploy ulang; DB: restore `/root/backup-kongsi/kongsi-20261013-1438-pre-fase5.sql.gz` (44 tabel).
+
+### Ch 8.43 — Artikel Fase 2–3 terbit ulang di produksi (tenant-asli.ts)
+2026-10-14
+- Atas izin Tara, `scripts/data/tenant-asli.ts` dijalankan di VPS (`node v22`, DB `kongsi`).
+- Backup: `/root/backup-kongsi/kongsi-20261013-2245-pre-tenant.sql.gz` (45 tabel).
+- Hasil: 0 data contoh dihapus (sudah bersih), Beauty Center 10 cabang / 38 e-voucher di-upsert, DRW Studio "segera
+  hadir" (logo 404, dibiarkan), **6 artikel di-upsert** (tanggal terbit asli dipertahankan).
+  - Diperbarui: "Tukar Guling aman" (v3: ajukan gratis, selisih uang, rekening, sanksi, asuransi; 1.567 → 3.460 kar.),
+    "Cara beli e-voucher" (pindah cabang, laporan/pengembalian; 2.043 → 2.973), "Pundi & Keteng" (Keteng = jaminan;
+    1.678 → 1.967).
+- Verifikasi: `/kabar/<slug>` 200; teks baru tampil.
+- Rollback artikel bila perlu: `git revert` commit artikel + jalankan ulang skrip (idempoten), atau restore backup.
