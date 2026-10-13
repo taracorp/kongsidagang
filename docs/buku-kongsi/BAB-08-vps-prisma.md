@@ -1127,3 +1127,19 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - Cek: `/`, `/lelang`, `/lelang?jenis=vendu`, `/tukar`, `/lapak`, `/bayar`, `/kabar` 200; `/admin/lelang` → masuk (307);
   cron `advance-auctions` → `{"advanced":0}`.
 - Rollback: `git revert kd-lelang-v2..` + deploy ulang; DB: restore backup di atas.
+
+### Ch 8.41 — Fase 5: klaim asuransi kurir (diteruskan setelah cair, tanpa talangan)
+2026-10-13
+- **Keputusan Tara:** asuransi paket hilang/rusak diteruskan lewat transfer setelah klaim cair; biaya transfer dipotong
+  dari nilai klaim.
+- `lib/domain/klaim.ts` + kartu "Klaim asuransi kurir" di `/admin/tukar`:
+  - calon klaim = paket berasuransi yang `problem`/`returned`, atau sudah jalan/sampai pada deal yang disengketakan;
+  - **Catat klaim** (nomor klaim KiriminAja, hilang/rusak, penerima: pemilik barang [default] atau penerima paket);
+    satu klaim per paket; pihak tukar tidak boleh mengurus klaimnya sendiri; kedua pihak dikabari;
+  - **Klaim cair** → isi nominal yang benar-benar diterima → `transfer_keluar` jenis `klaim_asuransi` (nominal −
+    Rp2.500) ke penerima klaim; tidak bisa dicairkan dua kali;
+  - **Klaim ditolak** → tidak ada uang keluar; kedua pihak dikabari "Kongsi tidak mengganti klaim yang ditolak kurir".
+- Halaman deal menampilkan status klaim ke kedua pihak; artikel "Tukar Guling aman" ditambah kalimat asuransi.
+- **Migrasi** `20261013160000_klaim_asuransi` (dev ✓): tabel `klaim_asuransi` + check. Batal: `DROP TABLE klaim_asuransi;`.
+- **Uji** `scripts/uji/klaim.ts` 10 ✓.
+- **Rollback:** `git revert` commit ini + SQL batal di atas.

@@ -972,3 +972,25 @@ model AuctionHak {
   @@index([status, tenggat])
   @@map("auction_hak")
 }
+
+// Klaim asuransi kurir (Fase 5, Ch 8.41): paket Tukar Guling hilang/rusak. Kongsi TIDAK menalangi — hanya meneruskan
+// nominal yang benar-benar dicairkan KiriminAja ke penerima klaim (dipotong biaya transfer).
+model KlaimAsuransi {
+  id           String    @id @default(uuid())
+  shipment_id  String    @unique
+  deal_id      String
+  penerima_id  String // default: pemilik barang (pengirim paket)
+  nomor_klaim  String
+  jenis        String // hilang | rusak
+  status       String    @default("diajukan") // diajukan | cair | ditolak
+  nominal_cair Int?
+  catatan      String?
+  transfer_id  String?
+  dibuat_oleh  String
+  diputus_oleh String?
+  created_at   DateTime  @default(now())
+  diputus_at   DateTime?
+
+  @@index([status])
+  @@map("klaim_asuransi")
+}

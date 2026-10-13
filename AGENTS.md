@@ -259,6 +259,11 @@ tidak ada ganti rugi antar-user (aman dari akun kembar).
   (`auction_hak`). Pemenang wajib bayar set + platform fee + biaya DOKU dalam 12 jam (`/lelang/bayar/[id]`); voucher
   terbit setelah lunas; tidak bayar → peringkat berikutnya → gagal. Hak lapak = harga deal (`order_items.titipan`).
 
+### 6.1e Klaim asuransi kurir (Fase 5, Ch 8.41)
+- Paket Tukar Guling hilang/rusak → pengurus mencatat klaim KiriminAja di `/admin/tukar` (`klaim_asuransi`). Uang keluar
+  hanya setelah klaim CAIR, sebesar yang diterima − biaya transfer, ke pemilik barang (atau pihak yang ditetapkan
+  Syahbandar). Klaim ditolak kurir → tidak ada ganti dari Kongsi.
+
 ### 6.2 Juru Tunjuk (concierge) — kuis tap-tap
 - 3 langkah, jawaban chip (bukan ketik) — enak di HP.
 - Alur: kategori → selera/atribut → kisaran harga → hasil produk.

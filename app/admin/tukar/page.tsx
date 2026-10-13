@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { DisputeResolve } from "@/components/admin/DisputeResolve";
 import { HargaKomoditas } from "@/components/admin/HargaKomoditas";
+import { CatatKlaim, PutusKlaim } from "@/components/admin/KlaimAsuransi";
+import { daftarKlaimAdmin } from "@/lib/domain/klaim";
 import { TeraPenaksir } from "@/components/admin/TeraPenaksir";
 import { loadCategories } from "@/lib/domain/kategori";
 import { getDisputedDeals, getTeraQueue } from "@/lib/queries";
@@ -11,7 +13,7 @@ import { HARI_ESKALASI } from "@/lib/domain/tukar-aturan";
 export default async function AdminTukar() {
   const { role } = await getStaffSession();
   if (!isAdminUp(role)) redirect("/admin");
-  const [disputes, categories, tera] = await Promise.all([getDisputedDeals(), loadCategories(), getTeraQueue()]);
+  const [disputes, categories, tera, klaim] = await Promise.all([getDisputedDeals(), loadCategories(), getTeraQueue(), daftarKlaimAdmin()]);
   const komoditas = categories
     .filter((c) => c.kind === "komoditas")
     .map((c) => ({ slug: c.slug, name: c.name, unit: c.unit, price: c.price_per_unit }));
@@ -81,6 +83,41 @@ export default async function AdminTukar() {
           })}
         </div>
       )}
+      <h3 className="pt-4 font-fraunces text-lg font-black text-kongsi-indigo">Klaim asuransi kurir</h3>
+      <p className="text-[13px] text-kongsi-ink-soft">
+        Paket hilang/rusak: ajukan klaim di KiriminAja, catat di sini. Kongsi tidak menalangi — hanya meneruskan nominal yang
+        benar-benar cair (dipotong biaya transfer) lewat Transfer Keluar. Klaim ditolak kurir = tidak ada ganti.
+      </p>
+      {klaim.calon.length === 0 && klaim.klaim.length === 0 ? (
+        <p className="text-[13px] text-kongsi-ink-soft">Tidak ada paket bermasalah.</p>
+      ) : (
+        <div className="grid gap-3 md:grid-cols-2">
+          {klaim.calon.map((p) => (
+            <div key={p.id} className="rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-3 text-[12px] shadow-hard-sm">
+              <b>{p.leg === "a_to_b" ? p.deal.itemA.title : p.deal.itemB.title}</b> · resi {p.awb} · {p.status}
+              <div className="text-kongsi-ink-soft">
+                {p.status_text} · nilai {formatKeping(p.item_value)} · asuransi {formatKeping(p.insurance)}
+              </div>
+              <div className="mt-2">
+                <CatatKlaim shipmentId={p.id} />
+              </div>
+            </div>
+          ))}
+          {klaim.klaim.map((k) => (
+            <div key={k.id} className="rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment-3 p-3 text-[12px] shadow-hard-sm">
+              Klaim <b>{k.nomor_klaim}</b> ({k.jenis}) · <b>{k.status}</b>
+              {k.nominal_cair ? ` · cair ${formatKeping(k.nominal_cair)}` : ""}
+              {k.catatan ? <div className="text-kongsi-ink-soft">{k.catatan}</div> : null}
+              {k.status === "diajukan" ? (
+                <div className="mt-2">
+                  <PutusKlaim id={k.id} />
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+
       <h3 className="pt-4 font-fraunces text-lg font-black text-kongsi-indigo">
         Antrean Tera Penaksir ({tera.length})
       </h3>

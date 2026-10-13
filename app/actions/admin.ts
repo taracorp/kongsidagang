@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { approveMerchantApplication } from "@/lib/domain/saudagar";
 import { tandaiDibayar } from "@/lib/domain/transfer";
 import * as Setoran from "@/lib/domain/setoran";
+import * as Klaim from "@/lib/domain/klaim";
 import { isSuperadminEmail } from "@/lib/roles";
 import { run, requireAdminUp, requireKabarEditor, requireKetua } from "./_util";
 
@@ -184,5 +185,30 @@ export async function kembalikanVoucherLapak(kode: string, alasan: string) {
   return run(async () => {
     const s = await requireAdminUp();
     return Setoran.kembalikanVoucher(s.userId!, String(kode ?? ""), String(alasan ?? ""));
+  });
+}
+
+/** Klaim asuransi kurir: catat, cair (teruskan ke penerima), atau ditolak. */
+export async function catatKlaimAsuransi(shipmentId: string, nomorKlaim: string, jenis: "hilang" | "rusak", penerima: "pengirim" | "penerima") {
+  return run(async () => {
+    const s = await requireAdminUp();
+    await Klaim.catatKlaim(s.userId!, { shipmentId: String(shipmentId), nomorKlaim: String(nomorKlaim ?? ""), jenis, penerima });
+    revalidatePath("/admin/tukar");
+  });
+}
+
+export async function klaimAsuransiCair(klaimId: string, nominal: number) {
+  return run(async () => {
+    const s = await requireAdminUp();
+    await Klaim.klaimCair(s.userId!, String(klaimId), Number(nominal));
+    revalidatePath("/admin/tukar");
+  });
+}
+
+export async function klaimAsuransiDitolak(klaimId: string, alasan: string) {
+  return run(async () => {
+    const s = await requireAdminUp();
+    await Klaim.klaimDitolak(s.userId!, String(klaimId), String(alasan ?? ""));
+    revalidatePath("/admin/tukar");
   });
 }

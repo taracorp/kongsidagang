@@ -232,6 +232,7 @@ export type DealDetail = {
   jaminanKu: number;
   ditahanKu: number;
   transferKu: { jenis: string; nominal: number; status: string; tenggat: string }[];
+  klaim: { nomor: string; jenis: string; status: string; nominal: number | null; untukku: boolean }[];
   punyaRekening: boolean;
   buktiUrl: string | null;
   putusAlasan: string | null;
@@ -324,7 +325,7 @@ export async function getDealDetail(dealId: string, userId: string): Promise<Dea
     u.cadangan = pb ? estimasiCadangan(u.selisih_uang, jaminanKeteng(u, pb)) : 0;
   }
   const giliran = d.status === "menunggu_bayar" ? giliranSetor(u) : null;
-  const [holdsKu, transfers, rekening] = await Promise.all([
+  const [holdsKu, transfers, rekening, klaim] = await Promise.all([
     prisma.walletHold.aggregate({ where: { deal_id: d.id, user_id: userId, status: "ditahan" }, _sum: { amount: true } }),
     prisma.transferKeluar.findMany({
       where: { deal_id: d.id, user_id: userId },
@@ -332,6 +333,7 @@ export async function getDealDetail(dealId: string, userId: string): Promise<Dea
       orderBy: { created_at: "asc" },
     }),
     prisma.rekeningUser.findUnique({ where: { user_id: userId }, select: { user_id: true } }),
+    prisma.klaimAsuransi.findMany({ where: { deal_id: d.id }, select: { nomor_klaim: true, jenis: true, status: true, nominal_cair: true, penerima_id: true } }),
   ]);
   return {
     id: d.id,
@@ -351,6 +353,7 @@ export async function getDealDetail(dealId: string, userId: string): Promise<Dea
     ditahanKu: holdsKu._sum.amount ?? 0,
     transferKu: transfers.map((t) => ({ jenis: t.jenis, nominal: t.nominal, status: t.status, tenggat: t.tenggat.toISOString() })),
     punyaRekening: Boolean(rekening),
+    klaim: klaim.map((k) => ({ nomor: k.nomor_klaim, jenis: k.jenis, status: k.status, nominal: k.nominal_cair, untukku: k.penerima_id === userId })),
     buktiUrl: d.bukti_url,
     putusAlasan: d.putus_alasan,
     fault: d.fault_party === "a" || d.fault_party === "b" ? d.fault_party : null,

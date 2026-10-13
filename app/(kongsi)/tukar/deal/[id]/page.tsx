@@ -56,6 +56,7 @@ const statusPaket: Record<string, string> = {
 const LABEL_TRANSFER: Record<string, string> = {
   pencairan_selisih: "Selisih ke rekeningmu",
   refund_selisih: "Pengembalian selisih ke rekeningmu",
+  klaim_asuransi: "Klaim asuransi ke rekeningmu",
 };
 
 const kartu = "rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-5 shadow-hard";
@@ -463,6 +464,20 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
                 ) : null}
               </div>
             ) : null}
+          </div>
+        ) : null}
+
+        {d.klaim.length ? (
+          <div className={kartu}>
+            <h3 className={judul}>Klaim asuransi kurir</h3>
+            {d.klaim.map((k) => (
+              <p key={k.nomor} className="text-[13px]">
+                Klaim {k.nomor} ({k.jenis}):{" "}
+                <b>{k.status === "diajukan" ? "diproses kurir" : k.status === "cair" ? `cair ${formatKeping(k.nominal ?? 0)}` : "ditolak kurir"}</b>
+                {k.status === "cair" ? (k.untukku ? " — ditransfer ke rekeningmu (dipotong biaya transfer)." : " — ditransfer ke pemilik barang.") : ""}
+              </p>
+            ))}
+            <p className="mt-2 text-[12px] text-kongsi-ink-soft">Kongsi meneruskan nominal yang cair dari kurir; klaim yang ditolak kurir tidak diganti.</p>
           </div>
         ) : null}
 
