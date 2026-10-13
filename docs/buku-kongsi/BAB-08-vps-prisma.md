@@ -956,3 +956,10 @@ Traefik yang sudah ada di VPS, cukup atur port.
   - belanja: >50 voucher ditolak, snapshot masa berlaku, cabang ber-voucher terkunci, rekonsiliasi menerbitkan
     voucher dari pesanan kedaluwarsa yang lunas di DOKU.
 - **Rollback:** `git revert` commit ini + SQL batal di atas.
+- **Alat deploy baru:** `scripts/deploy-lokal.sh <label>` — build di laptop (`~/kdb/kongsidagang`) → backup DB →
+  `git pull` + `prisma generate` + `migrate deploy` di VPS → rsync `.next` (tanpa cache) → tukar → `pm2 reload` → cek
+  `/`, `/tukar`, `/lapak`, `/bayar`, `/kabar` = 200, bila tidak otomatis kembali ke build lama.
+  - **Koreksi Ch 8.32:** nama folder `kongsidagang` saja tidak cukup — Turbopack menghitung symlink
+    `.next/node_modules/*` dari akar yang ia tebak (`../../../../kdb/kongsidagang/node_modules/pg`). Skrip menulis ulang
+    setiap symlink menjadi relatif di dalam proyek (`../../node_modules/pg`) dan batal bila ada symlink ke luar
+    `node_modules` proyek.
