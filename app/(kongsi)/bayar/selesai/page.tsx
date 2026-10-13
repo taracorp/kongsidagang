@@ -60,7 +60,9 @@ export default async function BayarSelesaiPage({ searchParams }: { searchParams:
       <div className={`${kartu} border-kongsi-ok bg-kongsi-sage/30`}>
         <div className="font-fraunces text-xl font-black text-kongsi-ok">✓ Pembayaran berhasil</div>
         <p className="mt-2 text-sm text-kongsi-ink-soft">
-          {o.keteng.toLocaleString("id-ID")} Keteng masuk lalu langsung dipakai. {o.tujuan_hasil}.
+          {o.rekber > 0 ? `Selisih ${formatKeping(o.rekber)} (termasuk biaya transfer) ditahan Kongsi sampai tukar selesai. ` : ""}
+          {o.keteng > 0 ? `${o.keteng.toLocaleString("id-ID")} Keteng masuk lalu langsung ditahan sebagai jaminan. ` : ""}
+          {o.tujuan_hasil}.
         </p>
         <KongsiLinkButton href={o.tujuan_ref ? `/tukar/deal/${o.tujuan_ref}` : "/tukar"} variant="primary" className="mt-4">
           Lihat tukar
@@ -73,7 +75,8 @@ export default async function BayarSelesaiPage({ searchParams }: { searchParams:
         <div className="font-fraunces text-xl font-black text-kongsi-grenadine">Pembayaran masuk, pesanan belum diproses</div>
         <p className="mt-2 text-sm">{o.tujuan_hasil}</p>
         <p className="mt-2 text-sm text-kongsi-ink-soft">
-          {o.keteng.toLocaleString("id-ID")} Keteng sudah masuk dan aman di Pundi-mu. Coba lagi dengan bayar pakai Keteng.
+          {o.keteng > 0 ? `${o.keteng.toLocaleString("id-ID")} Keteng sudah masuk dan aman di Pundi-mu. ` : ""}
+          {o.rekber > 0 ? "Uang selisih dikembalikan ke rekeningmu (dipotong biaya transfer) paling lambat 2 hari kerja." : "Coba lagi dengan bayar pakai Keteng."}
         </p>
         <KongsiLinkButton href="/tukar" variant="primary" className="mt-4">
           Coba lagi

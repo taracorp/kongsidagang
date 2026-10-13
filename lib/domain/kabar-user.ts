@@ -71,3 +71,14 @@ export async function kabariPengurus(db: Tx | typeof prisma, k: IsiKabar) {
   const ids = new Set([...staf.map((s) => s.user_id), ...superadmin.map((u) => u.id)]);
   for (const id of ids) await beriKabar(db, id, k);
 }
+
+/** Kabar ke Ketua (peran ketua + superadmin terverifikasi) — mis. sengketa yang belum diputus 7 hari. */
+export async function kabariKetua(db: Tx | typeof prisma, k: IsiKabar) {
+  const surel = (process.env.SUPERADMIN_EMAILS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const [staf, superadmin] = await Promise.all([
+    db.staffRole.findMany({ where: { role: "ketua" }, select: { user_id: true } }),
+    surel.length ? db.user.findMany({ where: { email: { in: surel }, emailVerified: true }, select: { id: true } }) : [],
+  ]);
+  const ids = new Set([...staf.map((s) => s.user_id), ...superadmin.map((u) => u.id)]);
+  for (const id of ids) await beriKabar(db, id, k);
+}

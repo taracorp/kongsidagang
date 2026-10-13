@@ -3,24 +3,25 @@
 import { useState } from "react";
 import { bayarLangsung } from "@/app/actions/pundi";
 import type { CaraBayar, Tujuan } from "@/lib/domain/bayar-langsung";
-import { rincianBayar, METODE_AWAL_KETENG } from "@/lib/payment/biaya";
-import { nominalLangsung, tautanIsi } from "@/lib/pundi-paket";
+import { rincianBayar, METODE_AWAL_KETENG, METODE_SELISIH } from "@/lib/payment/biaya";
+import { ketengDibeli, tautanIsi } from "@/lib/pundi-paket";
 import { cn, formatKeping } from "@/lib/utils";
 import { KongsiButton } from "./KongsiButton";
 import { PilihMetode } from "./PilihMetode";
 
 /**
- * Bayar Langsung untuk Tukar Guling (Keteng hanya berlaku untuk barter): beli Keteng yang kurang lewat DOKU
- * tanpa Isi Pundi dulu, lalu aksinya dijalankan otomatis. Pembeli menanggung biaya pembayaran metode pilihannya.
- * Saldo 0 → satu tombol. Saldo sebagian → "pakai saldo + beli kekurangan" atau "beli penuh".
- * Angka di tombol hanya perkiraan; server menghitung ulang dari kebutuhan & saldo terkini.
- * `kebutuhan` null = belum bisa dihitung di browser (mis. ongkir kurir) → tombol tanpa angka.
+ * Bayar Langsung untuk Tukar Guling lewat DOKU, tanpa Isi Pundi dulu; aksinya dijalankan otomatis setelah lunas.
+ * - `kebutuhan` = Keteng jaminan yang perlu ditahan; kekurangannya dibelikan Keteng (1 Rupiah = 1 Keteng).
+ * - `uang` = selisih tukar + biaya transfer (uang rekber, BUKAN Keteng) — hanya QRIS / Virtual Account.
+ * Saldo sebagian → "pakai saldo + bayar kekurangan" atau "bayar penuh". Angka di tombol hanya perkiraan; server
+ * menghitung ulang. `kebutuhan` null = belum bisa dihitung di browser (mis. ongkir kurir) → tombol tanpa angka.
  */
 export function BayarLangsung({
   tujuan,
   muatan,
   kebutuhan,
   saldo,
+  uang = 0,
   tersedia = true,
   disabled,
   kecil,
@@ -29,11 +30,13 @@ export function BayarLangsung({
   muatan: unknown;
   kebutuhan: number | null;
   saldo: number;
+  uang?: number;
   tersedia?: boolean;
   disabled?: boolean;
-  kecil?: boolean; // tombol ringkas (lembar Ajukan Tukar)
+  kecil?: boolean; // tombol ringkas
 }) {
-  const [metode, setMetode] = useState(METODE_AWAL_KETENG);
+  const adaUang = uang > 0;
+  const [metode, setMetode] = useState(adaUang ? (METODE_SELISIH[0]?.kode ?? METODE_AWAL_KETENG) : METODE_AWAL_KETENG);
   const [busy, setBusy] = useState<CaraBayar | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -41,7 +44,7 @@ export function BayarLangsung({
     const kurang = kebutuhan != null ? kebutuhan - saldo : 0;
     return (
       <a href={tautanIsi(kurang)} className="font-bold text-kongsi-grenadine underline">
-        Saldo kurang — Isi Pundi
+        Pembayaran belum tersedia — Isi Pundi
       </a>
     );
   }
@@ -58,13 +61,15 @@ export function BayarLangsung({
     window.location.assign(data.url); // halaman bayar DOKU (atau halaman hasil pada mode demo)
   }
 
-  const sebagian = saldo > 0;
-  const keteng = (cara: CaraBayar) => (kebutuhan != null ? nominalLangsung(kebutuhan, saldo, cara) : null);
+  const sebagian = saldo > 0 && (kebutuhan ?? 1) > 0;
+  const keteng = (cara: CaraBayar) => (kebutuhan != null ? ketengDibeli(kebutuhan, saldo, cara, uang) : null);
   const label = (cara: CaraBayar) => {
     const k = keteng(cara);
     if (k == null) return cara === "kurang" ? "Pakai saldo + bayar kekurangannya" : "Bayar penuh";
-    const bayarRp = formatKeping(rincianBayar(k, metode).total);
-    return cara === "kurang" && sebagian ? `Pakai saldo ${formatKeping(saldo)} + bayar ${bayarRp}` : `Bayar ${bayarRp}`;
+    const bayarRp = formatKeping(rincianBayar(k + uang, metode).total);
+    // Tampilkan saldo yang benar-benar terpakai (bukan seluruh saldo).
+    const terpakai = Math.min(saldo, kebutuhan ?? 0);
+    return cara === "kurang" && sebagian ? `Pakai saldo ${formatKeping(terpakai)} + bayar ${bayarRp}` : `Bayar ${bayarRp}`;
   };
   const kecilCls =
     "block w-full cursor-pointer rounded-[3px] border-2 border-kongsi-ink px-2 py-[6px] text-center text-[12px] font-bold disabled:opacity-60";
@@ -93,14 +98,17 @@ export function BayarLangsung({
       </KongsiButton>
     );
 
-  const kNeto = keteng(sebagian ? "kurang" : "penuh") ?? 0;
+  const kNeto = (keteng(sebagian ? "kurang" : "penuh") ?? 0) + uang;
   return (
     <div className="space-y-2">
-      <PilihMetode ringkas keteng neto={kNeto} value={metode} onChange={setMetode} />
+      <PilihMetode ringkas keteng selisih={adaUang} neto={kNeto} value={metode} onChange={setMetode} />
       {sebagian ? [tombolBayar("kurang", true), tombolBayar("penuh", false)] : tombolBayar("penuh", true)}
       <p className="text-[11px] text-kongsi-ink-soft">
-        Yang kamu bayar dibelikan Keteng (1 Rupiah = 1 Keteng, minimal 10.000) lalu langsung dipakai untuk tukar ini,
-        ditambah biaya pembayaran metode pilihanmu. Sisa pembulatan tetap di Pundi-mu.
+        {adaUang
+          ? `Selisih ${formatKeping(uang)} (termasuk biaya transfer pencairan) ditahan Kongsi sebagai uang — diteruskan ke rekening lawan saat tukar selesai, kembali ke rekeningmu bila batal. `
+          : ""}
+        Jaminan yang kurang dibelikan Keteng (1 Rupiah = 1 Keteng) lalu langsung ditahan, ditambah biaya pembayaran
+        metode pilihanmu. Sisa pembulatan tetap di Pundi-mu.
       </p>
       {err ? (
         <p className="rounded-[4px] border-2 border-kongsi-grenadine bg-kongsi-parchment-3 px-3 py-2 text-[12px] text-kongsi-grenadine-dark">

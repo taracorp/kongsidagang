@@ -1,6 +1,6 @@
 "use client";
 
-import { METODE_AKTIF, NAMA_GRUP, bolehUntukKeteng, rincianBayar, type GrupMetode } from "@/lib/payment/biaya";
+import { METODE_AKTIF, NAMA_GRUP, bolehUntukKeteng, bolehUntukSelisih, rincianBayar, type GrupMetode } from "@/lib/payment/biaya";
 import { cn, formatKeping } from "@/lib/utils";
 
 const URUTAN: GrupMetode[] = ["qris", "va", "ewallet", "kartu"];
@@ -16,6 +16,7 @@ const masukan =
  * Pilih metode pembayaran DOKU. Tiap metode menampilkan biaya pembayarannya (ditanggung pembeli) untuk `neto`
  * — nominal bersih yang harus diterima Kongsi. `ringkas` = dropdown (untuk lembar sempit).
  * `keteng` = pembelian Keteng: kartu disembunyikan (server juga menolaknya).
+ * `selisih` = tagihan berisi selisih tukar (uang rekber): hanya QRIS & Virtual Account.
  */
 export function PilihMetode({
   neto,
@@ -23,14 +24,16 @@ export function PilihMetode({
   onChange,
   ringkas,
   keteng,
+  selisih,
 }: {
   neto: number;
   value: string;
   onChange: (kode: string) => void;
   ringkas?: boolean;
   keteng?: boolean;
+  selisih?: boolean;
 }) {
-  const METODE = keteng ? METODE_AKTIF.filter(bolehUntukKeteng) : METODE_AKTIF;
+  const METODE = selisih ? METODE_AKTIF.filter(bolehUntukSelisih) : keteng ? METODE_AKTIF.filter(bolehUntukKeteng) : METODE_AKTIF;
   const GRUP = URUTAN.filter((g) => METODE.some((m) => m.grup === g));
   const biaya = (kode: string) => (neto > 0 ? rincianBayar(neto, kode).biaya : 0);
 

@@ -4,36 +4,36 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { ajukanTukar, tutupBarang, mintaTera } from "@/app/actions/tukar";
-import { beaTukar, depositKirim, hitungSelisih } from "@/lib/domain/tukar-aturan";
-import { tautanIsi } from "@/lib/pundi-paket";
+import { BIAYA_TRANSFER, JAM_BAYAR, beaTukar, depositKirim, estimasiCadangan, hitungSelisih } from "@/lib/domain/tukar-aturan";
 import { cn, formatKeping } from "@/lib/utils";
-import { BayarLangsung } from "./BayarLangsung";
 
 type MyItem = { id: string; title: string; value: number; kirimOk: boolean };
 type AlamatPilihan = { id: string; label: string; area: string };
 
 const small = "rounded-[3px] border-2 border-kongsi-ink px-2 py-[6px] text-center text-[12px] font-bold";
 
+/**
+ * Ajukan Tukar (v3): GRATIS — tidak ada yang ditahan sebelum tawaran diterima. Selisih nilai dibayar UANG (QRIS/VA)
+ * oleh pihak bernilai lebih rendah setelah diterima, maks 50% nilai barang termahal. Keteng hanya untuk jaminan.
+ */
 export function AjukanTukar({
   targetId,
   targetValue,
   targetKirimOk,
   myItems,
   loggedIn,
-  balance,
   kirimAktif,
   alamat,
-  langsung = false,
+  punyaRekening,
 }: {
   targetId: string;
   targetValue: number;
   targetKirimOk: boolean;
   myItems: MyItem[];
   loggedIn: boolean;
-  balance: number;
   kirimAktif: boolean;
   alamat: AlamatPilihan[];
-  langsung?: boolean; // Bayar Langsung (DOKU) tersedia
+  punyaRekening: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -42,7 +42,7 @@ export function AjukanTukar({
   const [myId, setMyId] = useState(myItems[0]?.id ?? "");
   const mine = myItems.find((m) => m.id === myId) ?? myItems[0];
   const sel = mine ? hitungSelisih(mine.value, targetValue) : null;
-  const [topupRaw, setTopupRaw] = useState<string | null>(null); // null = pakai default (selisih)
+  const [topupRaw, setTopupRaw] = useState<string | null>(null); // null = pakai default
   const [mode, setMode] = useState<"cod" | "kirim">("cod");
   const [addressId, setAddressId] = useState(alamat[0]?.id ?? "");
 
@@ -61,26 +61,26 @@ export function AjukanTukar({
     );
   }
 
-  const topup = topupRaw === null ? sel.diff : Number(topupRaw.replace(/\D/g, "")) || 0;
+  const melebihi = sel.from === "a" && sel.min > sel.cap;
+  const bawaan = sel.from === "a" ? sel.min : sel.max;
+  const topup = topupRaw === null ? bawaan : Number(topupRaw.replace(/\D/g, "")) || 0;
   const feeMine = beaTukar(mine.value);
   const feeTheirs = beaTukar(targetValue);
   const bisaKirim = kirimAktif && mine.kirimOk && targetKirimOk;
   const modeAktif = bisaKirim ? mode : "cod";
   const deposit = modeAktif === "kirim" ? depositKirim(mine.value) : 0;
-  const ditahan = feeMine + (sel.from === "a" ? topup : 0) + deposit;
-  const kurang = ditahan > balance;
+  const akuBayar = sel.from === "a" && topup > 0;
+  const akuTerima = sel.from === "b" && topup > 0;
+  // Penerima selisih menahan cadangan biaya pengembalian dana (kembali bila tukar jadi).
+  const cadangan = akuTerima ? estimasiCadangan(topup, feeTheirs + (modeAktif === "kirim" ? depositKirim(targetValue) : 0)) : 0;
+  const jaminan = feeMine + deposit + cadangan;
   const butuhAlamat = modeAktif === "kirim" && !addressId;
+  const butuhRekening = topup > 0 && !punyaRekening;
 
   async function kirim() {
     setBusy(true);
     setMsg(null);
-    const { error, data } = await ajukanTukar(
-      mine.id,
-      targetId,
-      sel!.from ? topup : 0,
-      modeAktif,
-      modeAktif === "kirim" ? addressId : null,
-    );
+    const { error, data } = await ajukanTukar(mine.id, targetId, sel!.from ? topup : 0, modeAktif, modeAktif === "kirim" ? addressId : null);
     setBusy(false);
     if (error) {
       setMsg(error);
@@ -113,12 +113,7 @@ export function AjukanTukar({
               >
                 <div className="flex items-center justify-between gap-2">
                   <b className="font-fraunces text-lg font-black text-kongsi-indigo">Ajukan Tukar</b>
-                  <button
-                    type="button"
-                    onClick={() => setOpen(false)}
-                    aria-label="Tutup"
-                    className="cursor-pointer text-xl font-bold"
-                  >
+                  <button type="button" onClick={() => setOpen(false)} aria-label="Tutup" className="cursor-pointer text-xl font-bold">
                     ×
                   </button>
                 </div>
@@ -166,9 +161,7 @@ export function AjukanTukar({
                         </button>
                       ))}
                     </div>
-                    {!bisaKirim ? (
-                      <p className="mt-1 text-[11px] text-kongsi-ink-soft">Kirim kurir butuh dua barang yang sudah ditaksir.</p>
-                    ) : null}
+                    {!bisaKirim ? <p className="mt-1 text-[11px] text-kongsi-ink-soft">Kirim kurir butuh dua barang yang sudah ditaksir.</p> : null}
                     {modeAktif === "kirim" ? (
                       <div className="mt-2">
                         <label className="block font-bold" htmlFor={`adr-${targetId}`}>
@@ -207,17 +200,20 @@ export function AjukanTukar({
                     <b>{formatKeping(targetValue)}</b>
                   </div>
                   <div className={cn(row, "border-t border-dashed border-kongsi-ink/30 pt-[2px]")}>
-                    <span>Selisih</span>
-                    <b className={sel.diff ? "text-kongsi-grenadine" : "text-kongsi-ok"}>
-                      {sel.diff ? formatKeping(sel.diff) : "seimbang ✓"}
-                    </b>
+                    <span>Selisih nilai</span>
+                    <b className={sel.diff ? "text-kongsi-grenadine" : "text-kongsi-ok"}>{sel.diff ? formatKeping(sel.diff) : "seimbang ✓"}</b>
                   </div>
                 </div>
 
-                {sel.from ? (
+                {melebihi ? (
+                  <p className="rounded-[4px] border-2 border-kongsi-grenadine bg-kongsi-parchment px-2 py-2 text-[12px] text-kongsi-grenadine-dark">
+                    Selisihnya melebihi batas 50% nilai barang termahal ({formatKeping(sel.cap)}). Pilih barang yang nilainya lebih
+                    dekat.
+                  </p>
+                ) : sel.from ? (
                   <div>
                     <label className="block font-bold" htmlFor={`tp-${targetId}`}>
-                      {sel.from === "a" ? "Kamu menambah Keteng (min. selisih)" : "Dia menambah Keteng (boleh kamu relakan)"}
+                      {sel.from === "a" ? "Kamu membayar selisih (uang)" : "Dia membayar selisih (uang, boleh kamu relakan)"}
                     </label>
                     <input
                       id={`tp-${targetId}`}
@@ -226,61 +222,57 @@ export function AjukanTukar({
                       onChange={(e) => setTopupRaw(e.target.value)}
                       className="w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-2 py-1"
                     />
+                    <p className="mt-1 text-[11px] text-kongsi-ink-soft">
+                      {sel.from === "a" ? `Minimal ${formatKeping(sel.min)}, maksimal ${formatKeping(sel.max)}.` : `Maksimal ${formatKeping(sel.max)}.`} Dibayar
+                      lewat QRIS / Virtual Account setelah diterima, ditahan Kongsi sampai tukar selesai.
+                    </p>
                   </div>
                 ) : null}
 
                 <div className="space-y-[2px]">
-                  <div className={row}>
-                    <span>Bea Tukar kamu (10%, maks 10rb)</span>
-                    <b>{formatKeping(feeMine)}</b>
+                  <div className={cn(row, "font-bold text-kongsi-ok")}>
+                    <span>Ditahan sekarang</span>
+                    <span>Rp 0 — mengajukan gratis</span>
                   </div>
+                  <div className="pt-1 text-[12px] font-bold">Bila diterima, dalam {JAM_BAYAR} jam kamu menyetor:</div>
+                  <div className={row}>
+                    <span>Jaminan Keteng (bea{cadangan ? " + cadangan" : ""}{deposit ? " + deposit" : ""})</span>
+                    <b>{formatKeping(jaminan)}</b>
+                  </div>
+                  {modeAktif === "kirim" ? (
+                    <div className={cn(row, "text-kongsi-ink-soft")}>
+                      <span>+ ongkir barang yang kamu terima</span>
+                      <span>dihitung saat diterima</span>
+                    </div>
+                  ) : null}
+                  {akuBayar ? (
+                    <div className={row}>
+                      <span>Selisih + biaya transfer (uang)</span>
+                      <b>{formatKeping(topup + BIAYA_TRANSFER)}</b>
+                    </div>
+                  ) : null}
                   <div className={cn(row, "text-kongsi-ink-soft")}>
                     <span>Bea Tukar dia</span>
                     <span>{formatKeping(feeTheirs)}</span>
                   </div>
-                  {deposit > 0 ? (
-                    <div className={row}>
-                      <span>Deposit Kirim (kembali saat selesai)</span>
-                      <b>{formatKeping(deposit)}</b>
-                    </div>
-                  ) : null}
-                  <div className={cn(row, "font-bold")}>
-                    <span>Ditahan dari Pundimu sekarang</span>
-                    <span>{formatKeping(ditahan)}</span>
-                  </div>
                   <p className="text-[11px] text-kongsi-ink-soft">
-                    Keteng ditahan Kongsi sampai tukar selesai. Ditolak / batal → kembali utuh.
-                    {modeAktif === "kirim" ? " Ongkir barang yang kamu terima ditagih setelah tawaran diterima." : ""}
+                    Tukar jadi → bea diambil Kongsi, jaminan lain kembali{akuTerima ? ", selisih ditransfer ke rekeningmu ≤ 2 hari kerja" : ""}.
+                    Batal → semua kembali, kecuali bea pihak penyebab batal.
                   </p>
                 </div>
 
-                {kurang && langsung ? (
-                  <BayarLangsung
-                    kecil
-                    tujuan="tukar_ajukan"
-                    muatan={{
-                      myItemId: mine.id,
-                      targetId,
-                      topup: sel.from ? topup : 0,
-                      mode: modeAktif,
-                      addressId: modeAktif === "kirim" ? addressId : null,
-                    }}
-                    kebutuhan={ditahan}
-                    saldo={balance}
-                    disabled={butuhAlamat}
-                  />
-                ) : kurang ? (
-                  <a href={tautanIsi(ditahan - balance)} className={cn(small, "block bg-kongsi-beeswax")}>
-                    Saldo {formatKeping(balance)} kurang — Isi Pundi
+                {butuhRekening ? (
+                  <a href="/pakhuis/rekening" className={cn(small, "block bg-kongsi-beeswax")}>
+                    Isi rekening pencairan dulu (wajib untuk tukar ber-selisih)
                   </a>
                 ) : (
                   <button
                     type="button"
-                    disabled={busy || butuhAlamat}
+                    disabled={busy || butuhAlamat || melebihi}
                     onClick={kirim}
                     className={cn(small, "w-full cursor-pointer bg-kongsi-grenadine text-kongsi-parchment disabled:opacity-60")}
                   >
-                    {busy ? "Mengirim…" : "Kirim tawaran"}
+                    {busy ? "Mengirim…" : "Kirim tawaran (gratis)"}
                   </button>
                 )}
                 {msg ? <p className="text-[11px] text-kongsi-bad">{msg}</p> : null}
@@ -306,12 +298,7 @@ export function TutupBarang({ id }: { id: string }) {
   }
   return (
     <>
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={busy}
-        className={cn(small, "mt-2 w-full cursor-pointer bg-kongsi-parchment-3 text-kongsi-bad")}
-      >
+      <button type="button" onClick={onClick} disabled={busy} className={cn(small, "mt-2 w-full cursor-pointer bg-kongsi-parchment-3 text-kongsi-bad")}>
         Tutup
       </button>
       {msg ? <p className="mt-1 text-[11px] text-kongsi-bad">{msg}</p> : null}

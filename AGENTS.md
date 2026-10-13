@@ -199,20 +199,33 @@ Enum `user_level`. Ambang (rupiah akumulasi) ditentukan Tara — tanya dulu sebe
 
 ## BAGIAN 6: FITUR — SPEK RINGKAS
 
-### 6.1 Tukar Guling (barter) — v2 (disetujui Tara, 5 Okt 2026)
-- Nilai barang **ditaksir sistem**, bukan angka bebas user. **Juru Taksir** (gratis, tanpa API berbayar):
-  riset harga di BigGo + SearXNG self-hosted (`kongsi-searxng`, 127.0.0.1:8888) + lapak mitra → `lib/taksir/*`;
-  rumus di `lib/domain/taksiran.ts` (pasar bekas → harga baru × susut → nilai buku; dibeli bekas tidak disusutkan
-  dua kali; koleksi tanpa susut). Label akurasi tampil ke semua pihak; banding lewat **tera Penaksir** (admin).
+### 6.1 Tukar Guling (barter) — v3 (disetujui Tara, 13 Okt 2026; Buku Kongsi Ch 8.35)
+**Prinsip (arahan keras Tara):** platform tidak pernah rugi/menanggung risiko; risiko jatuh ke pihak yang salah;
+tidak ada ganti rugi antar-user (aman dari akun kembar).
+- Nilai barang **ditaksir sistem** (Juru Taksir: BigGo + SearXNG `kongsi-searxng` + lapak mitra → `lib/taksir/*`,
+  rumus `lib/domain/taksiran.ts`). Label akurasi tampil ke semua pihak; banding lewat **tera Penaksir** (admin).
   Tombol pilihan WAJIB pola `.jt-chip` (kotak), bukan bulat.
-- Ajukan tukar; selisih nilai ditutup dengan **tambah Keteng** dari pihak bernilai lebih rendah.
-- **Bea Tukar** = 10% taksiran barang sendiri, maks 10.000 Keteng, ditanggung **kedua pihak**.
-- **Rekber diizinkan**: bea, tambah Keteng, deposit, ongkir ditahan di `wallet_holds` saat deal disepakati.
-- Mode **COD** (QR handshake, Titik Aman, batal di tempat) atau **Kirim** (KiriminAja express — `lib/shipping/kiriminaja.ts`;
-  ongkir dibayar penerima paket, penahanan silang 2×24 jam, konfirmasi/otomatis 48 jam).
-- Deposit (mode Kirim) & KYC (Kirim / nilai > 1jt) — lihat rencana di Buku Kongsi Ch 8.12.
-- Sengketa → diadili **Syahbandar** (admin) di Kantor Kongsi; Keteng dipindah lewat helper `lib/domain/pundi.ts`.
-- Belum: barter segitiga, bundling, scraper harga pasar. Isi Pundi sudah lewat DOKU Checkout (`lib/payment/doku.ts`).
+- **Ajukan gratis** (tanpa tahanan); maks 3 tawaran menunggu per pengaju; kedaluwarsa 72 jam.
+- **Selisih = UANG** (QRIS/VA saja, `METODE_SELISIH`), dibayar pihak bernilai lebih rendah, **maks 50%** nilai barang
+  termahal. Ditahan Kongsi (`barter_deals.selisih_status`), diteruskan ke rekening penerima ≤ 2 hari kerja lewat
+  `transfer_keluar` (`/admin/transfer`). Pembayar juga membayar biaya transfer pencairan (`BIAYA_TRANSFER` Rp2.500).
+- **Keteng hanya jaminan:** bea (10% taksiran sendiri, maks 10rb), **cadangan** penerima selisih (biaya pengembalian
+  dana: transfer + biaya DOKU), deposit Kirim (= max(10% nilai, ongkir paket keluar)), ongkir.
+- **Terima → `menunggu_bayar`:** penerima menahan jaminannya saat menerima; pengaju menyetor dalam 12 jam
+  (`tenggatBayar`: jatuh 22.00–08.00 WIB → 10.00 WIB), pengingat 2 jam sebelum. Bila penerima tawaran yang membayar
+  selisih, ia membayar SETELAH pengaju (penerima selisih) menahan cadangan. Tagihan DOKU gabungan: Keteng kurang +
+  uang rekber (`topup_orders.rekber`, tujuan `tukar_setor`). Tidak lunas → batal + catatan pelanggaran.
+- **Batal:** jaminan kembali kecuali bea pihak penyebab (hangus). Selisih kembali ke rekening pembayar: penerima selisih
+  bersalah → utuh (dari cadangannya); selain itu dipotong biaya transfer. COD "barang tidak sesuai" → lawan penyebab
+  tanpa bea hangus. Setelah ada pindaian, tidak bisa batal sepihak.
+- **Sanksi:** `sanksi_tukar`; 3 dalam 30 hari → tidak bisa ajukan/terima 30 hari.
+- **Syahbandar** (`/admin/tukar`): Sah/Batal + pihak bersalah + alasan wajib (tercatat `putus_oleh/putus_alasan`);
+  tidak boleh memutus deal sendiri; sengketa wajib foto bukti; > 7 hari → kabar Ketua.
+- Mode **COD** (QR handshake, Titik Aman) atau **Kirim** (KiriminAja — `lib/shipping/kiriminaja.ts`; konfirmasi
+  otomatis 72 jam + pengingat 24 & 6 jam; ongkir kembali hanya bila kurir memastikan batal, Ch 8.33).
+- Rekening user: `rekening_user` (`/pakhuis/rekening`), wajib untuk tukar ber-selisih. Deal lama `versi=2` tidak bisa
+  diterima lagi (minta ajukan ulang).
+- Belum: barter segitiga, bundling, KYC. Isi Pundi lewat DOKU Checkout (`lib/payment/doku.ts`).
 
 ### 6.1b E-voucher lapak (Okt 2026)
 - Keranjang menyimpan `productId` + `branchId` (localStorage `kongsi.cart.v2`); harga SELALU dari DB (`lib/domain/belanja.ts`).
@@ -226,8 +239,9 @@ Enum `user_level`. Ambang (rupiah akumulasi) ditentukan Tara — tanya dulu sebe
 - Notifikasi: `beriKabar(tx, …)` di `lib/domain/kabar-user.ts`, dipanggil di dalam transaksi peristiwanya.
 
 ### 6.1c Bayar Langsung & Isi Pundi (Okt 2026)
-- **Keteng hanya untuk Tukar Guling.** Isi Pundi = nominal 1:1 + biaya DOKU metode pilihan; tanpa bonus, tanpa platform fee.
-- User tidak wajib Isi Pundi dulu. Saat saldo kurang (ajukan/terima tukar, ongkir), user membayar lewat DOKU;
+- **Keteng hanya untuk jaminan Tukar Guling** (bukan selisih). Isi Pundi = nominal 1:1 + biaya DOKU metode pilihan;
+  tanpa bonus, tanpa platform fee, tanpa kartu kredit/debit (risiko chargeback).
+- User tidak wajib Isi Pundi dulu. Saat saldo kurang (terima tukar, setor jaminan), user membayar lewat DOKU;
   uangnya masuk 1:1 sebagai Keteng lalu aksinya dijalankan otomatis (`lib/domain/bayar-langsung.ts`,
   `topup_orders.tujuan/muatan`). Saldo sebagian → user memilih "pakai saldo + bayar kekurangan" atau "bayar penuh".
 - Nominal dihitung server (`nominalLangsung`: dibulatkan ke Rp1.000, minimal Rp10.000). Input divalidasi SEBELUM

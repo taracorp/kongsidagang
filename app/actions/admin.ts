@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { approveMerchantApplication } from "@/lib/domain/saudagar";
+import { tandaiDibayar } from "@/lib/domain/transfer";
 import { isSuperadminEmail } from "@/lib/roles";
 import { run, requireAdminUp, requireKabarEditor, requireKetua } from "./_util";
 
@@ -147,5 +148,14 @@ export async function selesaikanBermasalah(id: string, catatan: string) {
     });
     if (r.count !== 1) throw new Error("Catatan sudah diselesaikan.");
     revalidatePath("/admin");
+  });
+}
+
+/** Pengurus menandai transfer keluar sudah ditransfer (nomor referensi bank wajib). */
+export async function tandaiTransferDibayar(id: string, referensi: string) {
+  return run(async () => {
+    const s = await requireAdminUp();
+    await tandaiDibayar(s.userId!, String(id), String(referensi ?? ""));
+    revalidatePath("/admin/transfer");
   });
 }

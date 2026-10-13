@@ -12,6 +12,10 @@ import { saranIsi } from "@/lib/pundi-paket";
 import { kirimAktif } from "@/lib/shipping/kiriminaja";
 import { cn, formatKeping } from "@/lib/utils";
 import { levelTangga } from "@/lib/konstanta";
+import { transferSaya, LABEL_TRANSFER, type JenisTransfer } from "@/lib/domain/transfer";
+import { blokirSampai, jumlahSanksi } from "@/lib/domain/tukar";
+import { namaBank } from "@/lib/data/bank";
+import { prisma } from "@/lib/db";
 
 // Warna QR = token ink & parchment-3 (SVG butuh nilai literal).
 const QR_WARNA = { dark: "#3A2417", light: "#FBEDD2" };
@@ -32,6 +36,13 @@ export default async function PakhuisPage({
   const pesanan = user && isi ? await rekonsiliasiIsiPundi(user.id, String(isi)) : null;
   const data = await getPakhuis();
   if (!data) redirect("/masuk");
+  const uid = user?.id ?? (await getSessionUser())?.id ?? "";
+  const [transfers, rekening, blokir, catatan] = await Promise.all([
+    transferSaya(uid),
+    prisma.rekeningUser.findUnique({ where: { user_id: uid } }),
+    blokirSampai(prisma, uid),
+    jumlahSanksi(prisma, uid),
+  ]);
   const modeIsi = isiPundiTersedia();
 
   const levelIndex = Math.max(0, levelOrder.indexOf(data.level));
@@ -235,7 +246,47 @@ export default async function PakhuisPage({
           </div>
         )}
 
-        {/* 5. Tautan */}
+        {/* 5. Rekening & transfer (Tukar Guling) */}
+        <h3 id="transfer" className="mb-3 scroll-mt-24 font-fraunces text-xl font-black text-kongsi-indigo">
+          Rekening & transfer
+        </h3>
+        <div className="mb-6 space-y-3 rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-4 text-[13px] shadow-hard-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>
+              {rekening ? (
+                <>
+                  Rekening pencairan: <b>{namaBank(rekening.bank)}</b> ••••{rekening.nomor.slice(-4)} a.n. {rekening.atas_nama}
+                </>
+              ) : (
+                <span className="font-bold text-kongsi-grenadine">Belum ada rekening pencairan (wajib untuk tukar ber-selisih).</span>
+              )}
+            </span>
+            <a href="/pakhuis/rekening" className="font-bold text-kongsi-grenadine">
+              {rekening ? "Ubah" : "Isi rekening"} →
+            </a>
+          </div>
+          {transfers.length ? (
+            <ul className="space-y-1">
+              {transfers.map((t) => (
+                <li key={t.id} className="flex flex-wrap justify-between gap-2 border-t border-dashed border-kongsi-ink/20 pt-1">
+                  <span>{LABEL_TRANSFER[t.jenis as JenisTransfer] ?? t.jenis}</span>
+                  <b className={t.status === "dibayar" ? "text-kongsi-ok" : ""}>
+                    {formatKeping(t.nominal)} ·{" "}
+                    {t.status === "dibayar" ? `ditransfer ${t.dibayar_at ? tgl(t.dibayar_at.toISOString()) : ""} (ref ${t.referensi})` : `paling lambat ${tgl(t.tenggat.toISOString())}`}
+                  </b>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {catatan > 0 ? (
+            <p className={cn("rounded-[4px] px-2 py-1", blokir ? "bg-kongsi-grenadine text-kongsi-parchment" : "bg-kongsi-parchment-3")}>
+              Catatan pelanggaran Tukar Guling 30 hari terakhir: <b>{catatan}/3</b>
+              {blokir ? ` — tidak bisa ikut Tukar Guling sampai ${tgl(blokir.toISOString())}.` : "."}
+            </p>
+          ) : null}
+        </div>
+
+        {/* 6. Tautan */}
         <div className="space-y-3">
           {data.isSaudagar ? (
             <a

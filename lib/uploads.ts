@@ -15,7 +15,7 @@ const EXT: Record<string, string> = {
   "image/gif": "gif",
 };
 
-export async function saveUpload(bucket: "barter", ownerId: string, file: File): Promise<string> {
+export async function saveUpload(bucket: "barter" | "sengketa", ownerId: string, file: File): Promise<string> {
   const ext = EXT[file.type];
   if (!ext) throw new Error("Foto harus JPG, PNG, WEBP, atau GIF.");
   if (file.size > MAX_BYTES) throw new Error("Foto maksimal 5 MB.");

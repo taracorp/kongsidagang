@@ -6,6 +6,7 @@ import { loadCategories } from "@/lib/domain/kategori";
 import { getDisputedDeals, getTeraQueue } from "@/lib/queries";
 import { getStaffSession, isAdminUp } from "@/lib/roles";
 import { formatKeping } from "@/lib/utils";
+import { HARI_ESKALASI } from "@/lib/domain/tukar-aturan";
 
 export default async function AdminTukar() {
   const { role } = await getStaffSession();
@@ -18,51 +19,66 @@ export default async function AdminTukar() {
   return (
     <div className="space-y-3">
       <p className="text-[13px] text-kongsi-ink-soft">
-        ⚖️ <b>Syahbandar</b> — adili sengketa Tukar Guling. Sahkan sebagai selesai
-        atau batalkan.
+        ⚖️ <b>Syahbandar</b> — adili sengketa Tukar Guling: sahkan atau batalkan, tetapkan pihak bersalah (bea-nya hangus,
+        menanggung biaya pengembalian selisih, dicatat pelanggaran). Tidak ada ganti rugi antar-user. Sengketa yang
+        belum diputus {HARI_ESKALASI} hari dikabarkan ke Ketua.
       </p>
       {disputes.length === 0 ? (
         <p className="rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment px-4 py-8 text-center text-[13px] text-kongsi-ink-soft">
           Tidak ada sengketa. Aman terkendali.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment shadow-hard-sm">
-          <table className="w-full border-separate border-spacing-0 text-sm">
-            <thead>
-              <tr className="bg-kongsi-indigo-dark text-left font-fraunces text-kongsi-parchment">
-                <th className="p-[11px_14px]">Barang A</th>
-                <th className="p-[11px_14px]">Barang B</th>
-                <th className="p-[11px_14px]">Tambahan</th>
-                <th className="p-[11px_14px]">Masalah</th>
-                <th className="p-[11px_14px]">Putusan</th>
-              </tr>
-            </thead>
-            <tbody>
-              {disputes.map((d) => (
-                <tr key={d.id} className="even:bg-kongsi-sage/10">
-                  <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_14px] font-semibold">
-                    {d.itemA}
-                  </td>
-                  <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_14px] font-semibold">
-                    {d.itemB}
-                  </td>
-                  <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_14px]">
-                    {d.topup > 0 ? formatKeping(d.topup) : "—"}
-                  </td>
-                  <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_14px] text-[12px]">
-                    <div className="font-bold">{d.mode === "kirim" ? "📦 Kirim" : "🤝 COD"}</div>
-                    {d.reason ?? "—"}
-                    {d.fault ? (
-                      <div className="mt-1 font-bold text-kongsi-bad">Penyebab (sistem): pihak {d.fault.toUpperCase()}</div>
+        <div className="space-y-3">
+          {disputes.map((d) => {
+            const lama = d.lamaHari;
+            return (
+              <div key={d.id} className="grid gap-3 rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-4 shadow-hard-sm md:grid-cols-[1fr_280px]">
+                <div className="text-[13px]">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <b className="font-fraunces text-base text-kongsi-indigo">
+                      {d.itemA} ⇄ {d.itemB}
+                    </b>
+                    <span className="text-[11px] font-bold">{d.mode === "kirim" ? "📦 Kirim" : "🤝 COD"}</span>
+                    {lama !== null ? (
+                      <span className={lama >= HARI_ESKALASI ? "text-[11px] font-bold text-kongsi-bad" : "text-[11px] text-kongsi-ink-soft"}>
+                        {lama} hari
+                      </span>
                     ) : null}
-                  </td>
-                  <td className="border-t-[1.5px] border-kongsi-ink/15 p-[11px_14px]">
-                    <DisputeResolve id={d.id} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                  <div className="mt-1">
+                    A: {d.pihakA} · {formatKeping(d.valueA)} — B: {d.pihakB} · {formatKeping(d.valueB)}
+                  </div>
+                  {d.selisih > 0 ? (
+                    <div>
+                      Selisih uang {formatKeping(d.selisih)} dibayar pihak {(d.selisihDari ?? "?").toUpperCase()} ·{" "}
+                      <b>{d.selisihStatus ?? "belum dibayar"}</b>
+                    </div>
+                  ) : d.topup > 0 ? (
+                    <div>Tambah Keteng (alur lama) {formatKeping(d.topup)}</div>
+                  ) : null}
+                  {d.mode === "cod" ? (
+                    <div>
+                      Pindaian: kode A {d.scannedA ? "✓ dipindai" : "—"} · kode B {d.scannedB ? "✓ dipindai" : "—"}
+                    </div>
+                  ) : (
+                    <div>Paket: {d.paket.map((p) => `${p.leg === "a_to_b" ? "A→B" : "B→A"} ${p.status}${p.awb ? ` (${p.awb})` : ""}`).join(" · ") || "—"}</div>
+                  )}
+                  <div>
+                    Ditahan:{" "}
+                    {d.ditahan.length ? d.ditahan.map((h) => `${h.pihak.toUpperCase()} ${h.kind} ${formatKeping(h.amount)}`).join(" · ") : "—"}
+                  </div>
+                  <p className="mt-2 rounded-[4px] bg-kongsi-parchment-3 p-2">{d.reason ?? "—"}</p>
+                  {d.buktiUrl ? (
+                    <a href={d.buktiUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block font-bold text-kongsi-grenadine">
+                      Foto bukti ↗
+                    </a>
+                  ) : null}
+                  {d.fault ? <div className="mt-1 font-bold text-kongsi-bad">Penyebab menurut sistem: pihak {d.fault.toUpperCase()}</div> : null}
+                </div>
+                <DisputeResolve id={d.id} saran={d.fault === "a" || d.fault === "b" ? d.fault : null} />
+              </div>
+            );
+          })}
         </div>
       )}
       <h3 className="pt-4 font-fraunces text-lg font-black text-kongsi-indigo">

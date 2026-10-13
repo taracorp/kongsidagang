@@ -4,6 +4,16 @@ import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
 import { getStaffSession, isAdminUp, canEditKabar, isKetua, isSuperadminEmail } from "@/lib/roles";
 import type { Tone } from "@/components/kongsi/ProdukCard";
+import {
+  depositKirim,
+  estimasiCadangan,
+  giliranSetor,
+  jaminanKeteng,
+  pembayarSelisih,
+  penerimaSelisih,
+  uangSetor,
+  type DealUang,
+} from "@/lib/domain/tukar-aturan";
 
 const asTone = (t: unknown): Tone => (t as Tone) ?? "sage";
 
@@ -204,8 +214,28 @@ export type DealBarang = {
 export type DealDetail = {
   id: string;
   status: string;
+  versi: number;
   mode: "cod" | "kirim";
   me: "a" | "b";
+  /** v3: selisih uang (rekber) */
+  selisih: number;
+  iPaySelisih: boolean;
+  iReceiveSelisih: boolean;
+  biayaTransfer: number;
+  cadangan: number;
+  selisihStatus: string | null;
+  /** menunggu_bayar: siapa yang wajib menyetor sekarang */
+  giliran: "a" | "b" | null;
+  /** yang harus kusetor sekarang (null bila bukan giliranku) */
+  setorKu: { keteng: number; uang: number } | null;
+  /** perkiraan Keteng jaminanku (sebelum/selama menunggu bayar; ongkir Kirim bisa belum diketahui) */
+  jaminanKu: number;
+  ditahanKu: number;
+  transferKu: { jenis: string; nominal: number; status: string; tenggat: string }[];
+  punyaRekening: boolean;
+  buktiUrl: string | null;
+  putusAlasan: string | null;
+  fault: "a" | "b" | null;
   myDeposit: number;
   paket: DealPaket[];
   myConfirmed: boolean;
@@ -269,11 +299,61 @@ export async function getDealDetail(dealId: string, userId: string): Promise<Dea
   const [mi, ti] = me === "a" ? [d.itemA, d.itemB] : [d.itemB, d.itemA];
   const [mv, tv] = me === "a" ? [d.value_a, d.value_b] : [d.value_b, d.value_a];
   const kontakTerbuka = ["agreed", "dikirim", "diterima", "done", "disputed", "resolved"].includes(d.status);
+  const ongkirUser = (uid: string) =>
+    d.shipments.filter((s) => s.payer_id === uid).reduce((t, s) => t + s.shipping_cost + s.insurance, 0);
+  const u: DealUang = {
+    topup_from: d.topup_from,
+    selisih_uang: d.selisih_uang,
+    biaya_transfer: d.biaya_transfer,
+    cadangan: d.cadangan,
+    fee_a: d.fee_a,
+    fee_b: d.fee_b,
+    deposit_a: d.deposit_a,
+    deposit_b: d.deposit_b,
+    ongkir_a: ongkirUser(d.itemA.user_id),
+    ongkir_b: ongkirUser(d.itemB.user_id),
+    setor_a_at: d.setor_a_at,
+    setor_b_at: d.setor_b_at,
+  };
+  if (d.status === "proposed") {
+    // Perkiraan sebelum diterima (COD pasti; Kirim belum termasuk ongkir yang dihitung saat diterima).
+    const kirim = d.mode === "kirim";
+    u.deposit_a = kirim ? depositKirim(d.value_a ?? 0) : 0;
+    u.deposit_b = kirim ? depositKirim(d.value_b ?? 0) : 0;
+    const pb = pembayarSelisih(u);
+    u.cadangan = pb ? estimasiCadangan(u.selisih_uang, jaminanKeteng(u, pb)) : 0;
+  }
+  const giliran = d.status === "menunggu_bayar" ? giliranSetor(u) : null;
+  const [holdsKu, transfers, rekening] = await Promise.all([
+    prisma.walletHold.aggregate({ where: { deal_id: d.id, user_id: userId, status: "ditahan" }, _sum: { amount: true } }),
+    prisma.transferKeluar.findMany({
+      where: { deal_id: d.id, user_id: userId },
+      select: { jenis: true, nominal: true, status: true, tenggat: true },
+      orderBy: { created_at: "asc" },
+    }),
+    prisma.rekeningUser.findUnique({ where: { user_id: userId }, select: { user_id: true } }),
+  ]);
   return {
     id: d.id,
     status: d.status,
+    versi: d.versi,
     mode: d.mode === "kirim" ? "kirim" : "cod",
     me,
+    selisih: d.selisih_uang,
+    iPaySelisih: pembayarSelisih(u) === me,
+    iReceiveSelisih: penerimaSelisih(u) === me,
+    biayaTransfer: d.biaya_transfer,
+    cadangan: u.cadangan,
+    selisihStatus: d.selisih_status,
+    giliran,
+    setorKu: giliran === me ? { keteng: me === "a" ? jaminanKeteng(u, "a") : 0, uang: uangSetor(u, me) } : null,
+    jaminanKu: jaminanKeteng(u, me),
+    ditahanKu: holdsKu._sum.amount ?? 0,
+    transferKu: transfers.map((t) => ({ jenis: t.jenis, nominal: t.nominal, status: t.status, tenggat: t.tenggat.toISOString() })),
+    punyaRekening: Boolean(rekening),
+    buktiUrl: d.bukti_url,
+    putusAlasan: d.putus_alasan,
+    fault: d.fault_party === "a" || d.fault_party === "b" ? d.fault_party : null,
     myDeposit: me === "a" ? d.deposit_a : d.deposit_b,
     paket: d.shipments.map((s) => ({
       leg: s.leg === "a_to_b" ? "a_to_b" : "b_to_a",
@@ -321,14 +401,30 @@ export async function getWalletBalance(userId: string): Promise<number> {
 
 export type DisputeDeal = {
   id: string;
-  topup: number;
+  mode: string;
+  versi: number;
   itemA: string;
   itemB: string;
-  mode: string;
+  pihakA: string;
+  pihakB: string;
+  valueA: number;
+  valueB: number;
+  selisih: number;
+  selisihDari: string | null;
+  selisihStatus: string | null;
+  topup: number;
   reason: string | null;
   fault: string | null;
+  buktiUrl: string | null;
+  sengketaAt: string | null;
+  lamaHari: number | null;
+  scannedA: boolean;
+  scannedB: boolean;
+  paket: { leg: string; status: string; awb: string | null }[];
+  ditahan: { pihak: "a" | "b"; kind: string; amount: number }[];
 };
 
+/** Sengketa Tukar Guling untuk Syahbandar (admin saja), lengkap dengan status pindaian, paket, dan tahanan. */
 export async function getDisputedDeals(): Promise<DisputeDeal[]> {
   await connection(); // data DB selalu per-request, jangan diprerender saat build
   try {
@@ -336,25 +432,43 @@ export async function getDisputedDeals(): Promise<DisputeDeal[]> {
     if (!isAdminUp(role)) return [];
     const data = await prisma.barterDeal.findMany({
       where: { status: "disputed" },
-      select: {
-        id: true,
-        topup_keping: true,
-        mode: true,
-        cancel_reason: true,
-        fault_party: true,
-        itemA: { select: { title: true } },
-        itemB: { select: { title: true } },
+      include: {
+        itemA: { select: { title: true, user_id: true, user: { select: { name: true, email: true } } } },
+        itemB: { select: { title: true, user_id: true, user: { select: { name: true, email: true } } } },
+        shipments: { select: { leg: true, status: true, awb: true }, orderBy: { leg: "asc" } },
       },
-      orderBy: { created_at: "desc" },
+      orderBy: { sengketa_at: "asc" },
+    });
+    const sekarang = Date.now();
+    const holds = await prisma.walletHold.findMany({
+      where: { deal_id: { in: data.map((d) => d.id) }, status: "ditahan" },
+      select: { deal_id: true, user_id: true, kind: true, amount: true },
     });
     return data.map((d) => ({
       id: d.id,
-      topup: d.topup_keping,
+      mode: d.mode,
+      versi: d.versi,
       itemA: d.itemA.title,
       itemB: d.itemB.title,
-      mode: d.mode,
+      pihakA: d.itemA.user.name || d.itemA.user.email,
+      pihakB: d.itemB.user.name || d.itemB.user.email,
+      valueA: d.value_a ?? 0,
+      valueB: d.value_b ?? 0,
+      selisih: d.selisih_uang,
+      selisihDari: d.topup_from,
+      selisihStatus: d.selisih_status,
+      topup: d.topup_keping,
       reason: d.cancel_reason,
       fault: d.fault_party,
+      buktiUrl: d.bukti_url,
+      sengketaAt: d.sengketa_at?.toISOString() ?? null,
+      lamaHari: d.sengketa_at ? Math.floor((sekarang - d.sengketa_at.getTime()) / 86_400_000) : null,
+      scannedA: Boolean(d.scanned_a_at),
+      scannedB: Boolean(d.scanned_b_at),
+      paket: d.shipments,
+      ditahan: holds
+        .filter((h) => h.deal_id === d.id)
+        .map((h) => ({ pihak: h.user_id === d.itemA.user_id ? ("a" as const) : ("b" as const), kind: h.kind, amount: h.amount })),
     }));
   } catch {
     return [];

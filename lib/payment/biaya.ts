@@ -71,6 +71,19 @@ export function cariMetode(kode: string): Metode {
 export const bolehUntukKeteng = (m: Metode) => m.grup !== "kartu";
 export const METODE_AWAL_KETENG = (METODE_AKTIF.find((m) => m.grup === "qris") ?? METODE_AKTIF.find(bolehUntukKeteng) ?? METODE[0]).kode;
 
+/**
+ * Selisih Tukar Guling (uang rekber) hanya lewat QRIS / Virtual Account: biayanya kecil & tetap, jadi cadangan biaya
+ * pengembalian dana yang ditahan dari penerima selisih tetap wajar; tanpa kartu (chargeback) & e-wallet MDR tinggi.
+ */
+export const bolehUntukSelisih = (m: Metode) => m.grup === "qris" || m.grup === "va";
+export const METODE_SELISIH: Metode[] = METODE_AKTIF.filter(bolehUntukSelisih);
+
+export function cariMetodeSelisih(kode: string): Metode {
+  const m = cariMetode(kode);
+  if (!bolehUntukSelisih(m)) throw new Error("Selisih tukar hanya bisa dibayar lewat QRIS atau Virtual Account.");
+  return m;
+}
+
 export function cariMetodeKeteng(kode: string): Metode {
   const m = cariMetode(kode);
   if (!bolehUntukKeteng(m)) throw new Error("Kartu kredit/debit tidak bisa dipakai untuk Keteng. Pilih QRIS, Virtual Account, atau e-wallet.");

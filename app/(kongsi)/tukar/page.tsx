@@ -5,11 +5,11 @@ import { RowHead } from "@/components/kongsi/RowHead";
 import Link from "next/link";
 import { AjukanTukar, TutupBarang, MintaTera } from "@/components/kongsi/BarterActions";
 import { getSessionUser } from "@/lib/auth";
-import { getBarterRows, getMyBarter, getWalletBalance, type BarterRow } from "@/lib/queries";
+import { getBarterRows, getMyBarter, type BarterRow } from "@/lib/queries";
+import { prisma } from "@/lib/db";
 import { labelStatus, STATUS_AKHIR } from "@/lib/domain/tukar-aturan";
 import { alamatSaya } from "@/lib/domain/alamat";
 import { kirimAktif } from "@/lib/shipping/kiriminaja";
-import { isiPundiTersedia } from "@/lib/domain/pundi";
 import { cn, formatKeping } from "@/lib/utils";
 import type { Tone } from "@/components/kongsi/ProdukCard";
 
@@ -92,6 +92,7 @@ const akurasiPill: Record<string, { label: string; variant: "gold" | "sage" | "i
 
 const dealStatusPill: Record<string, "gold" | "sage" | "indigo" | "live"> = {
   proposed: "gold",
+  menunggu_bayar: "gold",
   agreed: "live",
   disputed: "live",
   done: "sage",
@@ -102,11 +103,10 @@ export default async function TukarPage() {
   const user = await getSessionUser();
 
   const rows = await getBarterRows();
-  const [{ mine, deals }, balance, alamat] = user
-    ? await Promise.all([getMyBarter(user.id), getWalletBalance(user.id), alamatSaya(user.id)])
-    : [{ mine: [], deals: [] }, 0, []];
+  const [{ mine, deals }, rekening, alamat] = user
+    ? await Promise.all([getMyBarter(user.id), prisma.rekeningUser.findUnique({ where: { user_id: user.id }, select: { user_id: true } }), alamatSaya(user.id)])
+    : [{ mine: [], deals: [] }, null, []];
   const bisaKirim = kirimAktif();
-  const langsung = isiPundiTersedia() !== null;
   // Tawaran aktif di atas, yang sudah tutup di bawah.
   const sortedDeals = [...deals].sort(
     (x, y) => Number(STATUS_AKHIR.includes(x.status as never)) - Number(STATUS_AKHIR.includes(y.status as never)),
@@ -220,10 +220,9 @@ export default async function TukarPage() {
                   targetKirimOk={it.categoryName !== null}
                   myItems={myItemOptions}
                   loggedIn={Boolean(user)}
-                  balance={balance}
                   kirimAktif={bisaKirim}
                   alamat={alamatPilihan}
-                  langsung={langsung}
+                  punyaRekening={Boolean(rekening)}
                 />
               </BarterCard>
             ))}

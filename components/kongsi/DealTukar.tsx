@@ -8,9 +8,11 @@ import {
   tarikTukar,
   pindaiKode,
   batalDiTempat,
+  batalMenungguTukar,
   ajukanSengketa,
   nilaiTukar,
   bayarOngkirTukar,
+  setorTukar,
   cobaKirimLagi,
   konfirmasiTerima,
 } from "@/app/actions/tukar";
@@ -23,6 +25,8 @@ import { BayarLangsung } from "./BayarLangsung";
 const input =
   "w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-3 py-[10px] font-work text-sm focus:outline-2 focus:outline-kongsi-beeswax";
 const label = "mb-[5px] block text-[13px] font-bold";
+const pilihan =
+  "cursor-pointer rounded-[6px] border-2 border-kongsi-ink px-3 py-2 text-left text-[13px] font-bold shadow-hard-sm transition-transform hover:translate-x-[1px] hover:translate-y-[1px]";
 
 /** Pesan galat; bila saldo kurang, sertakan tautan Isi Pundi dengan nominal kekurangan. */
 function Pesan({ m, kurang, tanpaIsi }: { m: string | null; kurang?: number; tanpaIsi?: boolean }) {
@@ -34,6 +38,14 @@ function Pesan({ m, kurang, tanpaIsi }: { m: string | null; kurang?: number; tan
           {" "}
           <a href={tautanIsi(kurang ?? 0)} className="font-bold underline">
             Isi Pundi{kurang ? ` ${formatKeping(saranIsi(kurang))}` : ""}
+          </a>
+        </>
+      ) : null}
+      {/rekening/i.test(m) ? (
+        <>
+          {" "}
+          <a href="/pakhuis/rekening" className="font-bold underline">
+            Isi rekening
           </a>
         </>
       ) : null}
@@ -71,9 +83,9 @@ export function TerimaTawaran({
   dealId: string;
   mode: "cod" | "kirim";
   alamat?: AlamatPilihan[];
-  kurang?: number; // kekurangan saldo untuk rekber saat menerima (perkiraan)
+  kurang?: number; // kekurangan saldo untuk jaminan saat menerima (perkiraan)
   saldo?: number;
-  kebutuhan?: number | null; // Keteng yang ditahan saat menerima (null = ada ongkir yang belum diketahui)
+  kebutuhan?: number | null; // Keteng jaminan saat menerima (null = ada ongkir yang belum diketahui)
   langsung?: boolean; // Bayar Langsung (DOKU) tersedia
 }) {
   const { busy, err, jalankan } = useAksi();
@@ -107,12 +119,10 @@ export function TerimaTawaran({
         className="flex-1"
         disabled={busy || (mode === "kirim" && !addressId)}
         onClick={() =>
-          jalankan(() =>
-            terimaTukar(dealId, mode === "kirim" ? { addressId } : { meetType: type, meetPlace: place }),
-          )
+          jalankan(() => terimaTukar(dealId, mode === "kirim" ? { addressId } : { meetType: type, meetPlace: place }))
         }
       >
-        {busy ? "Memproses…" : mode === "kirim" ? "Terima & bayar ongkir" : "Terima & tahan bea"}
+        {busy ? "Memproses…" : "Terima & tahan jaminan"}
       </KongsiButton>
     </div>
   );
@@ -138,7 +148,8 @@ export function TerimaTawaran({
           + Tambah / kelola alamat
         </a>
         <p className="mt-2 text-[12px] text-kongsi-ink-soft">
-          Ongkir dihitung otomatis (kurir termurah + asuransi). Kamu membayar ongkir barang yang <b>kamu terima</b>.
+          Ongkir dihitung otomatis (kurir termurah + asuransi). Kamu membayar ongkir barang yang <b>kamu terima</b>,
+          plus deposit (kembali saat selesai).
         </p>
         {tombol}
         <Pesan m={err} kurang={kurang} tanpaIsi={langsung} />
@@ -178,23 +189,84 @@ export function TerimaTawaran({
   );
 }
 
+/**
+ * Setor setelah tawaran diterima: jaminan Keteng (dari saldo atau dibeli) + selisih uang lewat QRIS/VA bila aku
+ * pembayarnya. Selisih tidak pernah dibayar dengan Keteng.
+ */
+export function SetorTukar({
+  dealId,
+  keteng,
+  uang,
+  saldo,
+  langsung,
+}: {
+  dealId: string;
+  keteng: number;
+  uang: number;
+  saldo: number;
+  langsung: boolean;
+}) {
+  const { busy, err, jalankan } = useAksi();
+  if (uang > 0 || keteng > saldo) {
+    if (!langsung) return <Pesan m="Pembayaran DOKU belum tersedia. Hubungi Kongsi." />;
+    return <BayarLangsung tujuan="tukar_setor" muatan={{ dealId }} kebutuhan={keteng} uang={uang} saldo={saldo} />;
+  }
+  return (
+    <div>
+      <KongsiButton type="button" block disabled={busy} onClick={() => jalankan(() => setorTukar(dealId))}>
+        {busy ? "Memproses…" : `Tahan jaminan ${formatKeping(keteng)} dari Pundi`}
+      </KongsiButton>
+      <Pesan m={err} kurang={Math.max(0, keteng - saldo)} />
+    </div>
+  );
+}
+
+/** Mundur saat menunggu pembayaran: yang mundur = penyebab batal (bea hangus + catatan pelanggaran). */
+export function BatalMenunggu({ dealId }: { dealId: string }) {
+  const { busy, err, jalankan } = useAksi();
+  const [buka, setBuka] = useState(false);
+  const [alasan, setAlasan] = useState("");
+  if (!buka) {
+    return (
+      <KongsiButton type="button" variant="ghost" onClick={() => setBuka(true)}>
+        Mundur dari tukar ini
+      </KongsiButton>
+    );
+  }
+  return (
+    <div>
+      <p className="mb-2 rounded-[4px] border-2 border-kongsi-grenadine bg-kongsi-parchment-3 px-3 py-2 text-[12px]">
+        Mundur setelah tawaran diterima = kamu penyebab batal: <b>bea-mu hangus</b> (bila sudah ditahan) dan tercatat
+        sebagai pelanggaran. Jaminan lain kembali.
+      </p>
+      <label className={label} htmlFor="alasan-mundur">
+        Alasan
+      </label>
+      <input id="alasan-mundur" value={alasan} maxLength={200} onChange={(e) => setAlasan(e.target.value)} className={input} />
+      <div className="mt-3 flex gap-3">
+        <KongsiButton type="button" variant="ghost" onClick={() => setBuka(false)}>
+          Kembali
+        </KongsiButton>
+        <KongsiButton type="button" className="flex-1" disabled={busy} onClick={() => jalankan(() => batalMenungguTukar(dealId, alasan))}>
+          {busy ? "Memproses…" : "Ya, mundur"}
+        </KongsiButton>
+      </div>
+      <Pesan m={err} />
+    </div>
+  );
+}
+
+/** Alur lama (v2): lunasi ongkir paket yang akan diterima. */
 export function BayarOngkir({
   dealId,
   amount,
   kurang = 0,
-  saldo = 0,
-  langsung = false,
 }: {
   dealId: string;
   amount: number;
   kurang?: number;
-  saldo?: number;
-  langsung?: boolean;
 }) {
   const { busy, err, jalankan } = useAksi();
-  if (langsung && kurang > 0) {
-    return <BayarLangsung tujuan="tukar_ongkir" muatan={{ dealId }} kebutuhan={amount} saldo={saldo} />;
-  }
   return (
     <div>
       <KongsiButton type="button" block disabled={busy} onClick={() => jalankan(() => bayarOngkirTukar(dealId))}>
@@ -234,7 +306,7 @@ export function TarikTawaran({ dealId }: { dealId: string }) {
   return (
     <div>
       <KongsiButton type="button" variant="ghost" disabled={busy} onClick={() => jalankan(() => tarikTukar(dealId))}>
-        Tarik tawaran (Keteng kembali)
+        Tarik tawaran
       </KongsiButton>
       <Pesan m={err} />
     </div>
@@ -353,61 +425,114 @@ export function PindaiKode({ dealId }: { dealId: string }) {
   );
 }
 
+/**
+ * Batal (COD sebelum ada pindaian / Kirim sebelum paket dibuat) atau ajukan ke Syahbandar (alasan + foto bukti).
+ * COD: "barang lawan tidak sesuai" → semua kembali, lawan dicatat; alasan lain → bea-mu hangus + catatan pelanggaran.
+ */
 export function BatalAtauSengketa({
   dealId,
+  mode = "cod",
   bolehBatal = true,
   labelBatal = "Batalkan di tempat",
 }: {
   dealId: string;
+  mode?: "cod" | "kirim";
   bolehBatal?: boolean;
   labelBatal?: string;
 }) {
   const { busy, err, jalankan } = useAksi();
-  const [mode, setMode] = useState<null | "batal" | "sengketa">(null);
+  const [aksi, setAksi] = useState<null | "batal" | "sengketa">(null);
+  const [tidakSesuai, setTidakSesuai] = useState(mode === "cod");
   const [alasan, setAlasan] = useState("");
-  if (!mode) {
+  const [bukti, setBukti] = useState<File | null>(null);
+
+  if (!aksi) {
     return (
       <div className="flex flex-wrap gap-3">
         {bolehBatal ? (
-          <KongsiButton type="button" variant="ghost" onClick={() => setMode("batal")}>
+          <KongsiButton type="button" variant="ghost" onClick={() => setAksi("batal")}>
             {labelBatal}
           </KongsiButton>
         ) : null}
-        <KongsiButton type="button" variant="ghost" className="text-kongsi-bad" onClick={() => setMode("sengketa")}>
+        <KongsiButton type="button" variant="ghost" className="text-kongsi-bad" onClick={() => setAksi("sengketa")}>
           ⚖️ Ajukan ke Syahbandar
         </KongsiButton>
       </div>
     );
   }
+
+  function kirimSengketa() {
+    const f = new FormData();
+    f.set("dealId", dealId);
+    f.set("alasan", alasan);
+    if (bukti) f.set("bukti", bukti);
+    return ajukanSengketa(f);
+  }
+
   return (
     <div>
+      {aksi === "batal" && mode === "cod" ? (
+        <div className="mb-3 grid gap-2">
+          {[
+            { v: true, l: "Barang lawan tidak sesuai foto/keterangan", d: "Semua jaminan kembali; lawan dicatat sebagai penyebab." },
+            { v: false, l: "Alasan lain / berubah pikiran", d: "Bea-mu hangus dan dicatat sebagai pelanggaran." },
+          ].map((o) => (
+            <button
+              key={String(o.v)}
+              type="button"
+              aria-pressed={tidakSesuai === o.v}
+              onClick={() => setTidakSesuai(o.v)}
+              className={cn(pilihan, tidakSesuai === o.v ? "bg-kongsi-grenadine text-kongsi-parchment" : "bg-kongsi-parchment hover:bg-kongsi-beeswax")}
+            >
+              {o.l}
+              <span className={cn("block text-[11px] font-normal", tidakSesuai === o.v ? "text-kongsi-parchment" : "text-kongsi-ink-soft")}>{o.d}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {aksi === "batal" && mode === "kirim" ? (
+        <p className="mb-2 rounded-[4px] border-2 border-kongsi-grenadine bg-kongsi-parchment-3 px-3 py-2 text-[12px]">
+          Membatalkan sebelum dikirim = kamu penyebab batal: bea-mu hangus dan dicatat sebagai pelanggaran.
+        </p>
+      ) : null}
       <label className={label} htmlFor="alasan">
-        {mode === "batal"
-          ? "Kenapa dibatalkan? (bea & Keteng kembali ke kedua pihak)"
-          : "Ceritakan masalahnya ke Syahbandar (rekber tetap ditahan sampai diputus)"}
+        {aksi === "batal" ? "Ceritakan alasannya" : "Ceritakan masalahnya ke Syahbandar (jaminan & selisih tetap ditahan sampai diputus)"}
       </label>
       <textarea
         id="alasan"
         rows={3}
         value={alasan}
-        maxLength={300}
+        maxLength={500}
         onChange={(e) => setAlasan(e.target.value)}
         className={input}
-        placeholder={mode === "batal" ? "cth. rangka retak, tidak sesuai checklist" : "cth. tidak datang, minta transfer di luar aplikasi"}
+        placeholder={aksi === "batal" ? "cth. rangka retak, tidak sesuai checklist" : "cth. tidak datang, minta transfer di luar aplikasi"}
       />
+      {aksi === "sengketa" ? (
+        <div className="mt-2">
+          <label className={label} htmlFor="bukti">
+            Foto bukti <span className="text-kongsi-grenadine">*wajib</span>
+          </label>
+          <input
+            id="bukti"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(e) => setBukti(e.target.files?.[0] ?? null)}
+            className="block w-full text-[13px]"
+          />
+          <p className="mt-1 text-[11px] text-kongsi-ink-soft">Foto barang, tempat ketemu, atau tangkapan layar percakapan. Maks 5 MB.</p>
+        </div>
+      ) : null}
       <div className="mt-3 flex gap-3">
-        <KongsiButton type="button" variant="ghost" onClick={() => setMode(null)}>
+        <KongsiButton type="button" variant="ghost" onClick={() => setAksi(null)}>
           Kembali
         </KongsiButton>
         <KongsiButton
           type="button"
           className="flex-1"
-          disabled={busy}
-          onClick={() =>
-            jalankan(() => (mode === "batal" ? batalDiTempat(dealId, alasan) : ajukanSengketa(dealId, alasan)))
-          }
+          disabled={busy || (aksi === "sengketa" && (!bukti || alasan.trim().length < 10))}
+          onClick={() => jalankan(() => (aksi === "batal" ? batalDiTempat(dealId, alasan, mode === "cod" && tidakSesuai) : kirimSengketa()))}
         >
-          {busy ? "Memproses…" : mode === "batal" ? "Ya, batalkan" : "Kirim ke Syahbandar"}
+          {busy ? "Memproses…" : aksi === "batal" ? "Ya, batalkan" : "Kirim ke Syahbandar"}
         </KongsiButton>
       </div>
       <Pesan m={err} />

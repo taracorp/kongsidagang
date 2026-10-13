@@ -8,17 +8,19 @@ import {
   TarikTawaran,
   PindaiKode,
   BatalAtauSengketa,
+  BatalMenunggu,
   NilaiTukar,
   HitungMundur,
   BayarOngkir,
+  SetorTukar,
   CobaKirimLagi,
   KonfirmasiTerima,
 } from "@/components/kongsi/DealTukar";
 import { getSessionUser } from "@/lib/auth";
-import { getDealDetail, getWalletBalance, type DealBarang, type DealPaket } from "@/lib/queries";
+import { getDealDetail, getWalletBalance, type DealBarang, type DealDetail, type DealPaket } from "@/lib/queries";
 import { kodeKetemu } from "@/lib/domain/tukar";
 import { alamatSaya } from "@/lib/domain/alamat";
-import { labelStatus, titikAmanLabel } from "@/lib/domain/tukar-aturan";
+import { HARI_KERJA_PENCAIRAN, JAM_BAYAR, labelStatus, titikAmanLabel } from "@/lib/domain/tukar-aturan";
 import { formatKeping } from "@/lib/utils";
 import { isiPundiTersedia } from "@/lib/domain/pundi";
 
@@ -27,6 +29,7 @@ const QR_WARNA = { dark: "#3A2417", light: "#FBEDD2" };
 
 const statusPill: Record<string, "gold" | "sage" | "indigo" | "live"> = {
   proposed: "gold",
+  menunggu_bayar: "gold",
   agreed: "live",
   dikirim: "live",
   diterima: "gold",
@@ -50,8 +53,14 @@ const statusPaket: Record<string, string> = {
   batal_gagal: "tidak bisa dibatalkan (sudah dijemput)",
 };
 
+const LABEL_TRANSFER: Record<string, string> = {
+  pencairan_selisih: "Selisih ke rekeningmu",
+  refund_selisih: "Pengembalian selisih ke rekeningmu",
+};
+
 const kartu = "rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-5 shadow-hard";
 const judul = "mb-3 font-fraunces text-lg font-black text-kongsi-indigo";
+const row = "flex justify-between gap-3 py-[3px] [&>*:last-child]:whitespace-nowrap";
 
 const LABEL_AKURASI: Record<string, string> = {
   tinggi: "akurasi tinggi",
@@ -121,6 +130,37 @@ function KartuPaket({ p, mine, theirs }: { p: DealPaket; mine: string; theirs: s
   );
 }
 
+/** Status uang selisih & transfer untuk pihak ini. */
+function InfoSelisih({ d }: { d: DealDetail }) {
+  if (!d.selisih) return null;
+  const ket =
+    d.selisihStatus === "ditahan"
+      ? "Ditahan Kongsi sampai tukar selesai."
+      : d.selisihStatus === "dicairkan"
+        ? `Diteruskan ke rekening penerima (paling lambat ${HARI_KERJA_PENCAIRAN} hari kerja).`
+        : d.selisihStatus === "dikembalikan"
+          ? `Dikembalikan ke rekening pembayar (paling lambat ${HARI_KERJA_PENCAIRAN} hari kerja).`
+          : "Belum dibayar.";
+  return (
+    <div className="mt-2 rounded-[4px] border-[1.5px] border-dashed border-kongsi-ink/30 bg-kongsi-parchment-3 p-2 text-[12px]">
+      <b>Selisih uang:</b> {ket}
+      {d.transferKu.map((t, i) => (
+        <div key={i} className="mt-1 flex justify-between gap-2">
+          <span>{LABEL_TRANSFER[t.jenis] ?? t.jenis}</span>
+          <b className={t.status === "dibayar" ? "text-kongsi-ok" : ""}>
+            {formatKeping(t.nominal)} · {t.status === "dibayar" ? "sudah ditransfer ✓" : `paling lambat ${new Date(t.tenggat).toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta", day: "numeric", month: "short" })}`}
+          </b>
+        </div>
+      ))}
+      {(d.iPaySelisih || d.iReceiveSelisih) && !d.punyaRekening ? (
+        <a href="/pakhuis/rekening" className="mt-1 block font-bold text-kongsi-grenadine underline">
+          Isi rekening pencairan dulu →
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
 export default async function DealPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getSessionUser();
@@ -136,9 +176,9 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
   const alamat = kirim && d.status === "proposed" && d.me === "b" ? await alamatSaya(user.id) : [];
   const paketKu = d.paket.find((p) => p.iReceive);
   const adaGagal = d.paket.some((p) => p.status === "failed");
-  const ditahanAwal = d.myFee + (d.iPayTopup ? d.topup : 0) + d.myDeposit;
   const langsung = isiPundiTersedia() !== null;
-  const row = "flex justify-between gap-3 py-[3px]";
+  const lawan = d.counterparty.name;
+  const sebelumBayar = d.status === "proposed" || d.status === "menunggu_bayar";
 
   return (
     <section className="py-[34px]">
@@ -155,7 +195,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
           </div>
         </div>
 
-        {/* Ringkasan nilai & rekber */}
+        {/* Ringkasan nilai, selisih & jaminan */}
         <div className={kartu}>
           <h3 className={judul}>Neraca tukar</h3>
           <div className="text-[14px]">
@@ -164,13 +204,24 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
               <b>{formatKeping(d.mine.value)}</b>
             </div>
             <div className={row}>
-              <span>Barang {d.counterparty.name} · {d.theirs.title}</span>
+              <span>Barang {lawan} · {d.theirs.title}</span>
               <b>{formatKeping(d.theirs.value)}</b>
             </div>
-            {d.topup > 0 ? (
+            {d.selisih > 0 ? (
               <div className={row}>
-                <span>{d.iPayTopup ? "Aku menambah" : `${d.counterparty.name} menambah`}</span>
+                <span>{d.iPaySelisih ? "Aku membayar selisih (uang)" : `${lawan} membayar selisih (uang)`}</span>
+                <b className="text-kongsi-grenadine">{formatKeping(d.selisih)}</b>
+              </div>
+            ) : d.topup > 0 ? (
+              <div className={row}>
+                <span>{d.iPayTopup ? "Aku menambah Keteng" : `${lawan} menambah Keteng`}</span>
                 <b className="text-kongsi-grenadine">{formatKeping(d.topup)}</b>
+              </div>
+            ) : null}
+            {d.iPaySelisih ? (
+              <div className={`${row} text-[13px] text-kongsi-ink-soft`}>
+                <span>Biaya transfer pencairan ke {lawan}</span>
+                <span>{formatKeping(d.biayaTransfer)}</span>
               </div>
             ) : null}
             <div className="mt-2">
@@ -182,6 +233,12 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
               <span>Bea Tukar-ku</span>
               <b>{formatKeping(d.myFee)}</b>
             </div>
+            {d.iReceiveSelisih && d.cadangan > 0 ? (
+              <div className={row}>
+                <span>Cadangan biaya pengembalian dana (kembali bila tukar jadi)</span>
+                <b>{formatKeping(d.cadangan)}</b>
+              </div>
+            ) : null}
             {d.myDeposit > 0 ? (
               <div className={row}>
                 <span>Deposit Kirim-ku (kembali saat selesai)</span>
@@ -195,13 +252,13 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
               </div>
             ) : null}
             <div className={`${row} font-bold`}>
-              <span>Keteng-ku yang ditahan / dipakai</span>
-              <span>{formatKeping(ditahanAwal + (paketKu && paketKu.status !== "quoted" ? paketKu.ongkir : 0))}</span>
+              <span>{sebelumBayar && d.ditahanKu === 0 ? "Jaminan Keteng-ku (perkiraan)" : "Keteng-ku yang ditahan sekarang"}</span>
+              <span>{formatKeping(sebelumBayar && d.ditahanKu === 0 ? d.jaminanKu : d.ditahanKu)}</span>
             </div>
+            <InfoSelisih d={d} />
             <p className="mt-2 text-[12px] text-kongsi-ink-soft">
-              {kirim
-                ? "Bea diambil & deposit kembali setelah kedua paket sampai dan dikonfirmasi. Batal sebelum paket dibuat → semua kembali."
-                : "Rekber dilepas saat kedua pihak saling memindai kode di Titik Aman. Batal / kedaluwarsa → kembali utuh."}
+              Keteng hanya untuk jaminan (bea, cadangan, deposit, ongkir); selisih nilai dibayar uang. Tukar jadi → bea
+              diambil Kongsi, jaminan lain kembali. Batal → semua kembali, kecuali bea pihak penyebab batal.
             </p>
           </div>
         </div>
@@ -210,34 +267,94 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
           <div className={kartu}>
             {d.me === "b" ? (
               <>
-                <h3 className={judul}>{d.counterparty.name} mengajak tukar</h3>
-                <p className="mb-3 text-[13px] text-kongsi-ink-soft">
-                  Terima = bea Tukar-mu ({formatKeping(d.myFee)})
-                  {d.iPayTopup ? ` + tambahan ${formatKeping(d.topup)}` : ""}
-                  {d.myDeposit ? ` + deposit ${formatKeping(d.myDeposit)}` : ""} ditahan
-                  {kirim ? ", plus ongkir barang yang kamu terima." : ", lalu atur ketemuan."}
-                </p>
+                <h3 className={judul}>{lawan} mengajak tukar</h3>
+                <ul className="mb-3 list-disc space-y-1 pl-5 text-[13px] text-kongsi-ink-soft">
+                  <li>
+                    Terima = jaminan Keteng-mu {formatKeping(d.jaminanKu)}
+                    {kirim ? " + ongkir barang yang kamu terima" : ""} ditahan sekarang.
+                  </li>
+                  <li>
+                    {lawan} lalu punya waktu {JAM_BAYAR} jam (tidak jatuh di jam tidur) untuk menyetor
+                    {d.selisih > 0 && !d.iPaySelisih ? ` dan membayar selisih ${formatKeping(d.selisih)}` : ""}. Tidak
+                    lunas → batal otomatis, jaminanmu kembali utuh.
+                  </li>
+                  {d.iPaySelisih ? (
+                    <li>
+                      Kamu membayar selisih {formatKeping(d.selisih)} + biaya transfer {formatKeping(d.biayaTransfer)} (QRIS/VA)
+                      setelah {lawan} menahan jaminannya.
+                    </li>
+                  ) : null}
+                </ul>
                 <TerimaTawaran
                   dealId={d.id}
                   mode={d.mode}
-                  kurang={Math.max(0, ditahanAwal - saldo)}
+                  kurang={Math.max(0, d.jaminanKu - saldo)}
                   saldo={saldo}
-                  kebutuhan={kirim ? null : ditahanAwal}
+                  kebutuhan={kirim ? null : d.jaminanKu}
                   langsung={langsung}
                   alamat={alamat.map((a) => ({ id: a.id, label: a.label, area: a.area }))}
                 />
               </>
             ) : (
               <>
-                <h3 className={judul}>Menunggu jawaban {d.counterparty.name}</h3>
-                {d.expiresAt ? (
-                  <p className="mb-3 text-[13px] text-kongsi-ink-soft">
-                    Kedaluwarsa otomatis: <HitungMundur until={d.expiresAt} />
-                  </p>
-                ) : null}
+                <h3 className={judul}>Menunggu jawaban {lawan}</h3>
+                <p className="mb-3 text-[13px] text-kongsi-ink-soft">
+                  Belum ada yang ditahan. Bila diterima, kamu punya waktu {JAM_BAYAR} jam untuk menahan jaminan{" "}
+                  {formatKeping(d.jaminanKu)}
+                  {kirim ? " + ongkir" : ""}
+                  {d.iPaySelisih ? ` dan membayar selisih ${formatKeping(d.selisih)} + biaya transfer ${formatKeping(d.biayaTransfer)}` : ""}.
+                  {d.expiresAt ? (
+                    <>
+                      {" "}
+                      Kedaluwarsa otomatis: <HitungMundur until={d.expiresAt} />
+                    </>
+                  ) : null}
+                </p>
                 <TarikTawaran dealId={d.id} />
               </>
             )}
+          </div>
+        ) : null}
+
+        {d.status === "menunggu_bayar" ? (
+          <div className={kartu}>
+            <h3 className={judul}>{d.setorKu ? "Selesaikan pembayaran" : `Menunggu ${lawan} membayar`}</h3>
+            {d.expiresAt ? (
+              <div className="mb-3 font-fraunces text-xl font-black text-kongsi-grenadine">
+                <HitungMundur until={d.expiresAt} />
+              </div>
+            ) : null}
+            {d.setorKu ? (
+              <>
+                <div className="mb-3 text-[13px]">
+                  {d.setorKu.keteng > 0 ? (
+                    <div className={row}>
+                      <span>Jaminan Keteng (bea{d.iReceiveSelisih ? " + cadangan" : ""}{kirim ? " + deposit + ongkir" : ""})</span>
+                      <b>{formatKeping(d.setorKu.keteng)}</b>
+                    </div>
+                  ) : null}
+                  {d.setorKu.uang > 0 ? (
+                    <div className={row}>
+                      <span>Selisih + biaya transfer (uang, ditahan Kongsi)</span>
+                      <b>{formatKeping(d.setorKu.uang)}</b>
+                    </div>
+                  ) : null}
+                </div>
+                <SetorTukar dealId={d.id} keteng={d.setorKu.keteng} uang={d.setorKu.uang} saldo={saldo} langsung={langsung} />
+                <p className="mt-2 text-[12px] text-kongsi-ink-soft">
+                  Lewat batas waktu = batal otomatis & dicatat sebagai pelanggaran (3 dalam 30 hari = tidak bisa ikut Tukar
+                  Guling 30 hari).
+                </p>
+              </>
+            ) : (
+              <p className="text-[13px] text-kongsi-ink-soft">
+                Jaminanmu sudah ditahan. Bila {lawan} tidak menyetor sebelum batas waktu, tukar batal otomatis dan jaminanmu
+                kembali utuh.
+              </p>
+            )}
+            <div className="mt-4">
+              <BatalMenunggu dealId={d.id} />
+            </div>
           </div>
         ) : null}
 
@@ -250,7 +367,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
                 <div className="font-bold">{d.meetPlace}</div>
                 <div className="text-[12px] text-kongsi-ink-soft">{titikAmanLabel(d.meetType)}</div>
                 <div className="mt-2 text-[13px]">
-                  Kontak {d.counterparty.name}: <b>{d.counterparty.email}</b>
+                  Kontak {lawan}: <b>{d.counterparty.email}</b>
                 </div>
                 {d.expiresAt ? (
                   <div className="mt-2 font-fraunces text-xl font-black text-kongsi-grenadine">
@@ -263,7 +380,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
             <div className={kartu}>
               <h3 className={judul}>1. Tunjukkan kodemu</h3>
               {d.myCodeScanned ? (
-                <p className="font-bold text-kongsi-ok">✓ Kodemu sudah dipindai {d.counterparty.name}.</p>
+                <p className="font-bold text-kongsi-ok">✓ Kodemu sudah dipindai {lawan}.</p>
               ) : (
                 <div className="flex flex-col items-center gap-2">
                   <div
@@ -273,24 +390,20 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
                   />
                   <div className="font-fraunces text-[34px] font-black tracking-[8px] text-kongsi-indigo">{myCode}</div>
                   <p className="text-center text-[12px] text-kongsi-ink-soft">
-                    Tunjukkan setelah kamu puas memeriksa barang {d.counterparty.name}. Jangan kirim kode lewat chat.
+                    Tunjukkan setelah kamu puas memeriksa barang {lawan}. Jangan kirim kode lewat chat.
                   </p>
                 </div>
               )}
             </div>
 
             <div className={kartu}>
-              <h3 className={judul}>2. Pindai kode {d.counterparty.name}</h3>
-              {d.theirCodeScanned ? (
-                <p className="font-bold text-kongsi-ok">✓ Kode {d.counterparty.name} sudah cocok.</p>
-              ) : (
-                <PindaiKode dealId={d.id} />
-              )}
+              <h3 className={judul}>2. Pindai kode {lawan}</h3>
+              {d.theirCodeScanned ? <p className="font-bold text-kongsi-ok">✓ Kode {lawan} sudah cocok.</p> : <PindaiKode dealId={d.id} />}
             </div>
 
             <div className={kartu}>
               <h3 className={judul}>Ada masalah?</h3>
-              <BatalAtauSengketa dealId={d.id} />
+              <BatalAtauSengketa dealId={d.id} mode="cod" bolehBatal={!d.myCodeScanned && !d.theirCodeScanned} />
             </div>
           </>
         ) : null}
@@ -305,66 +418,41 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
               ))}
             </div>
             <div className="mt-3 text-[13px]">
-              Kontak {d.counterparty.name}: <b>{d.counterparty.email}</b>
+              Kontak {lawan}: <b>{d.counterparty.email}</b>
             </div>
 
             {d.status === "agreed" ? (
               <div className="mt-4 space-y-3">
-                {paketKu?.status === "quoted" ? (
+                {d.versi < 3 && paketKu?.status === "quoted" ? (
                   <>
-                    <p className="text-[13px]">
-                      Lunasi ongkir barang yang kamu terima agar kedua paket bisa dijemput kurir.
-                      {d.expiresAt ? (
-                        <>
-                          {" "}
-                          Batas: <b><HitungMundur until={d.expiresAt} /></b>
-                        </>
-                      ) : null}
-                    </p>
-                    <BayarOngkir
-                      dealId={d.id}
-                      amount={paketKu.ongkir}
-                      kurang={Math.max(0, paketKu.ongkir - saldo)}
-                      saldo={saldo}
-                      langsung={langsung}
-                    />
+                    <p className="text-[13px]">Lunasi ongkir barang yang kamu terima agar kedua paket bisa dijemput kurir.</p>
+                    <BayarOngkir dealId={d.id} amount={paketKu.ongkir} kurang={Math.max(0, paketKu.ongkir - saldo)} />
                   </>
                 ) : adaGagal ? (
                   <>
-                    <p className="text-[13px] text-kongsi-bad">Order kurir gagal dibuat. Keteng-mu aman di rekber.</p>
+                    <p className="text-[13px] text-kongsi-bad">Order kurir gagal dibuat. Jaminanmu aman di rekber.</p>
                     <CobaKirimLagi dealId={d.id} />
                   </>
                 ) : (
-                  <p className="text-[13px] text-kongsi-ink-soft">
-                    Menunggu {d.counterparty.name} melunasi ongkir
-                    {d.expiresAt ? (
-                      <>
-                        {" "}
-                        (<HitungMundur until={d.expiresAt} />)
-                      </>
-                    ) : null}
-                    .
-                  </p>
+                  <p className="text-[13px] text-kongsi-ink-soft">Order kurir sedang dibuat…</p>
                 )}
               </div>
             ) : null}
 
             {d.status === "dikirim" ? (
               <p className="mt-4 text-[13px] text-kongsi-ink-soft">
-                Siapkan & kemas barangmu — kurir menjemput sesuai jadwal. Bila satu pihak tidak menyerahkan paket
-                2×24 jam setelah pihak lain mengirim, Syahbandar turun tangan.
+                Siapkan & kemas barangmu — kurir menjemput sesuai jadwal. Bila satu pihak tidak menyerahkan paket 2×24 jam
+                setelah pihak lain mengirim, Syahbandar turun tangan.
               </p>
             ) : null}
 
             {d.status === "diterima" ? (
               <div className="mt-4 space-y-2">
                 {d.myConfirmed ? (
-                  <p className="font-bold text-kongsi-ok">✓ Kamu sudah mengonfirmasi. Menunggu {d.counterparty.name}.</p>
+                  <p className="font-bold text-kongsi-ok">✓ Kamu sudah mengonfirmasi. Menunggu {lawan}.</p>
                 ) : (
                   <>
-                    <p className="text-[13px]">
-                      Kedua paket sudah sampai. Periksa barangnya (rekam video unboxing!) lalu konfirmasi.
-                    </p>
+                    <p className="text-[13px]">Kedua paket sudah sampai. Periksa barangnya (rekam video unboxing!) lalu konfirmasi.</p>
                     <KonfirmasiTerima dealId={d.id} />
                   </>
                 )}
@@ -383,6 +471,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
             <h3 className={judul}>Ada masalah?</h3>
             <BatalAtauSengketa
               dealId={d.id}
+              mode="kirim"
               bolehBatal={d.status === "agreed" && !d.hasCourierOrder}
               labelBatal="Batalkan sebelum dikirim"
             />
@@ -394,10 +483,10 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
             <h3 className={judul}>{d.status === "done" ? "Tukar selesai 🎉" : "Diputus Syahbandar"}</h3>
             {d.reason && d.status === "resolved" ? <p className="mb-3 text-[13px]">{d.reason}</p> : null}
             {d.ratedByMe ? (
-              <p className="font-bold text-kongsi-ok">✓ Kamu sudah menilai {d.counterparty.name}.</p>
+              <p className="font-bold text-kongsi-ok">✓ Kamu sudah menilai {lawan}.</p>
             ) : (
               <>
-                <p className="mb-2 text-[13px] text-kongsi-ink-soft">Beri nilai {d.counterparty.name}:</p>
+                <p className="mb-2 text-[13px] text-kongsi-ink-soft">Beri nilai {lawan}:</p>
                 <NilaiTukar dealId={d.id} />
               </>
             )}
@@ -408,7 +497,12 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
           <div className={kartu}>
             <h3 className={judul}>⚖️ Menunggu Syahbandar</h3>
             <p className="text-[13px]">{d.reason}</p>
-            <p className="mt-2 text-[12px] text-kongsi-ink-soft">Rekber tetap ditahan sampai diputus.</p>
+            {d.buktiUrl ? (
+              <a href={d.buktiUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[12px] font-bold text-kongsi-grenadine">
+                Lihat foto bukti ↗
+              </a>
+            ) : null}
+            <p className="mt-2 text-[12px] text-kongsi-ink-soft">Jaminan & selisih tetap ditahan sampai diputus.</p>
           </div>
         ) : null}
 
@@ -416,7 +510,10 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
           <div className={kartu}>
             <h3 className={judul}>Tawaran {labelStatus(d.status)}</h3>
             {d.reason ? <p className="text-[13px]">{d.reason}</p> : null}
-            <p className="mt-2 text-[12px] text-kongsi-ink-soft">Semua Keteng yang ditahan sudah kembali ke Pundi.</p>
+            <p className="mt-2 text-[12px] text-kongsi-ink-soft">
+              Jaminan Keteng yang ditahan sudah kembali ke Pundi
+              {d.fault ? ` (bea pihak ${d.fault === d.me ? "kamu" : lawan} sebagai penyebab batal bisa hangus)` : ""}.
+            </p>
           </div>
         ) : null}
 

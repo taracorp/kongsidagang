@@ -41,6 +41,8 @@ model User {
   vouchers            Voucher[]
   walletTransactions  WalletTransaction[]
   walletHolds         WalletHold[]
+  rekening            RekeningUser?
+  sanksiTukar         SanksiTukar[]
   addresses           UserAddress[]
   topupOrders         TopupOrder[]
   orders              Order[]
@@ -565,6 +567,25 @@ model BarterDeal {
   confirmed_a_at DateTime? // A mengonfirmasi barang B diterima & sesuai
   confirmed_b_at DateTime?
 
+  // Tukar Guling v3 (Ch 8.35): selisih dibayar UANG (rekber), Keteng hanya jaminan (bea, cadangan, deposit, ongkir).
+  versi                Int       @default(3) // 2 = alur lama (tambah Keteng)
+  selisih_uang         Int       @default(0) // dibayar pihak topup_from lewat DOKU, ditahan Kongsi
+  biaya_transfer       Int       @default(0) // biaya transfer pencairan, dibayar pembayar selisih
+  cadangan             Int       @default(0) // Keteng penerima selisih: biaya pengembalian dana bila ia bersalah
+  selisih_status       String? // ditahan | dicairkan | dikembalikan
+  selisih_invoice      String?
+  selisih_biaya_doku   Int       @default(0) // bagian biaya DOKU atas selisih
+  setor_a_at           DateTime? // pihak A sudah menyetor jaminan (+ selisih bila ia pembayarnya)
+  setor_b_at           DateTime?
+  pengingat_bayar_at   DateTime?
+  pengingat_konfirmasi Int       @default(0)
+  sengketa_at          DateTime?
+  eskalasi_at          DateTime?
+  bukti_url            String? // foto bukti sengketa
+  putus_oleh           String? // user id Syahbandar
+  putus_alasan         String?
+  putus_at             DateTime?
+
   shipments BarterShipment[]
 
   ratings BarterRating[]
@@ -652,7 +673,7 @@ model WalletHold {
   user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
   deal_id    String?
   amount     Int
-  kind       String // bea | tambah | deposit | ongkir
+  kind       String // bea | tambah | deposit | ongkir | cadangan
   status     String    @default("ditahan") // ditahan | diambil | dilepas | dikembalikan
   created_at DateTime  @default(now())
   settled_at DateTime?
@@ -678,10 +699,11 @@ model TopupOrder {
   paid_at        DateTime?
   expires_at     DateTime
   created_at     DateTime  @default(now())
-  biaya_bayar    Int       @default(0) // biaya DOKU yang ditanggung pembeli (price = keteng + biaya_bayar)
+  biaya_bayar    Int       @default(0) // biaya DOKU yang ditanggung pembeli (price = keteng + rekber + biaya_bayar)
+  rekber         Int       @default(0) // uang yang ditahan Kongsi (mis. selisih tukar) — BUKAN Keteng
   metode         String?
   // Bayar Langsung: setelah lunas, Keteng masuk lalu `tujuan` dijalankan otomatis (lib/domain/bayar-langsung.ts).
-  tujuan         String    @default("isi") // isi | belanja | tukar_ajukan | tukar_terima | tukar_ongkir
+  tujuan         String    @default("isi") // isi | belanja | tukar_ajukan | tukar_terima | tukar_ongkir | tukar_setor
   muatan         Json? // parameter aksi tujuan
   tujuan_status  String? // menunggu | diproses | berhasil | gagal (null untuk isi)
   tujuan_hasil   String? // ringkasan / alasan gagal
@@ -796,4 +818,57 @@ model PembayaranBermasalah {
 
   @@index([created_at(sort: Desc)])
   @@map("pembayaran_bermasalah")
+}
+
+// Rekening bank user untuk menerima pencairan selisih / pengembalian dana (Ch 8.35).
+model RekeningUser {
+  user_id    String   @id
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  bank       String
+  nomor      String
+  atas_nama  String
+  updated_at DateTime @updatedAt
+
+  @@map("rekening_user")
+}
+
+// Antrian uang keluar yang ditransfer manual oleh pengurus (/admin/transfer). Uang keluar hanya dari dana yang
+// sudah diterima untuk transaksi itu. Tanpa FK ke users: catatan keuangan tetap ada walau akun dihapus.
+model TransferKeluar {
+  id           String    @id @default(uuid())
+  jenis        String // pencairan_selisih | refund_selisih | setoran_lapak | refund_belanja | klaim_asuransi
+  user_id      String // penerima
+  nominal      Int // yang diterima penerima
+  biaya        Int       @default(0) // biaya transfer (sudah ditagih dari pihak yang tepat)
+  deal_id      String?
+  ref          String?
+  keterangan   String
+  status       String    @default("antri") // antri | dibayar | batal
+  tenggat      DateTime
+  bank         String? // snapshot rekening saat dibayar
+  nomor        String?
+  atas_nama    String?
+  referensi    String? // nomor referensi transfer bank
+  dibayar_at   DateTime?
+  dibayar_oleh String?
+  created_at   DateTime  @default(now())
+
+  @@index([status, tenggat])
+  @@index([user_id])
+  @@index([deal_id])
+  @@map("transfer_keluar")
+}
+
+// Strike Tukar Guling: 3 dalam 30 hari → tidak bisa mengajukan/menerima tukar 30 hari. Tanpa ganti rugi antar-user.
+model SanksiTukar {
+  id         String   @id @default(uuid())
+  user_id    String
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  deal_id    String?
+  jenis      String // tidak_bayar | batal_sepihak | barang_tidak_sesuai | putusan_syahbandar
+  keterangan String?
+  created_at DateTime @default(now())
+
+  @@index([user_id, created_at])
+  @@map("sanksi_tukar")
 }

@@ -9,6 +9,7 @@ import { risetHarga, bacaRiset } from "@/lib/taksir/riset";
 import * as Tukar from "@/lib/domain/tukar";
 import * as Kirim from "@/lib/domain/tukar-kirim";
 import * as Alamat from "@/lib/domain/alamat";
+import * as Rekening from "@/lib/domain/rekening";
 import { beriKabar } from "@/lib/domain/kabar-user";
 import { run, requireUser, requireAdminUp, toInt } from "./_util";
 
@@ -318,17 +319,54 @@ export async function tarikTukar(dealId: string) {
   });
 }
 
-export async function batalDiTempat(dealId: string, alasan: string) {
+/** Setor jaminan Keteng dari saldo (tanpa selisih uang). Semua lunas di mode Kirim → order kurir dibuat. */
+export async function setorTukar(dealId: string) {
   return run(async () => {
     const user = await requireUser();
-    await Tukar.batalDiTempat(user.id, String(dealId), String(alasan ?? ""));
+    const r = await Tukar.setor(user.id, String(dealId));
+    if (r.siapKirim) await Kirim.kirimkanPaket(String(dealId)).catch((e) => console.error("[tukar] order kurir ditunda:", e));
   });
 }
 
-export async function ajukanSengketa(dealId: string, alasan: string) {
+/** Mundur saat menunggu pembayaran (pihak yang mundur = penyebab: bea hangus + catatan pelanggaran). */
+export async function batalMenungguTukar(dealId: string, alasan: string) {
   return run(async () => {
     const user = await requireUser();
-    await Tukar.sengketa(user.id, String(dealId), String(alasan ?? ""));
+    await Tukar.batalMenunggu(user.id, String(dealId), String(alasan ?? ""));
+  });
+}
+
+export async function batalDiTempat(dealId: string, alasan: string, tidakSesuai = false) {
+  return run(async () => {
+    const user = await requireUser();
+    await Tukar.batalDiTempat(user.id, String(dealId), String(alasan ?? ""), Boolean(tidakSesuai));
+  });
+}
+
+/** Ajukan ke Syahbandar: alasan + foto bukti wajib (FormData: dealId, alasan, bukti). */
+export async function ajukanSengketa(form: FormData) {
+  return run(async () => {
+    const user = await requireUser();
+    const dealId = String(form.get("dealId") ?? "");
+    const file = form.get("bukti");
+    if (!(file instanceof File) || file.size === 0) throw new Error("Lampirkan foto bukti.");
+    // Pastikan pengaju memang pihak deal sebelum menyimpan file.
+    const d = await prisma.barterDeal.findUnique({
+      where: { id: dealId },
+      select: { itemA: { select: { user_id: true } }, itemB: { select: { user_id: true } } },
+    });
+    if (!d) throw new Error("Tawaran tidak ditemukan.");
+    Tukar.pihakDari(d, user.id);
+    const url = await saveUpload("sengketa", user.id, file);
+    await Tukar.sengketa(user.id, dealId, String(form.get("alasan") ?? ""), url);
+  });
+}
+
+/** Rekening pencairan selisih / pengembalian dana. */
+export async function simpanRekening(input: Rekening.RekeningInput) {
+  return run(async () => {
+    const user = await requireUser();
+    await Rekening.simpanRekening(user.id, input);
   });
 }
 
@@ -360,19 +398,11 @@ export async function nilaiTukar(dealId: string, stars: number, comment?: string
   });
 }
 
-/** Syahbandar memutus sengketa. */
-export async function putusSengketa(dealId: string, keputusan: "selesai" | "batal") {
+/** Syahbandar memutus sengketa: sah / batal + pihak bersalah + alasan (tercatat). */
+export async function putusSengketa(dealId: string, keputusan: "sah" | "batal", bersalah: "a" | "b" | null, alasan: string) {
   return run(async () => {
     const s = await requireAdminUp();
-    const d = await prisma.barterDeal.findUnique({
-      where: { id: String(dealId) },
-      select: { itemA: { select: { user_id: true } }, itemB: { select: { user_id: true } } },
-    });
-    if (d && (d.itemA.user_id === s.userId || d.itemB.user_id === s.userId)) {
-      throw new Error("Tidak boleh memutus sengketa tukarmu sendiri — minta pengurus lain.");
-    }
-    if (keputusan !== "selesai" && keputusan !== "batal") throw new Error("Putusan tidak dikenal.");
-    await Tukar.putus(String(dealId), keputusan);
+    await Tukar.putus(s.userId!, String(dealId), keputusan, bersalah === "a" || bersalah === "b" ? bersalah : null, String(alasan ?? ""));
   });
 }
 

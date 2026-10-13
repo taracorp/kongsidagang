@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import type { Prisma, UserLevel } from "@/lib/generated/prisma/client";
 import { randomBytes } from "node:crypto";
 import { nominalIsi } from "@/lib/pundi-paket";
-import { cariMetodeKeteng, rincianBayar } from "@/lib/payment/biaya";
+import { cariMetodeKeteng, cariMetodeSelisih, rincianBayar } from "@/lib/payment/biaya";
 import { doku } from "@/lib/payment/doku";
 import { beriKabar } from "@/lib/domain/kabar-user";
 import { saklarUji } from "@/lib/mode-uji";
@@ -65,7 +65,7 @@ export async function debit(tx: Tx, userId: string, amt: number, kind: string, n
   return w.balance;
 }
 
-export type HoldKind = "bea" | "tambah" | "deposit" | "ongkir";
+export type HoldKind = "bea" | "tambah" | "deposit" | "ongkir" | "cadangan";
 
 /** Tahan Keteng ke rekber: saldo dipotong sekarang, nasibnya ditentukan saat deal selesai. */
 export async function hold(
@@ -144,25 +144,28 @@ export function invoiceBaru(awalan = "KD-ISI") {
   return `${awalan}-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
 }
 
-export type TujuanBayar = "isi" | "belanja" | "tukar_ajukan" | "tukar_terima" | "tukar_ongkir";
+export type TujuanBayar = "isi" | "belanja" | "tukar_ajukan" | "tukar_terima" | "tukar_ongkir" | "tukar_setor";
 
 /**
  * Buat pesanan pembeli Keteng + sesi DOKU Checkout (Isi Pundi biasa maupun Bayar Langsung Tukar Guling).
- * Keteng yang masuk = `keteng`; pembeli membayar `keteng` + biaya DOKU metode terpilih (gross-up, termasuk PPN),
- * jadi Kongsi menerima bersih senilai Keteng yang diterbitkan. Tanpa platform fee, tanpa bonus.
+ * Keteng yang masuk = `keteng`; pembeli membayar `keteng` + `rekber` + biaya DOKU metode terpilih (gross-up, termasuk
+ * PPN), jadi Kongsi menerima bersih senilai Keteng + rekber. Tanpa platform fee, tanpa bonus.
+ * `rekber` = uang yang ditahan Kongsi (selisih tukar + biaya transfer pencairan) — BUKAN Keteng, hanya lewat QRIS/VA.
  * Keteng BELUM masuk sampai pembayaran sukses.
  */
 export async function buatPesananBayar(
   user: { id: string; name: string; email: string },
-  r: { packageId: string; keteng: number; itemName: string; metode: string },
+  r: { packageId: string; keteng: number; itemName: string; metode: string; rekber?: number; rekberNama?: string; menit?: number },
   callbackPath: (invoice: string) => string,
   siteUrl: string,
   tujuan: { tujuan: TujuanBayar; muatan?: Prisma.InputJsonValue } = { tujuan: "isi" },
 ): Promise<{ url: string; invoice: string }> {
   const drv = doku();
   if (!drv) throw new Error("Pembayaran DOKU belum tersedia.");
-  const metode = cariMetodeKeteng(r.metode);
-  const { total, biaya } = rincianBayar(r.keteng, metode.kode);
+  const rekber = Math.max(0, Math.round(r.rekber ?? 0));
+  const metode = rekber > 0 ? cariMetodeSelisih(r.metode) : cariMetodeKeteng(r.metode);
+  if (r.keteng < 0 || r.keteng + rekber <= 0) throw new Error("Nominal pembayaran tidak valid.");
+  const { total, biaya } = rincianBayar(r.keteng + rekber, metode.kode);
   const pending = await prisma.topupOrder.count({
     where: { user_id: user.id, status: "pending", created_at: { gt: new Date(Date.now() - 3600_000) } },
   });
@@ -175,10 +178,11 @@ export async function buatPesananBayar(
     itemName: r.itemName,
     customer: { id: user.id, name: user.name || user.email, email: user.email },
     callbackUrl: `${siteUrl.replace(/\/$/, "")}${callbackPath(invoice)}`,
-    dueMinutes: MENIT_BAYAR,
+    dueMinutes: Math.max(10, Math.min(MENIT_BAYAR, Math.floor(r.menit ?? MENIT_BAYAR))),
     metode: metode.kode,
     lineItems: [
-      { name: r.itemName, price: r.keteng, quantity: 1 },
+      ...(r.keteng > 0 ? [{ name: r.itemName, price: r.keteng, quantity: 1 }] : []),
+      ...(rekber > 0 ? [{ name: r.rekberNama ?? "Selisih tukar (ditahan Kongsi)", price: rekber, quantity: 1 }] : []),
       { name: `Biaya pembayaran ${metode.nama}`, price: biaya, quantity: 1 },
     ],
   });
@@ -189,6 +193,7 @@ export async function buatPesananBayar(
       package_id: r.packageId,
       price: total,
       keteng: r.keteng,
+      rekber,
       biaya_bayar: biaya,
       metode: metode.kode,
       provider: drv.nama,
@@ -237,8 +242,8 @@ export async function lunasiIsiPundi(invoice: string, amount: number, channel: s
     const nama = `${o.keteng.toLocaleString("id-ID")} Keteng`;
     const via = `${o.provider === "demo" ? "demo" : "DOKU"}${channel ? ` ${channel}` : ""}`;
     if (o.tujuan !== "isi") {
-      // Bayar Langsung: Keteng masuk, lalu tujuannya dijalankan oleh jalankanTujuan (kabar dikirim di sana).
-      await credit(tx, o.user_id, o.keteng, "isi", `Bayar langsung ${nama} (${via})`);
+      // Bayar Langsung: Keteng masuk (uang rekber tidak menjadi Keteng), lalu tujuannya dijalankan oleh jalankanTujuan.
+      if (o.keteng > 0) await credit(tx, o.user_id, o.keteng, "isi", `Bayar langsung ${nama} (${via})`);
       return "lunas";
     }
     await credit(tx, o.user_id, o.keteng, "isi", `Isi Pundi ${nama} (${via})`);

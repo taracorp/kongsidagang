@@ -977,3 +977,65 @@ Traefik yang sudah ada di VPS, cukup atur port.
   `{"paket":{"dicek":0,…},"pembayaran":{"dicek":0,"lunas":0}}`. Log hanya berisi "Failed to find Server Action" dari
   tab lama (wajar setelah deploy).
 - **Rollback:** `git revert kd-pengaman-uang..` lalu deploy ulang; DB: restore backup di atas.
+
+### Ch 8.35 — Fase 2: Tukar Guling v3 (selisih = uang rekber, Keteng = jaminan, transfer keluar, sanksi)
+2026-10-13
+- **Keputusan Tara:**
+  - bayar SETELAH tawaran diterima; tenggat 12 jam, dan bila jatuh 22.00–08.00 WIB digeser ke 10.00;
+  - selisih maks 50% nilai barang termahal;
+  - hanya bea pihak bersalah yang hangus; tanpa ganti rugi antar-user (kasus akun kembar "Yanto");
+  - "Keteng itu hanya untuk biaya jaminan barter, bukan selisih — selisih dikembalikan dalam bentuk uang";
+  - biaya transfer pencairan dibebankan ke pembayar selisih; pencairan maks 2 hari kerja;
+  - biaya pengembalian ditanggung pihak penyebab batal; bila tak ada yang salah → dipotong dari pengembalian pembayar.
+- **Alur** (`lib/domain/tukar.ts` ditulis ulang, aturan murni `lib/domain/tukar-aturan.ts`):
+  - ajukan gratis, maks 3 tawaran menunggu, kedaluwarsa 72 jam; selisih wajib rekening;
+  - terima → `menunggu_bayar`: penerima tawaran menahan jaminan (bea [+ cadangan bila ia penerima selisih]
+    [+ deposit + ongkir Kirim]); tawaran lain jadi antrian (ditolak baru saat barang benar-benar ditukar);
+  - setor: pengaju menahan jaminan + membayar selisih UANG (QRIS/VA) dalam satu tagihan DOKU (`topup_orders.rekber`,
+    tujuan `tukar_setor`, kedaluwarsa sebelum tenggat tukar). Bila penerima tawaran yang membayar selisih, ia membayar
+    setelah pengaju (penerima selisih) menahan cadangan — biaya pengembalian selalu sudah dijamin pihak yang mungkin
+    bersalah sebelum uang masuk;
+  - semua lunas → `agreed` (COD 72 jam; Kirim → order kurir).
+  - selesai → bea diambil, cadangan & deposit kembali, `transfer_keluar` pencairan selisih ke penerima (≤ 2 hari kerja).
+  - batal → jaminan kembali kecuali bea penyebab (hangus); selisih kembali ke pembayar: penerima bersalah → utuh
+    (selisih + biaya transfer + bagian biaya DOKU, dari cadangannya); selain itu dipotong biaya transfer Rp2.500.
+- **Cadangan** = biaya transfer + biaya DOKU terbesar (QRIS/VA) atas tagihan pembayar. Selisih hanya lewat QRIS/VA
+  (`METODE_SELISIH`), jadi cadangan tetap kecil (VA ±Rp5rb).
+- **Sanksi:** `sanksi_tukar` (tidak bayar, batal sepihak, barang tidak sesuai, putusan Syahbandar); 3 dalam 30 hari →
+  tidak bisa mengajukan/menerima 30 hari. COD "barang lawan tidak sesuai" → lawan penyebab, tanpa bea hangus.
+- **Syahbandar** (`/admin/tukar`): kartu memuat pindaian/paket/tahanan/selisih/foto bukti; putusan Sah/Batal + pihak
+  bersalah + alasan wajib (tercatat `putus_oleh`, `putus_alasan`, `putus_at`); tidak bisa memutus deal sendiri; sengketa
+  wajib foto bukti; > 7 hari belum diputus → kabar Ketua (cron).
+- **Transfer keluar** (`lib/domain/transfer.ts`, `/admin/transfer`): antrian urut tenggat (merah = lewat), rekening
+  penerima terbaru, tandai dibayar + nomor referensi (rekening disalin saat itu, pengurus tidak bisa menandai miliknya
+  sendiri). Dipakai lagi di Fase 3 (setoran lapak/refund belanja) & Fase 5 (klaim asuransi).
+- **Rekening user** (`/pakhuis/rekening`, `rekening_user`): wajib untuk tukar ber-selisih; perubahan rekening dikabarkan
+  ke pemilik akun. Pakhuis menampilkan rekening, transfer, dan catatan pelanggaran.
+- **Pengingat:** bayar 2 jam sebelum tenggat; konfirmasi Kirim otomatis 72 jam (dulu 48) dengan pengingat 24 & 6 jam.
+- **Deposit Kirim** = max(10% nilai, ongkir paket yang dikirim pihak itu).
+- **Kartu kredit/debit & e-wallet** tidak bisa untuk selisih.
+- **Deal lama** (`versi=2`) tetap jalan (pindai/konfirmasi/batal), tetapi tawaran lama tidak bisa diterima lagi.
+  Produksi belum punya deal.
+- **UI:** Ajukan Tukar ("Kirim tawaran (gratis)", rincian yang disetor bila diterima, wajib rekening), halaman deal
+  (kartu "Selesaikan pembayaran" + hitung mundur, status selisih & transfer, mundur = bea hangus, batal "barang lawan
+  tidak sesuai" / alasan lain, sengketa + foto), BayarLangsung (uang rekber + metode QRIS/VA).
+- **Artikel** "Tukar Guling aman" & "Pundi & Keteng" diperbarui (`scripts/data/artikel.ts`, terbit ulang lewat
+  `tenant-asli.ts`). AGENTS.md 6.1 → v3.
+- **Migrasi** `20261013120000_tukar_v3` (dev ✓): kolom v3 di `barter_deals` (versi, selisih_uang, biaya_transfer,
+  cadangan, selisih_status/invoice/biaya_doku, setor_a/b_at, pengingat, sengketa/eskalasi, bukti, putus_*),
+  `topup_orders.rekber`, tabel `rekening_user`, `transfer_keluar`, `sanksi_tukar`; check status + `menunggu_bayar`,
+  hold `cadangan`, tujuan `tukar_setor`. Deal lama di-set `versi=2`.
+  - Batal: `DROP TABLE sanksi_tukar, transfer_keluar, rekening_user; ALTER TABLE topup_orders DROP COLUMN rekber;` +
+    drop kolom v3 di `barter_deals` + kembalikan check lama (hanya bila belum ada data v3).
+- **Uji:**
+  - `tukar.ts` 57 ✓ (tenggat jam tidur, 50% Lumia⇄Legion, gratis ajukan, terima→menunggu bayar, setor DOKU rekber,
+    selesai → pencairan, batal penerima/pembayar/tidak sesuai, tidak bayar → strike, giliran bayar, mundur, bayar
+    terlambat → refund dipotong, Syahbandar, blokir 3 strike, maks 3 tawaran, Σ transaksi = saldo);
+  - `kirim.ts` 47 ✓; `bayar-langsung.ts` 22 ✓; `belanja.ts` 36 ✓; `pundi` 10 ✓; `isi-pundi` 18 ✓;
+  - tsc + eslint lolos; screenshot HP & desktop (server dev + DB dev): deal menunggu pembayaran (hitung mundur, rincian
+    jaminan + selisih, tombol bayar), tawaran masuk (jaminan + cadangan), lembar Ajukan ("mengajukan gratis"),
+    rekening pencairan. Perbaikan dari screenshot: label "Pakai saldo" kini menyebut saldo yang terpakai saja; angka
+    tidak terpotong di HP.
+- **Pengaman tambahan:** pengembalian "utuh" ke pembayar hanya bila cadangan penerima benar-benar terpakai (Kongsi tidak
+  menalangi biaya transfer).
+- **Rollback:** `git revert` commit ini + SQL batal di atas.

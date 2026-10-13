@@ -42,3 +42,15 @@ export function nominalLangsung(kebutuhan: number, saldo: number, cara: "kurang"
   if (dasar <= 0) return 0;
   return saranIsi(dasar);
 }
+
+/**
+ * Keteng yang dibeli bersama uang rekber (selisih tukar) dalam satu tagihan: tanpa rekber = `nominalLangsung`;
+ * dengan rekber = kekurangan saja (bulat Rp1.000), dinaikkan bila total tagihan di bawah minimum Rp10.000.
+ */
+export function ketengDibeli(kebutuhan: number, saldo: number, cara: "kurang" | "penuh", uang: number): number {
+  if (uang <= 0) return nominalLangsung(kebutuhan, saldo, cara);
+  const dasar = cara === "penuh" ? kebutuhan : Math.max(0, kebutuhan - Math.max(0, saldo));
+  let k = Math.ceil(dasar / TOPUP_KELIPATAN) * TOPUP_KELIPATAN;
+  if (k + uang < TOPUP_MIN) k = Math.ceil((TOPUP_MIN - uang) / TOPUP_KELIPATAN) * TOPUP_KELIPATAN;
+  return k;
+}

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@/lib/generated/prisma/client";
 import { hold, captureHold, credit, refundHold, type Tx } from "@/lib/domain/pundi";
 import { JAM_KONFIRMASI, pastikanBoleh } from "@/lib/domain/tukar-aturan";
-import { kabarDeal, kunciDeal, pihakDari, sengketaSistem, terima, type DealRow } from "@/lib/domain/tukar";
+import { kabarDeal, kunciDeal, pihakDari, sengketaSistem, terima, type DealRow, type OngkirKutipan } from "@/lib/domain/tukar";
 import {
   KiriminAjaBelumBayar,
   KiriminAjaError,
@@ -18,10 +18,10 @@ import {
 } from "@/lib/shipping/kiriminaja";
 
 // Mode Kirim Tukar Guling (KiriminAja, express).
-// 1. B menerima + memilih alamat → tarif termurah dua arah dihitung, dua paket "quoted" dibuat,
-//    ongkir paket A→B (barang yang B terima) langsung ditahan dari B ("bayar apa yang kamu terima").
-// 2. A melunasi ongkir paket B→A dalam JAM_BAYAR_ONGKIR.
-// 3. Dua-duanya lunas → dua order dibuat di KiriminAja; ongkir rekber diambil (dibayar dari KA Credit).
+// 1. B menerima + memilih alamat → tarif termurah dua arah dihitung, dua paket "quoted" dibuat. B langsung menahan
+//    ongkir paket A→B (barang yang B terima, "bayar apa yang kamu terima") + deposit + bea (tukar.ts tahanJaminan).
+// 2. A menyetor dalam tenggat: ongkir paket B→A + deposit + bea (+ selisih uang bila ia pembayar).
+// 3. Semua lunas → dua order dibuat di KiriminAja; ongkir rekber diambil (dibayar dari KA Credit).
 // 4. Webhook: paket jalan/sampai/bermasalah. Dua paket sampai → "diterima" → konfirmasi / otomatis → selesai.
 
 const JAM = 3600_000;
@@ -141,10 +141,14 @@ function tambahEvent(lama: Prisma.JsonValue, ev: Record<string, string | null>):
 
 const ongkirDari = (t: { shipping_cost: number; insurance: number }) => t.shipping_cost + t.insurance;
 
-/** Ongkir yang ditahan dari B saat menerima mode Kirim (kutipan kurir terkini). */
-export async function hitungOngkirTerima(userId: string, dealId: string, addressId: string): Promise<number> {
-  const kutipan = await kutipDuaArah(userId, dealId, addressId);
-  return kutipan.filter((k) => k.payer_id === userId).reduce((s, k) => s + k.tarif.cost + k.tarif.insurance, 0);
+/** Ongkir kedua paket (kutipan kurir terkini) — untuk menghitung jaminan sebelum B menerima. */
+export async function kutipanTerima(userId: string, dealId: string, addressId: string): Promise<OngkirKutipan> {
+  return keOngkir(await kutipDuaArah(userId, dealId, addressId));
+}
+
+function keOngkir(kutipan: Kutipan[]): OngkirKutipan {
+  const biaya = (leg: Leg) => kutipan.filter((k) => k.leg === leg).reduce((t, k) => t + k.tarif.cost + k.tarif.insurance, 0);
+  return { a_to_b: biaya("a_to_b"), b_to_a: biaya("b_to_a") };
 }
 
 /** Ongkir yang belum dilunasi user pada deal ini (untuk Bayar Langsung). */
@@ -158,38 +162,41 @@ export async function hitungBayarOngkir(userId: string, dealId: string): Promise
   return ongkirDari(s);
 }
 
-/** B menerima tawaran mode Kirim. */
+/** B menerima tawaran mode Kirim: dua paket "quoted" dibuat; jaminan ditahan di tukar.ts (terima → tahanJaminan). */
 export async function terimaKirim(userId: string, dealId: string, addressId: string) {
   const kutipan = await kutipDuaArah(userId, dealId, addressId);
-  await terima(userId, dealId, { addressId }, async (tx, d, addressB) => {
-    if (addressB !== addressId) throw new Error("Alamat berubah, ulangi.");
-    for (const k of kutipan) {
-      const s = await tx.barterShipment.create({
-        data: {
-          deal_id: d.id,
-          leg: k.leg,
-          payer_id: k.payer_id,
-          origin: k.origin as unknown as Prisma.InputJsonObject,
-          destination: k.destination as unknown as Prisma.InputJsonObject,
-          weight_g: k.paket.weight_g,
-          length_cm: k.paket.length_cm,
-          width_cm: k.paket.width_cm,
-          height_cm: k.paket.height_cm,
-          item_value: k.paket.item_value,
-          courier: k.tarif.courier,
-          service_type: k.tarif.service_type,
-          service_name: k.tarif.service_name,
-          etd: k.tarif.etd,
-          shipping_cost: k.tarif.cost,
-          insurance: k.tarif.insurance,
-          status: "quoted",
-        },
-      });
-      if (k.payer_id === userId) await bayarLeg(tx, d, s);
-    }
+  return terima(userId, dealId, { addressId }, {
+    ongkir: keOngkir(kutipan),
+    buatPaket: async (tx, d, addressB) => {
+      if (addressB !== addressId) throw new Error("Alamat berubah, ulangi.");
+      for (const k of kutipan) {
+        await tx.barterShipment.create({
+          data: {
+            deal_id: d.id,
+            leg: k.leg,
+            payer_id: k.payer_id,
+            origin: k.origin as unknown as Prisma.InputJsonObject,
+            destination: k.destination as unknown as Prisma.InputJsonObject,
+            weight_g: k.paket.weight_g,
+            length_cm: k.paket.length_cm,
+            width_cm: k.paket.width_cm,
+            height_cm: k.paket.height_cm,
+            item_value: k.paket.item_value,
+            courier: k.tarif.courier,
+            service_type: k.tarif.service_type,
+            service_name: k.tarif.service_name,
+            etd: k.tarif.etd,
+            shipping_cost: k.tarif.cost,
+            insurance: k.tarif.insurance,
+            status: "quoted",
+          },
+        });
+      }
+    },
   });
 }
 
+/** Alur lama (v2): tahan ongkir satu paket. */
 async function bayarLeg(tx: Tx, d: DealRow, s: { id: string; payer_id: string; shipping_cost: number; insurance: number }) {
   const amt = ongkirDari(s);
   if (amt > 0) await hold(tx, s.payer_id, d.id, amt, "ongkir", `Tahan ongkir Tukar: ${d.itemA.title} ⇄ ${d.itemB.title}`);
