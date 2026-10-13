@@ -1119,3 +1119,11 @@ Traefik yang sudah ada di VPS, cukup atur port.
   seri, tebakan terakhir, hangus → peringkat 2, bayar → voucher + titipan deal, sekali jalan, pembayaran berjalan
   menahan hangus, gagal, bayar terlambat → refund dipotong, blokir, batal).
 - **Rollback:** `git revert` commit ini + SQL batal di atas.
+
+### Ch 8.40 — Deploy produksi Fase 4 (lelang v2)
+2026-10-13
+- `bash scripts/deploy-lokal.sh fase4` (build `1a1c260`). Backup `/root/backup-kongsi/kongsi-20261013-1416-pre-fase4.sql.gz`
+  (43 tabel). Migrasi produksi ✓ `20261013150000_lelang_v2` (produksi belum punya lelang).
+- Cek: `/`, `/lelang`, `/lelang?jenis=vendu`, `/tukar`, `/lapak`, `/bayar`, `/kabar` 200; `/admin/lelang` → masuk (307);
+  cron `advance-auctions` → `{"advanced":0}`.
+- Rollback: `git revert kd-lelang-v2..` + deploy ulang; DB: restore backup di atas.
