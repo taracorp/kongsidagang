@@ -1143,3 +1143,9 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - **Migrasi** `20261013160000_klaim_asuransi` (dev ✓): tabel `klaim_asuransi` + check. Batal: `DROP TABLE klaim_asuransi;`.
 - **Uji** `scripts/uji/klaim.ts` 10 ✓.
 - **Rollback:** `git revert` commit ini + SQL batal di atas.
+
+### Ch 8.42 — Deploy produksi Fase 5 (klaim asuransi)
+2026-10-13
+- `bash scripts/deploy-lokal.sh fase5`; migrasi produksi ✓ `20261013160000_klaim_asuransi`; halaman utama 200
+  (rincian di log deploy). Dengan ini kelima fase rencana "pengaman uang" terpasang di produksi.
+- Rollback: `git revert kd-klaim-asuransi..` + deploy ulang; DB: restore `/root/backup-kongsi/kongsi-20261013-1438-pre-fase5.sql.gz` (44 tabel).
