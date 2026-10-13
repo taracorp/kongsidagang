@@ -40,6 +40,7 @@ Titik rollback = **git tag annotated** `kd-*`. Lihat semua: `git tag -l 'kd-*' -
 | `kd-kiriminaja-uat` | 743e456 | 2026-10-12 | KiriminAja: Uji Kurir, label Code128A, KA Credit + prefix KDG-, perbaikan qty/items, retry; UAT sandbox | migrasi `20261007150000_kurir_uji_label` (produksi ✓ 12 Okt) |
 | `kd-kurir-kota` | bf12ba3 | 2026-10-12 | Deploy produksi: KiriminAja (Uji Kurir, label, KA Credit) + kota resmi & barang dicari di Tukar Guling | migrasi `20261007150000_kurir_uji_label`, `20261012080000_barang_dicari` (produksi ✓) |
 | `kd-pengaman-uang` | 4cfac48 | 2026-10-13 | Fase 1 pengaman uang: saklar uji mati di produksi, KA Credit aman (perlu_cek/perlu_batal), rekonsiliasi DOKU + pembayaran bermasalah, COD anti-tipu, kartu tidak untuk Keteng (Ch 8.33) | migrasi `20261013090000_pengaman_uang`, `20261013100000_bermasalah_selesai`, `20261013110000_status_paket` (dev ✓, produksi ✓ 13 Okt) |
+| `kd-tukar-v3` | 07295dd | 2026-10-13 | Fase 2 Tukar Guling v3: selisih = uang rekber (QRIS/VA), Keteng = jaminan, transfer keluar, rekening user, sanksi, Syahbandar baru (Ch 8.35) | migrasi `20261013120000_tukar_v3` (dev ✓, produksi: saat deploy) |
 
 ## Prosedur
 
