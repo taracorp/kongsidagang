@@ -1039,3 +1039,12 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - **Pengaman tambahan:** pengembalian "utuh" ke pembayar hanya bila cadangan penerima benar-benar terpakai (Kongsi tidak
   menalangi biaya transfer).
 - **Rollback:** `git revert` commit ini + SQL batal di atas.
+
+### Ch 8.36 — Deploy produksi Fase 2 (Tukar Guling v3)
+2026-10-13
+- `bash scripts/deploy-lokal.sh fase2` (build `3c6e574` di laptop).
+- **Backup:** `/root/backup-kongsi/kongsi-20261013-0955-pre-fase2.sql.gz` (37 tabel).
+- **Migrasi produksi ✓:** `20261013120000_tukar_v3`.
+- **Cek:** `/`, `/tukar`, `/lapak`, `/bayar`, `/kabar` 200; `/pakhuis/rekening`, `/admin/transfer` → masuk (307);
+  cron advance-barter menjawab normal.
+- **Rollback:** `git revert kd-tukar-v3..` + deploy ulang; DB: restore backup di atas.
