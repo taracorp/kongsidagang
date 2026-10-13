@@ -38,8 +38,10 @@ fix_symlink() {
 git -C "$REPO" fetch -q origin
 [ "$(git -C "$REPO" rev-parse origin/main)" = "$COMMIT" ] || { echo "HEAD belum di-push ke origin/main"; exit 1; }
 
-if [ "$(cat "$BUILD/.next/KD_COMMIT" 2>/dev/null)" = "$COMMIT" ]; then
-  echo "== build $COMMIT sudah ada di $BUILD (hapus $BUILD/.next untuk build ulang)"
+# Build yang ada dipakai ulang bila commit-nya hanya berbeda di docs/, scripts/, atau *.md (tidak masuk .next).
+DIBANGUN=$(cat "$BUILD/.next/KD_COMMIT" 2>/dev/null || true)
+if [ -n "$DIBANGUN" ] && git -C "$REPO" diff --quiet "$DIBANGUN" "$COMMIT" -- . ':(exclude)docs' ':(exclude)scripts' ':(exclude)*.md'; then
+  echo "== pakai build $DIBANGUN yang sudah ada (hapus $BUILD/.next untuk build ulang)"
 else
   echo "== build $COMMIT di $BUILD"
   git -C "$BUILD" fetch -q origin
