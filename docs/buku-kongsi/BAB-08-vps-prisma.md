@@ -1193,3 +1193,11 @@ Traefik yang sudah ada di VPS, cukup atur port.
   kuota per user, kode/klaim, pembeli baru, min belanja, pelepasan saat gagal, refund sesuai dibayar, lelang bebas
   diskon). Regresi belanja 36, setoran 29, lelang, bayar-langsung lolos.
 - **Rollback:** `git revert` commit ini + SQL batal.
+
+### Ch 8.45 — Carousel lelang: jeda otomatis saat user berinteraksi
+2026-10-14
+- **Laporan Tara:** di `/lelang`, carousel 3 lelang berganti produk terlalu cepat (tiap 9 dtk) — saat mau menawar sudah
+  pindah. Ini UI (`TheatreLelang`), bukan fase lelang.
+- **Perbaikan:** auto-ganti berhenti begitu user menyentuh/mengetik di kartu (`onPointerDownCapture`/`onFocusCapture`)
+  atau menekan navigasi manual ‹ ›; muncul "⏸ Geser otomatis dijeda · Lanjutkan". Interval dinaikkan 9 → 12 dtk.
+- tsc + eslint lolos. Rollback: `git revert` commit ini.

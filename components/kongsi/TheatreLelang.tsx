@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import type { AuctionPublic, AdSettings } from "@/lib/queries";
 
 const SWAP_MS = 1300;
-const AUTOPLAY_MS = 9000;
+const AUTOPLAY_MS = 12000;
 
 function StageAd({ ad }: { ad: AdSettings }) {
   const { video, image } = ad;
@@ -62,6 +62,8 @@ export function TheatreLelang({
   const count = auctions.length;
   const [index, setIndex] = useState(0);
   const [open, setOpen] = useState(false);
+  const [paused, setPaused] = useState(false); // berhenti auto-ganti saat user berinteraksi
+  const pausedRef = useRef(false);
   const swapTimer = useRef<number | null>(null);
   const reduce = useRef(false);
   const router = useRouter();
@@ -73,6 +75,10 @@ export function TheatreLelang({
     const t = window.setTimeout(() => setOpen(true), reduce.current ? 0 : 550);
     return () => clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
 
   // Realtime: dengar sinyal server lewat SSE (/api/lelang/stream) → refetch data server.
   useEffect(() => {
@@ -110,6 +116,7 @@ export function TheatreLelang({
   const step = useCallback(
     (dir: 1 | -1) => {
       if (count < 2) return;
+      setPaused(true); // navigasi manual → berhenti auto-ganti
       goTo((index + dir + count) % count);
     },
     [count, index, goTo],
@@ -118,6 +125,7 @@ export function TheatreLelang({
   useEffect(() => {
     if (count < 2) return;
     const id = window.setInterval(() => {
+      if (pausedRef.current) return; // user sedang berinteraksi → jangan ganti produk
       setOpen(false);
       window.setTimeout(() => {
         setIndex((i) => (i + 1) % count);
@@ -139,7 +147,8 @@ export function TheatreLelang({
   const nextItem = count > 1 ? auctions[(index + 1) % count] : null;
 
   return (
-    <div>
+    // Begitu user menyentuh/mengetik di kartu lelang, auto-ganti produk berhenti (biar sempat menawar).
+    <div onPointerDownCapture={() => setPaused(true)} onFocusCapture={() => setPaused(true)}>
       <Panggung open={open} celebrate={celebrate}>
         {current ? (
           <LelangLive
@@ -175,7 +184,15 @@ export function TheatreLelang({
                 />
               ))}
             </div>
-            {nextItem ? (
+            {paused ? (
+              <button
+                type="button"
+                onClick={() => setPaused(false)}
+                className="mt-[6px] cursor-pointer text-[12px] font-bold text-kongsi-grenadine underline"
+              >
+                ⏸ Geser otomatis dijeda · Lanjutkan
+              </button>
+            ) : nextItem ? (
               <div className="mt-[6px] text-[12px] text-kongsi-ink-soft">
                 Berikutnya:{" "}
                 <b className="text-kongsi-indigo">{nextItem.clue_category}</b>
