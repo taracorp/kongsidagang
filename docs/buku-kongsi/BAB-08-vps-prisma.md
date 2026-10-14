@@ -1201,3 +1201,15 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - **Perbaikan:** auto-ganti berhenti begitu user menyentuh/mengetik di kartu (`onPointerDownCapture`/`onFocusCapture`)
   atau menekan navigasi manual ‹ ›; muncul "⏸ Geser otomatis dijeda · Lanjutkan". Interval dinaikkan 9 → 12 dtk.
 - tsc + eslint lolos. Rollback: `git revert` commit ini.
+
+### Ch 8.46 — UAT KiriminAja: pembuatan ulang order Non-COD via KA Credit
+2026-10-14
+- **Penolakan UAT:** "request create order ulang untuk semua paket Non COD dengan payment_method: credit & pin: 123456".
+- **Penyebab:** di UAT lama, 4 paket (buat4–7) dibuat dengan "Tagihan QRIS" (unpaid). Kode produksi SUDAH benar — alur
+  kirim asli (`kirimkanPaket`) & default Uji Kurir selalu pakai KA Credit; `buatOrder` mengirim `payment_method:"credit"`
+  + `pin` saat `KIRIMINAJA_PIN` di-set. Tidak ada perubahan kode.
+- **Tindakan:** env sandbox di-set lokal (gitignored, tidak di-commit), lalu 4 order Non-COD dibuat ulang lewat driver
+  `kurir()` dengan credit + pin 123456 (Sariharjo→Kedungkandang, aneka layanan & asuransi). Saldo KA Credit sandbox
+  (diisi Tara) terpotong Rp103.200 → pembayaran credit berhasil (status paid), AWB terbit. Ringkasan & order ID di
+  `uat-kiriminaja/RESUBMIT.md` (folder gitignored). Key sandbox dihapus kembali dari `.env.local` setelah selesai.
+- **Catatan:** AWB sandbox berprefiks MOCK- (perilaku sandbox KiriminAja, sama seperti UAT sebelumnya).
