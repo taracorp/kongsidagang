@@ -44,6 +44,7 @@ Titik rollback = **git tag annotated** `kd-*`. Lihat semua: `git tag -l 'kd-*' -
 | `kd-setoran-lapak` | 933fa5a | 2026-10-13 | Fase 3: setoran lapak (ditebus ≥3 hari / kedaluwarsa), laporan pembeli, pengembalian belanja + potongan lapak, pindah cabang (Ch 8.37) | migrasi `20261013140000_setoran_lapak` (dev ✓, produksi ✓ 13 Okt) |
 | `kd-lelang-v2` | f96d8b0 | 2026-10-13 | Fase 4: Balai Lelang dibangun ulang — pemenang wajib bayar, peringkat 2–3, sekali jalan, titipan = harga deal (Ch 8.39) | migrasi `20261013150000_lelang_v2` (dev ✓, produksi ✓ 13 Okt) |
 | `kd-klaim-asuransi` | 6aabf32 | 2026-10-13 | Fase 5: klaim asuransi kurir diteruskan setelah cair (Ch 8.41) | migrasi `20261013160000_klaim_asuransi` (dev ✓, produksi ✓ 13 Okt) |
+| `kd-diskon` | 3c4f272 | 2026-10-14 | Diskon ala Shopee (lapak & Kongsi), durasi fase lelang, paket Signature Beauty Center (Ch 8.44) | migrasi `20261013170000_diskon` (dev ✓, produksi: saat deploy) |
 
 ## Prosedur
 
