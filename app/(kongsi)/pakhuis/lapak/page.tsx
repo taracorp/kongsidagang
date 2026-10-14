@@ -6,7 +6,10 @@ import { ProfilLapak, CabangManager, ProdukManager, ValidasiVoucher } from "@/co
 import { getStaffSession, isAdminUp } from "@/lib/roles";
 import { getLapakKelola, getRiwayatTebus } from "@/lib/queries-lapak";
 import { RekeningLapakForm } from "@/components/kongsi/RekeningForm";
+import { PromoManager } from "@/components/kongsi/PromoForm";
+import { buatDiskonLapak, aturDiskonLapakAktif } from "@/app/actions/loji";
 import { ringkasanLapak, HARI_TAHAN_SETOR } from "@/lib/domain/setoran";
+import { daftarDiskonLapak } from "@/lib/domain/diskon";
 import { namaBank } from "@/lib/data/bank";
 import { prisma } from "@/lib/db";
 import { formatKeping } from "@/lib/utils";
@@ -17,6 +20,7 @@ export default async function KelolaLapakPage() {
   const lapak = await getLapakKelola(s.userId, isAdminUp(s.role));
   const riwayat = new Map(await Promise.all(lapak.map(async (m) => [m.id, await getRiwayatTebus(m.id, 10)] as const)));
   const uang = new Map((await ringkasanLapak(lapak.map((m) => m.id))).map((r) => [r.merchantId, r]));
+  const promo = new Map(await Promise.all(lapak.map(async (m) => [m.id, await daftarDiskonLapak(m.id)] as const)));
   const setoran = await prisma.setoranLapak.findMany({
     where: { merchant_id: { in: lapak.map((m) => m.id) } },
     orderBy: { created_at: "desc" },
@@ -142,6 +146,18 @@ export default async function KelolaLapakPage() {
                   {m.isOwner ? <RekeningLapakForm merchantId={m.id} awal={m.rekening} /> : <p className="text-kongsi-ink-soft">Hanya pemilik lapak yang bisa mengubah rekening.</p>}
                 </div>
               </div>
+
+              {m.isOwner ? (
+                <div className={kartu}>
+                  <h4 className="mb-2 font-fraunces text-lg font-black text-kongsi-indigo">Promo &amp; Diskon</h4>
+                  <PromoManager
+                    pembuat="lapak"
+                    daftar={promo.get(m.id) ?? []}
+                    simpan={buatDiskonLapak.bind(null, m.id)}
+                    aturAktif={aturDiskonLapakAktif.bind(null, m.id)}
+                  />
+                </div>
+              ) : null}
 
               <ProfilLapak m={m} />
               <CabangManager m={m} />

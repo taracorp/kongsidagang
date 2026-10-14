@@ -2,14 +2,16 @@
 
 import { prisma } from "@/lib/db";
 import { mulaiBelanja, tebusVoucherLapak, tebusVoucherAdmin, type BarisBelanja } from "@/lib/domain/belanja";
+import * as Belanja from "@/lib/domain/belanja";
 import * as Setoran from "@/lib/domain/setoran";
+import * as Diskon from "@/lib/domain/diskon";
 import { run, requireUser, requireAdminUp } from "./_util";
 
 /**
  * Bayar keranjang dengan uang lewat DOKU (metode pilihan pembeli). Hanya ID produk, cabang, jumlah, dan kode
  * metode yang dikirim — harga, platform fee, dan biaya pembayaran dihitung server. Kembalikan URL halaman bayar.
  */
-export async function bayarKeranjang(baris: BarisBelanja[], metode: string) {
+export async function bayarKeranjang(baris: BarisBelanja[], metode: string, kode?: string) {
   return run(async () => {
     const user = await requireUser();
     const bersih = (Array.isArray(baris) ? baris : []).map((b) => ({
@@ -18,8 +20,27 @@ export async function bayarKeranjang(baris: BarisBelanja[], metode: string) {
       qty: Number(b?.qty),
     }));
     const site = process.env.BETTER_AUTH_URL || "http://localhost:3000";
-    const { url } = await mulaiBelanja({ id: user.id, name: user.name ?? "", email: user.email }, bersih, String(metode), site);
+    const { url } = await mulaiBelanja({ id: user.id, name: user.name ?? "", email: user.email }, bersih, String(metode), site, kode ? String(kode) : null);
     return { url };
+  });
+}
+
+/** Pratinjau diskon untuk keranjang (otomatis + kode opsional). */
+export async function cekDiskon(baris: BarisBelanja[], kode?: string) {
+  return run(async () => {
+    const user = await requireUser();
+    const siap = await prisma.$transaction((tx) => Belanja.siapkanBelanja(tx, (Array.isArray(baris) ? baris : []).map((b) => ({ productId: String(b?.productId ?? ""), branchId: b?.branchId ? String(b.branchId) : null, qty: Number(b?.qty) }))));
+    const items = siap.siap.map((x) => ({ product_id: x.product.id, merchant_id: x.merchant.id, unit_price: x.product.price, qty: x.qty }));
+    const h = await Diskon.pratinjauDiskon(user.id, items, kode ? String(kode) : null);
+    return { diskonLapak: h.diskon_lapak, diskonPlatform: h.diskon_platform, namaLapak: h.namaLapak, namaPlatform: h.namaPlatform };
+  });
+}
+
+/** Pembeli mengklaim voucher diskon (kode/klaim). */
+export async function klaimVoucherDiskon(kode: string) {
+  return run(async () => {
+    const user = await requireUser();
+    return Diskon.klaimDiskon(user.id, String(kode ?? ""));
   });
 }
 

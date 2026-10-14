@@ -5,6 +5,7 @@ import { cariProdukTag, getKotaCabang } from "@/lib/queries-lapak";
 import { getSessionUser } from "@/lib/auth";
 import { pastikanCabangBolehNonaktif } from "@/lib/domain/belanja";
 import * as Setoran from "@/lib/domain/setoran";
+import * as Diskon from "@/lib/domain/diskon";
 import { getStaffSession, isAdminUp } from "@/lib/roles";
 import { run, requireUser, toInt } from "./_util";
 
@@ -226,5 +227,22 @@ export async function simpanRekeningLapak(merchantId: string, input: { bank: str
     const m = await prisma.merchant.findUnique({ where: { id: String(merchantId) }, select: { owner_id: true } });
     if (!m || m.owner_id !== user.id) throw new Error("Hanya pemilik lapak yang bisa mengubah rekening setoran.");
     await Setoran.simpanRekeningLapak(String(merchantId), input);
+  });
+}
+
+/** Diskon lapak (ditanggung lapak) — pemilik lapak saja. */
+export async function buatDiskonLapak(merchantId: string, input: Diskon.DiskonInput) {
+  return run(async () => {
+    const user = await requireUser();
+    await assertOwnsMerchant(user.id, String(merchantId));
+    await Diskon.buatDiskonLapak(user.id, String(merchantId), input);
+  });
+}
+
+export async function aturDiskonLapakAktif(merchantId: string, diskonId: string, aktif: boolean) {
+  return run(async () => {
+    const user = await requireUser();
+    await assertOwnsMerchant(user.id, String(merchantId));
+    await Diskon.aturDiskonAktif(String(diskonId), Boolean(aktif), String(merchantId));
   });
 }

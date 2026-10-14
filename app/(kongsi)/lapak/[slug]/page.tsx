@@ -6,6 +6,9 @@ import { FollowButton } from "@/components/kongsi/FollowButton";
 import { ProdukCard } from "@/components/kongsi/ProdukCard";
 import { getIsFollowing } from "@/lib/queries";
 import { getLapakDetail } from "@/lib/queries-lapak";
+import { getSessionUser } from "@/lib/auth";
+import { voucherLapak } from "@/lib/domain/diskon";
+import { VoucherDiskon } from "@/components/kongsi/VoucherDiskon";
 
 const toneBg: Record<string, string> = {
   sage: "bg-kongsi-sage",
@@ -26,7 +29,8 @@ export default async function LapakDetail({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   const l = await getLapakDetail(slug);
   if (!l) notFound();
-  const follow = await getIsFollowing(l.id);
+  const user = await getSessionUser();
+  const [follow, voucher] = await Promise.all([getIsFollowing(l.id), voucherLapak(l.id, user?.id ?? null)]);
   const jumlah = l.kelompok.reduce((s, k) => s + k.products.length, 0);
 
   return (
@@ -81,6 +85,17 @@ export default async function LapakDetail({ params }: { params: Promise<{ slug: 
         {l.flashSaleEndsAt ? (
           <div className="mb-4">
             <Pill variant="live">🔥 Obral Kilat sampai {new Date(l.flashSaleEndsAt).toLocaleString("id-ID")}</Pill>
+          </div>
+        ) : null}
+
+        {voucher.length ? (
+          <div className="mb-6">
+            <h3 className="mb-2 font-fraunces text-[18px] font-black text-kongsi-indigo">🎟️ Voucher tersedia</h3>
+            <div className="flex flex-wrap gap-2">
+              {voucher.map((v) => (
+                <VoucherDiskon key={v.id} v={v} loggedIn={Boolean(user)} />
+              ))}
+            </div>
           </div>
         ) : null}
 

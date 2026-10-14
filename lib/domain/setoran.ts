@@ -212,7 +212,8 @@ async function kembalikanDalamTx(tx: Tx, voucherId: string, alasan: string) {
   const jumlah = o.items.reduce((t, i) => t + i.qty, 0) || 1;
   const bagianFee = Math.round(o.bea / jumlah);
   const bagianDoku = Math.round(o.biaya_bayar / jumlah);
-  const harga = v.orderItem.unit_price;
+  // Yang benar-benar dibayar pembeli untuk voucher ini = harga − diskon lapak − diskon Kongsi per unit.
+  const harga = v.orderItem.unit_price - v.orderItem.diskon_lapak_unit - v.orderItem.diskon_platform_unit;
   await tx.voucher.update({ where: { id: v.id }, data: { status: "dikembalikan", dikembalikan_at: new Date() } });
   await antrikanTransfer(tx, {
     jenis: "refund_belanja",

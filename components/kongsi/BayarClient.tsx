@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
-import { bayarKeranjang } from "@/app/actions/belanja";
+import { bayarKeranjang, cekDiskon } from "@/app/actions/belanja";
 import { PilihMetode } from "./PilihMetode";
 import { KongsiButton, KongsiLinkButton } from "@/components/kongsi/KongsiButton";
 import { useCart } from "@/components/kongsi/cart";
@@ -147,19 +147,51 @@ export function BayarClient({
   const { items, subtotal } = useCart();
   const [metode, setMetode] = useState(METODE_AWAL);
   const [pay, setPay] = useState<{ k: "idle" } | { k: "paying" } | { k: "error"; m: string }>({ k: "idle" });
+  const [kode, setKode] = useState("");
+  const [kodeDipakai, setKodeDipakai] = useState("");
+  const [diskon, setDiskon] = useState<{ lapak: number; platform: number; namaLapak: string | null; namaPlatform: string | null }>({ lapak: 0, platform: 0, namaLapak: null, namaPlatform: null });
+  const [cekPesan, setCekPesan] = useState<string | null>(null);
+
+  const barisKeranjang = items.map((it) => ({ productId: it.productId, branchId: it.branchId, qty: it.qty }));
+  const keranjangKey = JSON.stringify(barisKeranjang);
+
+  // Hitung diskon otomatis (+ kode bila dipakai) saat login & keranjang/kode berubah.
+  useEffect(() => {
+    const kosong = { lapak: 0, platform: 0, namaLapak: null, namaPlatform: null };
+    let batal = false;
+    (async () => {
+      if (!loggedIn || !tersedia || items.length === 0) {
+        if (!batal) setDiskon(kosong);
+        return;
+      }
+      const { error, data } = await cekDiskon(barisKeranjang, kodeDipakai || undefined);
+      if (batal) return;
+      setDiskon(error || !data ? kosong : { lapak: data.diskonLapak, platform: data.diskonPlatform, namaLapak: data.namaLapak, namaPlatform: data.namaPlatform });
+    })();
+    return () => { batal = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loggedIn, tersedia, keranjangKey, kodeDipakai]);
 
   // Perkiraan untuk tampilan; server menghitung ulang dari harga di DB dengan rumus yang sama.
   const pf = platformFee(pkp);
-  const neto = subtotal + pf.total;
+  const totalDiskon = diskon.lapak + diskon.platform;
+  const neto = Math.max(0, subtotal - totalDiskon) + pf.total;
   const { total, biaya } = subtotal > 0 ? rincianBayar(neto, metode) : { total: 0, biaya: 0 };
   const namaMetode = (METODE.find((m) => m.kode === metode)?.nama ?? metode).split(" (")[0];
 
+  async function pakaiKode() {
+    setCekPesan(null);
+    const k = kode.trim();
+    setKodeDipakai(k);
+    const { error, data } = await cekDiskon(barisKeranjang, k || undefined);
+    if (error) return setCekPesan(error);
+    const hemat = (data?.diskonLapak ?? 0) + (data?.diskonPlatform ?? 0);
+    setCekPesan(k && hemat === 0 ? "Kode tidak berlaku untuk keranjang ini." : hemat > 0 ? `Hemat ${formatKeping(hemat)}!` : null);
+  }
+
   async function bayar() {
     setPay({ k: "paying" });
-    const { error, data } = await bayarKeranjang(
-      items.map((it) => ({ productId: it.productId, branchId: it.branchId, qty: it.qty })),
-      metode,
-    );
+    const { error, data } = await bayarKeranjang(barisKeranjang, metode, kodeDipakai || undefined);
     if (error || !data) return setPay({ k: "error", m: error ?? "Gagal membuka pembayaran." });
     window.location.assign(data.url); // halaman bayar DOKU (atau halaman hasil pada mode demo)
   }
@@ -190,6 +222,23 @@ export function BayarClient({
                 <div className="space-y-4 p-[22px]">
                   {tersedia ? (
                     <>
+                      <div>
+                        <div className="mb-[5px] text-[13px] font-bold">Punya kode voucher?</div>
+                        <div className="flex gap-2">
+                          <input
+                            value={kode}
+                            onChange={(e) => setKode(e.target.value.toUpperCase())}
+                            placeholder="KODE PROMO"
+                            aria-label="Kode voucher"
+                            className="w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-3 py-[10px] text-sm"
+                          />
+                          <KongsiButton variant="gold" onClick={pakaiKode} disabled={pay.k === "paying"}>
+                            Pakai
+                          </KongsiButton>
+                        </div>
+                        {cekPesan ? <p className={cn("mt-1 text-[12px]", /hemat/i.test(cekPesan) ? "font-bold text-kongsi-ok" : "text-kongsi-grenadine-dark")}>{cekPesan}</p> : null}
+                        <p className="mt-1 text-[11px] text-kongsi-ink-soft">Diskon yang berlaku dipakai otomatis — yang paling hemat (maks 1 lapak + 1 Kongsi).</p>
+                      </div>
                       <PilihMetode neto={neto} value={metode} onChange={setMetode} />
                       <KongsiButton variant="primary" block onClick={bayar} disabled={pay.k === "paying"}>
                         {pay.k === "paying" ? "Membuka pembayaran…" : `Bayar ${formatKeping(total)} · ${namaMetode}`}
@@ -220,6 +269,18 @@ export function BayarClient({
                   <span>{formatKeping(it.price * it.qty)}</span>
                 </div>
               ))}
+              {diskon.lapak > 0 ? (
+                <div className={cn(baris, "text-kongsi-ok")}>
+                  <span>Diskon lapak{diskon.namaLapak ? ` · ${diskon.namaLapak}` : ""}</span>
+                  <span>−{formatKeping(diskon.lapak)}</span>
+                </div>
+              ) : null}
+              {diskon.platform > 0 ? (
+                <div className={cn(baris, "text-kongsi-ok")}>
+                  <span>Diskon Kongsi{diskon.namaPlatform ? ` · ${diskon.namaPlatform}` : ""}</span>
+                  <span>−{formatKeping(diskon.platform)}</span>
+                </div>
+              ) : null}
               <div className={baris}>
                 <span>Platform fee</span>
                 <span>{formatKeping(pf.fee)}</span>

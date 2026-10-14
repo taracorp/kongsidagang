@@ -6,6 +6,7 @@ import { approveMerchantApplication } from "@/lib/domain/saudagar";
 import { tandaiDibayar } from "@/lib/domain/transfer";
 import * as Setoran from "@/lib/domain/setoran";
 import * as Klaim from "@/lib/domain/klaim";
+import * as Diskon from "@/lib/domain/diskon";
 import { isSuperadminEmail } from "@/lib/roles";
 import { run, requireAdminUp, requireKabarEditor, requireKetua } from "./_util";
 
@@ -210,5 +211,22 @@ export async function klaimAsuransiDitolak(klaimId: string, alasan: string) {
     const s = await requireAdminUp();
     await Klaim.klaimDitolak(s.userId!, String(klaimId), String(alasan ?? ""));
     revalidatePath("/admin/tukar");
+  });
+}
+
+/** Promo Kongsi (ditanggung Kongsi, wajib anggaran). */
+export async function buatDiskonPlatform(input: Diskon.DiskonInput) {
+  return run(async () => {
+    const s = await requireAdminUp();
+    await Diskon.buatDiskonPlatform(s.userId!, input);
+    revalidatePath("/admin/promo");
+  });
+}
+
+export async function aturDiskonPlatformAktif(diskonId: string, aktif: boolean) {
+  return run(async () => {
+    await requireAdminUp();
+    await Diskon.aturDiskonAktif(String(diskonId), Boolean(aktif));
+    revalidatePath("/admin/promo");
   });
 }

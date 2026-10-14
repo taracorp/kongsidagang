@@ -40,6 +40,8 @@ export async function buatLelang(form: FormData) {
       dealPrice: toInt(form.get("deal_price")),
       setPrice: toInt(form.get("set_price")),
       capacity: toInt(form.get("capacity")) || 10,
+      durasiKumpul: toInt(form.get("durasi_kumpul")) || 30,
+      durasiTebak: toInt(form.get("durasi_tebak")) || 60,
       facilities: String(form.get("facilities") ?? "").split("\n"),
     });
   });

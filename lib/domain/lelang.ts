@@ -43,6 +43,8 @@ export type LelangBaru = {
   setPrice: number;
   capacity: number;
   facilities: string[];
+  durasiKumpul?: number; // menit (default 30)
+  durasiTebak?: number; // menit (default 60)
 };
 
 export async function buatLelang(adminId: string, i: LelangBaru) {
@@ -71,6 +73,8 @@ export async function buatLelang(adminId: string, i: LelangBaru) {
       deal_price: i.dealPrice,
       set_price: i.setPrice,
       capacity: Math.min(1000, i.capacity),
+      durasi_kumpul: Math.min(1440, Math.max(1, Math.floor(i.durasiKumpul ?? 30))),
+      durasi_tebak: Math.min(1440, Math.max(1, Math.floor(i.durasiTebak ?? 60))),
       facilities: i.facilities.map((f) => f.trim().slice(0, 80)).filter(Boolean).slice(0, 8),
       merchant_id: p.merchant.id,
       product_id: p.id,
@@ -80,9 +84,10 @@ export async function buatLelang(adminId: string, i: LelangBaru) {
 }
 
 export async function mulaiLelang(adminId: string, id: string) {
+  const a = await prisma.auction.findUnique({ where: { id }, select: { durasi_kumpul: true } });
   const r = await prisma.auction.updateMany({
     where: { id, status: "draf" },
-    data: { status: "kumpul", starts_at: new Date(), phase_ends_at: new Date(Date.now() + PHASE_MS), dimulai_oleh: adminId },
+    data: { status: "kumpul", starts_at: new Date(), phase_ends_at: new Date(Date.now() + (a?.durasi_kumpul ?? 30) * 60_000), dimulai_oleh: adminId },
   });
   if (r.count !== 1) throw new Error("Hanya lelang berstatus draf yang bisa dimulai.");
   broadcastLelang();
@@ -292,14 +297,16 @@ export async function advanceAuctions(now = new Date()): Promise<number> {
   let n = 0;
   const due = await prisma.auction.findMany({
     where: { status: { in: Object.keys(NEXT) }, phase_ends_at: { not: null, lt: now } },
-    select: { id: true, status: true },
+    select: { id: true, status: true, durasi_tebak: true },
   });
   for (const r of due) {
     const next = NEXT[r.status];
+    // Fase tebak pakai durasi lelang; jeda/final/pemenang tetap 1 menit.
+    const durasiMs = next === "tebak" ? r.durasi_tebak * 60_000 : PHASE_MS;
     await prisma.$transaction(async (tx) => {
       const klaim = await tx.auction.updateMany({
         where: { id: r.id, status: r.status },
-        data: { status: next, phase_ends_at: next === "bayar" ? null : new Date(now.getTime() + PHASE_MS) },
+        data: { status: next, phase_ends_at: next === "bayar" ? null : new Date(now.getTime() + durasiMs) },
       });
       if (klaim.count !== 1) return;
       if (next === "pemenang" && !(await tentukanPemenang(tx, r.id, now))) {

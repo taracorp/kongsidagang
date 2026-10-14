@@ -57,13 +57,14 @@ const BC_CABANG: { name: string; city: string; address: string }[] = [
   { name: "DRW Beauty Center Muntilan", city: "Magelang", address: "Jl. Pemuda No. 47 RT 005 RW 002 Desa Sedayu Kec. Muntilan, Kab. Magelang" },
 ];
 
-type Menu = { nama: string; harga: number; kategori: string; tags: string[]; etalase?: boolean };
+type Menu = { nama: string; harga: number; kategori: string; tags: string[]; etalase?: boolean; coret?: number; deskripsi?: string };
 const SIG = "Signature Treatment";
 const ACNE = "Velvet Acne Bloom";
 const GLOW = "Glimmer Glow";
 const AGE = "Aura Ageless";
 const PIG = "Lumi Pigment Radiant";
 const HAIR = "Hair Treatment";
+const PKT = "Signature Package";
 
 // Nama & harga persis menu resmi (huruf dirapikan; singkatan IPL/RF dipertahankan).
 const BC_MENU: Menu[] = [
@@ -105,6 +106,13 @@ const BC_MENU: Menu[] = [
   { nama: "Wash and Dry", harga: 25_000, kategori: HAIR, tags: ["rambut"] },
   { nama: "Cuci Blow Catok", harga: 50_000, kategori: HAIR, tags: ["rambut"] },
   { nama: "Hair Styling", harga: 25_000, kategori: HAIR, tags: ["rambut"] },
+  // Signature Package (promo "GRATIS IPL untuk member baru") — harga coret dari materi promo resmi.
+  { nama: "Body Fresh Bright Package", harga: 335_000, coret: 510_000, kategori: PKT, tags: ["ipl", "detox", "paket"], etalase: true,
+    deskripsi: "Paket 3× IPL Underarm + Detox. Promo member baru: gratis IPL treatment. Berlaku di semua cabang Beauty Center DRW Skincare." },
+  { nama: "Gold Glow Package", harga: 465_000, coret: 780_000, kategori: PKT, tags: ["facial", "meso", "paket"], etalase: true,
+    deskripsi: "Paket 3× Facial + Meso DNA Salmon, FREE IPL. Promo member baru. Berlaku di semua cabang Beauty Center DRW Skincare." },
+  { nama: "Bright Signature Package", harga: 495_000, coret: 825_000, kategori: PKT, tags: ["facial", "ipl", "paket"], etalase: true,
+    deskripsi: "Paket 3× Facial + IPL, FREE IPL. Promo member baru. Berlaku di semua cabang Beauty Center DRW Skincare." },
 ];
 
 const DESKRIPSI_KATEGORI: Record<string, string> = {
@@ -114,6 +122,7 @@ const DESKRIPSI_KATEGORI: Record<string, string> = {
   [AGE]: "Rangkaian Aura Ageless — facial untuk tanda-tanda penuaan.",
   [PIG]: "Rangkaian Lumi Pigment Radiant — facial untuk flek & warna kulit tidak merata.",
   [HAIR]: "Hair Treatment di Beauty Center DRW Skincare.",
+  [PKT]: "Signature Package — paket perawatan hemat Beauty Center DRW Skincare.",
 };
 
 // ------------------------------------------------------------
@@ -191,6 +200,7 @@ async function main() {
   for (const [i, p] of BC_MENU.entries()) {
     const data = {
       price: p.harga,
+      old_price: p.coret ?? null,
       category: p.kategori,
       tags: p.tags,
       kind: "evoucher",
@@ -199,7 +209,7 @@ async function main() {
       is_active: true,
       sort: i,
       tone: "indigo",
-      description: DESKRIPSI_KATEGORI[p.kategori],
+      description: p.deskripsi ?? DESKRIPSI_KATEGORI[p.kategori],
     };
     const ada = await prisma.merchantProduct.findFirst({ where: { merchant_id: bc.id, name: p.nama } });
     if (ada) await prisma.merchantProduct.update({ where: { id: ada.id }, data });

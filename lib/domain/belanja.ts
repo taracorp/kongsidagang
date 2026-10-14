@@ -7,6 +7,7 @@ import { doku } from "@/lib/payment/doku";
 import { cariMetode, platformFee, rincianBayar } from "@/lib/payment/biaya";
 import { antrikanTransfer } from "@/lib/domain/transfer";
 import { BIAYA_TRANSFER, HARI_KERJA_PENCAIRAN, tambahHariKerja } from "@/lib/domain/tukar-aturan";
+import { catatPemakaianDiskon, kunciHitungDiskon, lepasDiskon, pakaiDiskon, type DiskonItem } from "@/lib/domain/diskon";
 
 // Belanja e-voucher lapak — dibayar UANG lewat DOKU (sejak 7 Okt 2026 Keteng hanya untuk Tukar Guling).
 // - Harga diambil dari DB; angka dari browser tidak dipakai sama sekali.
@@ -103,10 +104,14 @@ export async function siapkanBelanja(tx: Tx, baris: BarisBelanja[]) {
   return { siap, subtotal };
 }
 
-/** Rincian tagihan untuk subtotal + metode (dipakai server; tampilan memakai rumus yang sama di lib/payment/biaya). */
-export function rincianTagihan(subtotal: number, metode: string) {
+/**
+ * Rincian tagihan: `subtotal` = Σ harga penuh; `potongan` = diskon lapak + Kongsi (buyer bayar lebih sedikit).
+ * Platform fee flat tetap; biaya DOKU dihitung atas nilai setelah diskon + platform fee.
+ */
+export function rincianTagihan(subtotal: number, metode: string, potongan = 0) {
   const pf = platformFee(sudahPkp());
-  const { total, biaya } = rincianBayar(subtotal + pf.total, metode);
+  const nilaiBayar = Math.max(0, subtotal - potongan);
+  const { total, biaya } = rincianBayar(nilaiBayar + pf.total, metode);
   return { subtotal, bea: pf.total, biaya_bayar: biaya, total };
 }
 
@@ -132,6 +137,7 @@ export async function mulaiBelanja(
   baris: BarisBelanja[],
   kodeMetode: string,
   siteUrl: string,
+  kode: string | null = null,
 ): Promise<{ url: string; invoice: string }> {
   const { siap } = await prisma.$transaction((tx) => siapkanBelanja(tx, baris));
   return buatPesanan(
@@ -148,6 +154,7 @@ export async function mulaiBelanja(
     })),
     kodeMetode,
     siteUrl,
+    { kode },
   );
 }
 
@@ -156,7 +163,7 @@ export async function buatPesanan(
   items: ItemPesanan[],
   kodeMetode: string,
   siteUrl: string,
-  opsi: { auctionId?: string; menit?: number } = {},
+  opsi: { auctionId?: string; menit?: number; kode?: string | null } = {},
 ): Promise<{ url: string; invoice: string }> {
   const mode = isiPundiTersedia();
   if (!mode) throw new Error("Pembayaran belum tersedia.");
@@ -168,32 +175,56 @@ export async function buatPesanan(
   const jumlah = items.reduce((s, x) => s + x.qty, 0);
   if (jumlah > MAKS_VOUCHER) throw new Error(`Maksimal ${MAKS_VOUCHER} voucher per transaksi.`);
   const subtotal = items.reduce((s, x) => s + x.unit_price * x.qty, 0);
-  const t = rincianTagihan(subtotal, metode.kode);
   const invoice = invoiceBaru("KD-BLJ");
   const menit = Math.max(10, Math.min(MENIT_BAYAR, Math.floor(opsi.menit ?? MENIT_BAYAR)));
-  const order = await prisma.order.create({
-    data: {
-      user_id: user.id,
-      ...t,
-      invoice_number: invoice,
-      metode: metode.kode,
-      provider: mode === "demo" ? "demo" : doku()!.nama,
-      expires_at: new Date(Date.now() + menit * 60_000),
-      auction_id: opsi.auctionId ?? null,
-      items: {
-        create: items.map((x) => ({
-          product_id: x.product_id,
-          merchant_id: x.merchant_id,
-          branch_id: x.branch_id,
-          name: x.name,
-          unit_price: x.unit_price,
-          qty: x.qty,
-          valid_days: x.valid_days,
-          titipan: x.titipan ?? null,
-        })),
+  // Diskon hanya untuk belanja biasa (bukan lelang). Dihitung & dicadangkan terkunci di dalam transaksi.
+  const diskonItems: DiskonItem[] = opsi.auctionId ? [] : items.map((x) => ({ product_id: x.product_id, merchant_id: x.merchant_id, unit_price: x.unit_price, qty: x.qty }));
+  const order = await prisma.$transaction(async (tx) => {
+    const hd = diskonItems.length ? await kunciHitungDiskon(tx, user.id, diskonItems, opsi.kode ?? null) : null;
+    const dL = hd?.diskon_lapak ?? 0;
+    const dP = hd?.diskon_platform ?? 0;
+    const t = rincianTagihan(subtotal, metode.kode, dL + dP);
+    const o = await tx.order.create({
+      data: {
+        user_id: user.id,
+        subtotal: t.subtotal,
+        bea: t.bea,
+        biaya_bayar: t.biaya_bayar,
+        total: t.total,
+        diskon_lapak: dL,
+        diskon_platform: dP,
+        invoice_number: invoice,
+        metode: metode.kode,
+        provider: mode === "demo" ? "demo" : doku()!.nama,
+        expires_at: new Date(Date.now() + menit * 60_000),
+        auction_id: opsi.auctionId ?? null,
+        items: {
+          create: items.map((x, i) => {
+            const u = hd?.perUnit[i];
+            const dlu = u ? Math.floor(u.diskonLapakUnit.reduce((a, b) => a + b, 0) / x.qty) : 0; // diskon lapak per unit
+            const dpu = u ? Math.floor(u.diskonPlatformUnit.reduce((a, b) => a + b, 0) / x.qty) : 0; // diskon Kongsi per unit
+            // Titipan (hak lapak) per unit: lelang = deal_price; diskon lapak mengurangi titipan; selain itu = harga penuh (null).
+            const titipan = x.titipan != null ? x.titipan : dlu > 0 ? x.unit_price - dlu : null;
+            return {
+              product_id: x.product_id,
+              merchant_id: x.merchant_id,
+              branch_id: x.branch_id,
+              name: x.name,
+              unit_price: x.unit_price,
+              qty: x.qty,
+              valid_days: x.valid_days,
+              titipan,
+              diskon_lapak_unit: dlu,
+              diskon_platform_unit: dpu,
+            };
+          }),
+        },
       },
-    },
+    });
+    if (hd?.dipakai.length) await catatPemakaianDiskon(tx, o.id, user.id, hd.dipakai);
+    return o;
   });
+  const t = { subtotal: order.subtotal, bea: order.bea, biaya_bayar: order.biaya_bayar, total: order.total };
   const kembali = `/bayar/selesai?inv=${encodeURIComponent(invoice)}`;
 
   if (mode === "demo") {
@@ -246,6 +277,7 @@ export async function lunasiBelanja(invoice: string, amount: number, channel: st
         data: { status: "lunas", paid_at: new Date(), channel },
       });
       if (res.count !== 1) return "sudah";
+      await pakaiDiskon(tx, o.id); // diskon yang dicadangkan jadi terpakai (tetap)
 
       // Pembayaran pemenang lelang: hanya sah bila hak belinya masih berlaku. Terlambat (hak sudah turun ke peringkat
       // berikutnya) → tidak ada voucher; uang dikembalikan dipotong biaya DOKU & transfer (risiko pembayar yang telat).
@@ -297,7 +329,7 @@ export async function lunasiBelanja(invoice: string, amount: number, channel: st
 
       // Level naik berdasar akumulasi belanja (harga voucher). Cap tetap dikumpulkan (hadiahnya menyusul).
       const prof = await tx.profile.upsert({ where: { id: o.user_id }, create: { id: o.user_id }, update: {} });
-      const totalSpend = prof.total_spend + o.subtotal;
+      const totalSpend = prof.total_spend + (o.subtotal - o.diskon_lapak - o.diskon_platform);
       await tx.profile.update({
         where: { id: o.user_id },
         data: { total_spend: totalSpend, stamps: prof.stamps + 1, level: levelFor(totalSpend) },
@@ -315,7 +347,12 @@ export async function lunasiBelanja(invoice: string, amount: number, channel: st
 }
 
 export async function gagalkanBelanja(invoice: string, status: "gagal" | "kedaluwarsa") {
-  await prisma.order.updateMany({ where: { invoice_number: invoice, status: "menunggu" }, data: { status } });
+  await prisma.$transaction(async (tx) => {
+    const o = await tx.order.findUnique({ where: { invoice_number: invoice }, select: { id: true, status: true } });
+    if (!o || o.status !== "menunggu") return;
+    await tx.order.update({ where: { id: o.id }, data: { status } });
+    await lepasDiskon(tx, o.id); // kembalikan kuota & anggaran diskon
+  });
 }
 
 /** Cocokkan pesanan milik user dengan status di DOKU (bila notifikasi terlambat). */

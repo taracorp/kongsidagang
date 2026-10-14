@@ -1161,3 +1161,35 @@ Traefik yang sudah ada di VPS, cukup atur port.
     1.678 → 1.967).
 - Verifikasi: `/kabar/<slug>` 200; teks baru tampil.
 - Rollback artikel bila perlu: `git revert` commit artikel + jalankan ulang skrip (idempoten), atau restore backup.
+
+### Ch 8.44 — Diskon ala Shopee (lapak & Kongsi) + durasi fase lelang + paket Signature
+2026-10-14
+- **Permintaan Tara:** diskon seperti Shopee — bisa dibuat **Kongsi atau lapak**, berlaku otomatis bila syarat
+  terpenuhi, bisa juga lewat kode/klaim; pembuat = penanggung biaya. Maks 1 diskon lapak + 1 Kongsi per pesanan.
+- **Model** (`prisma/schema.prisma`): tabel `diskon` (pembuat platform|lapak, jenis persen|potongan, maks_potongan,
+  kode/perlu_klaim, min_belanja, periode, kuota_total, kuota_per_user, hanya_pembeli_baru, anggaran [platform],
+  terpakai_count/rupiah), `diskon_klaim`, `pemakaian_diskon` (dicadangkan→dipakai/dilepas). `orders.diskon_lapak/
+  diskon_platform`, `order_items.diskon_lapak_unit/diskon_platform_unit`. `auctions.durasi_kumpul/durasi_tebak`.
+- **Aturan uang (tanpa kebocoran):**
+  - Diskon **lapak** ditanggung lapak → `titipan` voucher = harga − diskon lapak per unit (setoran otomatis berkurang).
+  - Diskon **Kongsi** ditanggung Kongsi (pendapatan Kongsi = platform fee − diskon); **wajib anggaran** → berhenti
+    otomatis saat anggaran/kuota habis (biaya pemasaran terkendali; boleh > platform fee, dibatasi anggaran).
+  - `total = subtotal − diskon_lapak − diskon_platform + platform_fee + biaya_DOKU` (check constraint).
+  - Tidak berlaku untuk lelang (`orders.auction_id`) & Tukar Guling/Keteng. Refund memperhitungkan yang dibayar.
+- **Logika** `lib/domain/diskon.ts`: `hitungDiskon` memilih 1 lapak + 1 Kongsi terbaik, alokasi per unit (lapak dulu,
+  Kongsi atas sisa — tidak pernah melebihi harga). `kunciHitungDiskon` (FOR UPDATE) + `catatPemakaianDiskon` di
+  `buatPesanan`; `pakaiDiskon`/`lepasDiskon` di lunas/gagal; `klaimDiskon`; `voucherLapak`.
+- **Input & tampilan:** Kelola Lapak kartu "Promo & Diskon" (pemilik), Kantor Kongsi `/admin/promo` (wajib anggaran),
+  detail lapak "Voucher tersedia" (klaim), Gerbang Tebus (baris diskon lapak/Kongsi + input kode, otomatis pilih
+  terhemat). Komponen `PromoForm`, `VoucherDiskon`; action `cekDiskon`/`klaimVoucherDiskon`/`bayarKeranjang(kode)`.
+- **Durasi fase lelang:** `durasi_kumpul` (30 mnt) & `durasi_tebak` (60 mnt) diisi di `/admin/lelang` — babak tebak
+  cukup panjang untuk dicoba (jeda/final/pemenang tetap 1 menit).
+- **Paket Signature Beauty Center** ditambah ke `scripts/data/tenant-asli.ts`: Body Fresh Bright (Rp335rb, coret 510rb),
+  Gold Glow (Rp465rb, coret 780rb), Bright Signature (Rp495rb, coret 825rb), kategori "Signature Package", `old_price`
+  dari materi promo. Dijalankan di VPS setelah deploy.
+- **Migrasi** `20261013170000_diskon` (dev ✓): tabel diskon + kolom order/order_item + durasi lelang + check.
+  - Batal: `DROP TABLE pemakaian_diskon, diskon_klaim, diskon;` + drop kolom + kembalikan check orders lama.
+- **Uji** `scripts/uji/diskon.ts` 22 ✓ (persen+batas, potongan, 1 lapak+1 Kongsi, titipan berkurang, anggaran habis,
+  kuota per user, kode/klaim, pembeli baru, min belanja, pelepasan saat gagal, refund sesuai dibayar, lelang bebas
+  diskon). Regresi belanja 36, setoran 29, lelang, bayar-langsung lolos.
+- **Rollback:** `git revert` commit ini + SQL batal.

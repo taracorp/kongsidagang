@@ -85,6 +85,20 @@ export function FormLelangBaru({ produk }: { produk: { id: string; label: string
         </label>
         <input id="capacity" name="capacity" inputMode="numeric" defaultValue={10} className={masukan} />
       </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className={label} htmlFor="durasi_kumpul">
+            Durasi kumpul (menit)
+          </label>
+          <input id="durasi_kumpul" name="durasi_kumpul" inputMode="numeric" defaultValue={30} className={masukan} />
+        </div>
+        <div>
+          <label className={label} htmlFor="durasi_tebak">
+            Durasi tebak (menit)
+          </label>
+          <input id="durasi_tebak" name="durasi_tebak" inputMode="numeric" defaultValue={60} className={masukan} />
+        </div>
+      </div>
       <div>
         <label className={label} htmlFor="type">
           Jenis

@@ -264,6 +264,13 @@ tidak ada ganti rugi antar-user (aman dari akun kembar).
   hanya setelah klaim CAIR, sebesar yang diterima − biaya transfer, ke pemilik barang (atau pihak yang ditetapkan
   Syahbandar). Klaim ditolak kurir → tidak ada ganti dari Kongsi.
 
+### 6.1f Diskon belanja (Fase diskon, Ch 8.44)
+- Diskon e-voucher ala Shopee, dibuat **Kongsi** (`/admin/promo`, ditanggung Kongsi, wajib anggaran) atau **lapak**
+  (Kelola Lapak, ditanggung lapak → titipan berkurang). Persen/potongan, kode/klaim atau otomatis, min belanja, periode,
+  kuota total/per-user, pembeli baru. Maks **1 lapak + 1 Kongsi** per pesanan, dipilih terhemat (`lib/domain/diskon.ts`).
+- Tidak berlaku untuk lelang & Tukar Guling. `total = subtotal − diskon_lapak − diskon_platform + platform fee + DOKU`.
+  Dicadangkan saat pesan, dipakai saat lunas, dilepas saat gagal. Lelang: durasi fase (`durasi_kumpul`/`durasi_tebak`).
+
 ### 6.2 Juru Tunjuk (concierge) — kuis tap-tap
 - 3 langkah, jawaban chip (bukan ketik) — enak di HP.
 - Alur: kategori → selera/atribut → kisaran harga → hasil produk.
