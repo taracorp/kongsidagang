@@ -1213,3 +1213,24 @@ Traefik yang sudah ada di VPS, cukup atur port.
   (diisi Tara) terpotong Rp103.200 → pembayaran credit berhasil (status paid), AWB terbit. Ringkasan & order ID di
   `uat-kiriminaja/RESUBMIT.md` (folder gitignored). Key sandbox dihapus kembali dari `.env.local` setelah selesai.
 - **Catatan:** AWB sandbox berprefiks MOCK- (perilaku sandbox KiriminAja, sama seperti UAT sebelumnya).
+
+### Ch 8.47 — Lapak DRW dapat akun saudagar sendiri + lelang dihidupkan kembali
+2026-10-19
+- **Laporan Tara:** "kenapa lelang nya gak jalan?" — `/lelang` kosong.
+- **Diagnosis:** mesin lelang sehat (cron tiap menit exit 0, `advanceAuctions` benar). Masalahnya murni **tidak ada
+  lelang hidup**: 3 lelang lama (dibuat 14 Okt) sudah melewati seluruh fase tanpa satu pun peserta → ditutup `gagal`
+  ("Tidak ada tebakan"). Status `gagal`/`draf`/`batal` disembunyikan dari `/lelang` (`STATUS_PUBLIK`), jadi tampak kosong.
+- **Akar:** satu-satunya lapak berproduk (Beauty Center DRW Skincare, 41 e-voucher) dimiliki akun `taradfworkspace`
+  (pengurus/ketua). Aturan Lelang v2 (Ch 8.39) melarang pengurus melelang produk lapaknya sendiri → tak bisa buat lelang baru.
+- **Keputusan Tara:** buatkan akun saudagar tersendiri untuk tiap lapak DRW (sandi diberikan Tara, tidak dicatat di sini),
+  pindahkan kepemilikan ke akun itu — pemilik lapak jadi bukan pengurus, sehingga lelang sah.
+- **Tindakan (produksi, data — tanpa perubahan kode):** skrip one-off (gitignored, dihapus setelah jalan) memakai
+  `auth.api.signUpEmail` (hook Better Auth membuat profile+wallet) + `Lel.buatLelang/mulaiLelang`:
+  - Akun `beauty-center-drw-skincare@kongsidagang.store` -> owner **Beauty Center DRW Skincare** (`27b5cf62`).
+  - Akun `drw-studio@kongsidagang.store` -> owner **DRW Studio** (`584e5a7d`).
+  - Lelang `600b20ea` reguler dari produk **Bright Signature Package**: normal Rp495.000 - deal Rp300.000 (rahasia) -
+    set Rp360.000 (rahasia) - kapasitas 20 - kumpul 10 mnt - tebak 60 mnt -> status `kumpul`.
+- **Verifikasi:** `/lelang` HTTP 200, clue "Facial Signature + IPL premium" & harga normal 495.000 tampil;
+  harga rahasia 360000/300000 **tidak** ada di HTML publik. 0 produk/kode berubah.
+- **Rollback:** batalkan lelang via `/admin` (atau `Lel.batalkanLelang`); kembalikan `merchants.owner_id` ke
+  `1f44b100` dan hapus 2 akun saudagar bila perlu (murni data, tak ada migrasi).
