@@ -196,7 +196,7 @@ async function tentukanPemenang(tx: Tx, auctionId: string, now: Date): Promise<b
   await beriKabar(tx, urut[0][0], {
     kind: "lelang",
     title: `Kamu menang lelang: ${a.clue_category} 🎉`,
-    body: `Bayar ${rp(sp)} + biaya sebelum ${jamWib(tenggat)} WIB untuk mendapatkan Surat Jalan. Lewat batas → hak pindah ke peringkat berikutnya.`,
+    body: `Bayar ${rp(sp)} + biaya sebelum ${jamWib(tenggat)} WIB untuk mendapatkan Voucher. Lewat batas → hak pindah ke peringkat berikutnya.`,
     href: `/lelang/bayar/${auctionId}`,
   });
   return true;

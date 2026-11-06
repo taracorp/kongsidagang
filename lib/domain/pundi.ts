@@ -23,14 +23,14 @@ export function levelFor(totalSpend: number): UserLevel {
 
 
 // ============================================================
-// Ledger: semua mutasi Keteng lewat helper ini, di dalam $transaction.
+// Ledger: semua mutasi Saldo lewat helper ini, di dalam $transaction.
 // ============================================================
 
 function assertAmount(amt: number) {
-  if (!Number.isInteger(amt) || amt <= 0) throw new Error("Jumlah Keteng tidak valid");
+  if (!Number.isInteger(amt) || amt <= 0) throw new Error("Jumlah Saldo tidak valid");
 }
 
-/** Kunci baris Pundi (buat bila belum ada) agar mutasi bersamaan tidak membobol saldo. */
+/** Kunci baris Dompet (buat bila belum ada) agar mutasi bersamaan tidak membobol saldo. */
 async function lockWallet(tx: Tx, userId: string): Promise<number> {
   await tx.wallet.upsert({
     where: { user_id: userId },
@@ -56,7 +56,7 @@ export async function credit(tx: Tx, userId: string, amt: number, kind: string, 
 export async function debit(tx: Tx, userId: string, amt: number, kind: string, note: string) {
   assertAmount(amt);
   const bal = await lockWallet(tx, userId);
-  if (bal < amt) throw new Error("Saldo Keteng tidak cukup");
+  if (bal < amt) throw new Error("Saldo tidak cukup");
   const w = await tx.wallet.update({
     where: { user_id: userId },
     data: { balance: { decrement: amt }, updated_at: new Date() },
@@ -67,7 +67,7 @@ export async function debit(tx: Tx, userId: string, amt: number, kind: string, n
 
 export type HoldKind = "bea" | "tambah" | "deposit" | "ongkir" | "cadangan";
 
-/** Tahan Keteng ke rekber: saldo dipotong sekarang, nasibnya ditentukan saat deal selesai. */
+/** Tahan Saldo ke rekber: saldo dipotong sekarang, nasibnya ditentukan saat deal selesai. */
 export async function hold(
   tx: Tx,
   userId: string,
@@ -91,13 +91,13 @@ async function settle(tx: Tx, holdId: string, status: "diambil" | "dilepas" | "d
 }
 
 /** Hold jadi pendapatan platform (mis. bea). Saldo sudah terpotong saat ditahan. */
-export async function captureHold(tx: Tx, holdId: string, kind = "bea_tukar", note = "Bea Tukar Guling") {
+export async function captureHold(tx: Tx, holdId: string, kind = "bea_tukar", note = "Biaya Layanan Barter") {
   const h = await settle(tx, holdId, "diambil");
   await tx.walletTransaction.create({ data: { user_id: h.user_id, amount: 0, kind, note } });
   return h;
 }
 
-/** Hold dipindah ke pihak lain (mis. tambah Keteng ke penerima). */
+/** Hold dipindah ke pihak lain (mis. tambah Saldo ke penerima). */
 export async function releaseHold(tx: Tx, holdId: string, toUserId: string, note: string) {
   const h = await settle(tx, holdId, "dilepas");
   await credit(tx, toUserId, h.amount, "terima_tukar", note);
@@ -112,23 +112,23 @@ export async function refundHold(tx: Tx, holdId: string, note: string) {
 }
 
 // ============================================================
-// Isi Pundi
+// Isi Saldo
 // ============================================================
 
 /**
- * Isi Pundi DEMO (tanpa pembayaran). Hanya aktif bila ENABLE_TOPUP_DEMO=true.
- * `pilihan` = nominal rupiah ("1500000"); Keteng masuk 1:1.
+ * Isi Saldo DEMO (tanpa pembayaran). Hanya aktif bila ENABLE_TOPUP_DEMO=true.
+ * `pilihan` = nominal rupiah ("1500000"); Saldo masuk 1:1.
  */
 export async function topupDemo(userId: string, pilihan: string): Promise<number> {
   if (!saklarUji("ENABLE_TOPUP_DEMO")) {
-    throw new Error("Isi Pundi belum tersedia.");
+    throw new Error("Isi Saldo belum tersedia.");
   }
   const n = nominalIsi(pilihan);
-  return prisma.$transaction((tx) => credit(tx, userId, n, "isi", `Isi Pundi Rp ${n.toLocaleString("id-ID")} (demo)`));
+  return prisma.$transaction((tx) => credit(tx, userId, n, "isi", `Isi Saldo Rp ${n.toLocaleString("id-ID")} (demo)`));
 }
 
 // ============================================================
-// Isi Pundi lewat DOKU Checkout
+// Isi Saldo lewat DOKU Checkout
 // ============================================================
 
 const MENIT_BAYAR = 60;
@@ -147,11 +147,11 @@ export function invoiceBaru(awalan = "KD-ISI") {
 export type TujuanBayar = "isi" | "belanja" | "tukar_ajukan" | "tukar_terima" | "tukar_ongkir" | "tukar_setor";
 
 /**
- * Buat pesanan pembeli Keteng + sesi DOKU Checkout (Isi Pundi biasa maupun Bayar Langsung Tukar Guling).
- * Keteng yang masuk = `keteng`; pembeli membayar `keteng` + `rekber` + biaya DOKU metode terpilih (gross-up, termasuk
- * PPN), jadi Kongsi menerima bersih senilai Keteng + rekber. Tanpa platform fee, tanpa bonus.
- * `rekber` = uang yang ditahan Kongsi (selisih tukar + biaya transfer pencairan) — BUKAN Keteng, hanya lewat QRIS/VA.
- * Keteng BELUM masuk sampai pembayaran sukses.
+ * Buat pesanan pembeli Saldo + sesi DOKU Checkout (Isi Saldo biasa maupun Bayar Langsung Barter).
+ * Saldo yang masuk = `keteng`; pembeli membayar `keteng` + `rekber` + biaya DOKU metode terpilih (gross-up, termasuk
+ * PPN), jadi Kongsi menerima bersih senilai Saldo + rekber. Tanpa platform fee, tanpa bonus.
+ * `rekber` = uang yang ditahan Kongsi (selisih tukar + biaya transfer pencairan) — BUKAN Saldo, hanya lewat QRIS/VA.
+ * Saldo BELUM masuk sampai pembayaran sukses.
  */
 export async function buatPesananBayar(
   user: { id: string; name: string; email: string },
@@ -207,7 +207,7 @@ export async function buatPesananBayar(
   return { url: sesi.url, invoice };
 }
 
-/** Buat pesanan Isi Pundi + sesi DOKU Checkout. Keteng BELUM masuk sampai pembayaran sukses. */
+/** Buat pesanan Isi Saldo + sesi DOKU Checkout. Saldo BELUM masuk sampai pembayaran sukses. */
 export async function mulaiIsiPundi(
   user: { id: string; name: string; email: string },
   pilihan: string,
@@ -217,7 +217,7 @@ export async function mulaiIsiPundi(
   const n = nominalIsi(pilihan);
   return buatPesananBayar(
     user,
-    { packageId: "nominal", keteng: n, metode, itemName: `Isi Pundi ${n.toLocaleString("id-ID")} Keteng` },
+    { packageId: "nominal", keteng: n, metode, itemName: `Isi Saldo ${n.toLocaleString("id-ID")} Saldo` },
     (inv) => `/pakhuis?isi=${encodeURIComponent(inv)}`,
     siteUrl,
   );
@@ -238,18 +238,18 @@ export async function lunasiIsiPundi(invoice: string, amount: number, channel: s
       data: { status: "paid", paid_at: new Date(), channel },
     });
     if (res.count !== 1) return "sudah";
-    // Keteng yang masuk = o.keteng (biaya DOKU yang dibayar pembeli tidak menjadi Keteng).
-    const nama = `${o.keteng.toLocaleString("id-ID")} Keteng`;
+    // Saldo yang masuk = o.keteng (biaya DOKU yang dibayar pembeli tidak menjadi Saldo).
+    const nama = `${o.keteng.toLocaleString("id-ID")} Saldo`;
     const via = `${o.provider === "demo" ? "demo" : "DOKU"}${channel ? ` ${channel}` : ""}`;
     if (o.tujuan !== "isi") {
-      // Bayar Langsung: Keteng masuk (uang rekber tidak menjadi Keteng), lalu tujuannya dijalankan oleh jalankanTujuan.
+      // Bayar Langsung: Saldo masuk (uang rekber tidak menjadi Saldo), lalu tujuannya dijalankan oleh jalankanTujuan.
       if (o.keteng > 0) await credit(tx, o.user_id, o.keteng, "isi", `Bayar langsung ${nama} (${via})`);
       return "lunas";
     }
-    await credit(tx, o.user_id, o.keteng, "isi", `Isi Pundi ${nama} (${via})`);
+    await credit(tx, o.user_id, o.keteng, "isi", `Isi Saldo ${nama} (${via})`);
     await beriKabar(tx, o.user_id, {
       kind: "pundi",
-      title: `Isi Pundi berhasil: +${nama}`,
+      title: `Isi Saldo berhasil: +${nama}`,
       body: o.biaya_bayar ? `Dibayar Rp ${o.price.toLocaleString("id-ID")} (termasuk biaya pembayaran Rp ${o.biaya_bayar.toLocaleString("id-ID")})` : null,
       href: "/pakhuis",
     });
@@ -263,8 +263,8 @@ export async function gagalkanIsiPundi(invoice: string, status: "failed" | "expi
   if (r.count && o) {
     await beriKabar(prisma, o.user_id, {
       kind: "pundi",
-      title: status === "failed" ? "Isi Pundi gagal" : "Isi Pundi kedaluwarsa",
-      body: "Keteng tidak berubah. Silakan coba lagi.",
+      title: status === "failed" ? "Isi Saldo gagal" : "Isi Saldo kedaluwarsa",
+      body: "Saldo tidak berubah. Silakan coba lagi.",
       href: "/pakhuis",
     });
   }

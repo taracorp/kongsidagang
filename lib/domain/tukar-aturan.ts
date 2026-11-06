@@ -1,9 +1,9 @@
-// Aturan Tukar Guling — fungsi murni (tanpa DB), dipakai server & client (kalkulator, label).
+// Aturan Barter — fungsi murni (tanpa DB), dipakai server & client (kalkulator, label).
 //
 // v3 (Ch 8.35, arahan Tara): platform tidak menanggung risiko; risiko ke pihak yang salah; tanpa ganti rugi antar-user.
 // - Selisih nilai dibayar UANG (DOKU) oleh pihak bernilai lebih rendah, ditahan Kongsi (rekber), diteruskan ke
 //   rekening penerima saat tukar selesai (maks 2 hari kerja) atau dikembalikan saat batal.
-// - Keteng hanya untuk jaminan: bea, cadangan, deposit, ongkir.
+// - Saldo hanya untuk jaminan: bea, cadangan, deposit, ongkir.
 // - Ajukan gratis; bayar SETELAH tawaran diterima, tenggat 12 jam (tidak jatuh di jam tidur).
 
 import { METODE, METODE_SELISIH, rincianBayar } from "@/lib/payment/biaya";
@@ -19,7 +19,7 @@ export const JAM_BAYAR_ONGKIR = 12; // mode Kirim: order kurir dibuat setelah se
 export const JAM_KONFIRMASI = 72; // kedua paket sampai → konfirmasi otomatis setelah ini
 export const PENGINGAT_KONFIRMASI_JAM = [24, 6]; // pengingat sebelum konfirmasi otomatis
 export const PENGINGAT_BAYAR_JAM = 2; // pengingat sebelum tenggat bayar
-export const JAM_PENAHANAN_SILANG = 48; // satu pihak sudah kirim, pihak lain belum → Syahbandar
+export const JAM_PENAHANAN_SILANG = 48; // satu pihak sudah kirim, pihak lain belum → Admin Sengketa
 export const HARI_ESKALASI = 7; // sengketa belum diputus → kabar ke Ketua
 export const SELISIH_MAKS_PERSEN = 0.5; // selisih uang maks 50% nilai barang termahal
 export const BIAYA_TRANSFER = 2_500; // biaya transfer bank (BI-FAST) per pencairan / pengembalian
@@ -45,7 +45,7 @@ export function depositKirim(value: number, ongkirKeluar = 0): number {
 
 export type ModeTukar = "cod" | "kirim";
 
-/** Bea Tukar per pihak: 10% taksiran barangnya sendiri, maks 10.000 Keteng. */
+/** Biaya Layanan Tukar per pihak: 10% taksiran barangnya sendiri, maks 10.000 Saldo. */
 export function beaTukar(value: number): number {
   if (!Number.isFinite(value) || value <= 0) return 0;
   return Math.min(BEA_MAKS, Math.ceil(value * BEA_PERSEN));
@@ -92,7 +92,7 @@ export function validasiTambah(valueA: number, valueB: number, topup: number): P
 }
 
 /**
- * Cadangan Keteng penerima selisih = biaya pengembalian dana ke pembayar bila tukar batal karena kesalahan penerima:
+ * Cadangan Saldo penerima selisih = biaya pengembalian dana ke pembayar bila tukar batal karena kesalahan penerima:
  * biaya transfer + biaya DOKU terbesar (QRIS/VA) atas tagihan pembayar (selisih + biaya transfer + jaminannya).
  * Hanya biaya nyata — bukan ganti rugi — jadi tidak bisa dipakai mencari untung.
  */
@@ -163,7 +163,7 @@ export const penerimaSelisih = (d: Pick<DealUang, "topup_from" | "selisih_uang">
   return p ? lawanDari(p) : null;
 };
 
-/** Keteng jaminan pihak p: bea + deposit + ongkir yang ia terima + cadangan (bila ia penerima selisih). */
+/** Saldo jaminan pihak p: bea + deposit + ongkir yang ia terima + cadangan (bila ia penerima selisih). */
 export function jaminanKeteng(d: DealUang, p: Pihak): number {
   const r = penerimaSelisih(d);
   return (p === "a" ? d.fee_a + d.deposit_a + d.ongkir_a : d.fee_b + d.deposit_b + d.ongkir_b) + (r === p ? d.cadangan : 0);
@@ -234,7 +234,7 @@ export type Peristiwa =
   | "batal_sebelum_kirim" // Kirim: salah satu membatalkan sebelum paket dibuat
   | "paket" // Kirim: pembaruan status paket (webhook/sistem)
   | "konfirmasi" // Kirim: pihak menyatakan barang diterima & sesuai
-  | "sengketa" // salah satu mengajukan ke Syahbandar
+  | "sengketa" // salah satu mengajukan ke Admin Sengketa
   | "kedaluwarsa" // cron
   | "putus"; // admin memutus sengketa
 
@@ -282,8 +282,8 @@ const LABEL: Record<DealStatus, string> = {
   rejected: "ditolak",
   cancelled: "dibatalkan",
   expired: "kedaluwarsa",
-  disputed: "di Syahbandar",
-  resolved: "diputus Syahbandar",
+  disputed: "di Admin Sengketa",
+  resolved: "diputus Admin Sengketa",
 };
 
 export function labelStatus(s: string): string {

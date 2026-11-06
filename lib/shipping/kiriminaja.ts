@@ -6,7 +6,7 @@ import { saklarUji } from "@/lib/mode-uji";
 //   KIRIMINAJA_API_KEY   — Bearer token (dashboard → Integrasi). Kosong + KIRIMINAJA_MOCK=true → driver tiruan.
 //   KIRIMINAJA_BASE_URL  — default produksi https://client.kiriminaja.com (sandbox: https://tdev.kiriminaja.com)
 //   KIRIMINAJA_PIN       — PIN KA Credit; divalidasi sebelum request_pickup agar ongkir dipotong dari KA Credit.
-// Ongkir dibayar platform dari KA Credit; ke user ditagih sebagai Keteng (rekber `ongkir`).
+// Ongkir dibayar platform dari KA Credit; ke user ditagih sebagai Saldo (rekber `ongkir`).
 
 export type Wilayah = {
   district_id: number; // kecamatan_id
@@ -303,7 +303,7 @@ function driverAsli(apiKey: string): KurirDriver {
               package_type_id: 7,
               item_name: o.item_name.slice(0, 100),
               drop: false,
-              note: o.note ?? "Tukar Guling Kongsi Dagang",
+              note: o.note ?? "Barter Kongsi Dagang",
               items: [
                 {
                   name: o.item_name.slice(0, 100),

@@ -159,7 +159,7 @@ export function LelangLive({
             {iWon ? (
               <div className="rounded-[4px] border-2 border-kongsi-ok bg-kongsi-sage/30 px-3 py-3 text-[13px] font-bold text-kongsi-ok">
                 🏆 Kamu pemegang hak beli{auction.hak_peringkat && auction.hak_peringkat > 1 ? ` (peringkat ${auction.hak_peringkat})` : ""}! Bayar sebelum batas
-                waktu untuk mendapatkan Surat Jalan.
+                waktu untuk mendapatkan Voucher.
                 <a href={`/lelang/bayar/${auction.id}`} className="mt-2 block rounded-[3px] border-2 border-kongsi-ink bg-kongsi-grenadine px-3 py-2 text-kongsi-parchment">
                   Bayar sekarang →
                 </a>

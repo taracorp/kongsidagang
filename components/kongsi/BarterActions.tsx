@@ -14,7 +14,7 @@ const small = "rounded-[3px] border-2 border-kongsi-ink px-2 py-[6px] text-cente
 
 /**
  * Ajukan Tukar (v3): GRATIS — tidak ada yang ditahan sebelum tawaran diterima. Selisih nilai dibayar UANG (QRIS/VA)
- * oleh pihak bernilai lebih rendah setelah diterima, maks 50% nilai barang termahal. Keteng hanya untuk jaminan.
+ * oleh pihak bernilai lebih rendah setelah diterima, maks 50% nilai barang termahal. Saldo hanya untuk jaminan.
  */
 export function AjukanTukar({
   targetId,
@@ -236,7 +236,7 @@ export function AjukanTukar({
                   </div>
                   <div className="pt-1 text-[12px] font-bold">Bila diterima, dalam {JAM_BAYAR} jam kamu menyetor:</div>
                   <div className={row}>
-                    <span>Jaminan Keteng (bea{cadangan ? " + cadangan" : ""}{deposit ? " + deposit" : ""})</span>
+                    <span>Jaminan Saldo (bea{cadangan ? " + cadangan" : ""}{deposit ? " + deposit" : ""})</span>
                     <b>{formatKeping(jaminan)}</b>
                   </div>
                   {modeAktif === "kirim" ? (
@@ -252,7 +252,7 @@ export function AjukanTukar({
                     </div>
                   ) : null}
                   <div className={cn(row, "text-kongsi-ink-soft")}>
-                    <span>Bea Tukar dia</span>
+                    <span>Biaya Layanan Tukar dia</span>
                     <span>{formatKeping(feeTheirs)}</span>
                   </div>
                   <p className="text-[11px] text-kongsi-ink-soft">

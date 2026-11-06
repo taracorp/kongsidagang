@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { kurir, normalisasiHp, kodeposDari, type Wilayah } from "@/lib/shipping/kiriminaja";
 
-// Alamat kirim user untuk mode Kirim Tukar Guling. Hanya pemilik yang bisa membaca/mengubah.
+// Alamat kirim user untuk mode Kirim Barter. Hanya pemilik yang bisa membaca/mengubah.
 
 const MAKS_ALAMAT = 5;
 

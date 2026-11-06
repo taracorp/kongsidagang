@@ -6,7 +6,7 @@ import type { Tx } from "@/lib/domain/pundi";
 // - Diskon lapak ditanggung LAPAK (mengurangi titipan/hak lapak). Diskon Kongsi ditanggung KONGSI (dari platform fee),
 //   wajib beranggaran → berhenti otomatis saat anggaran/kuota habis.
 // - Maks 1 diskon lapak + 1 diskon Kongsi per pesanan; dipilih yang paling hemat; otomatis atau lewat klaim/kode.
-// - Dialokasikan per unit voucher (dipakai setoran & refund). Tidak berlaku untuk lelang & Tukar Guling/Keteng.
+// - Dialokasikan per unit voucher (dipakai setoran & refund). Tidak berlaku untuk lelang & Barter/Saldo.
 
 export type DiskonItem = { product_id: string | null; merchant_id: string; unit_price: number; qty: number };
 export type PerUnit = { diskonLapakUnit: number[]; diskonPlatformUnit: number[] };

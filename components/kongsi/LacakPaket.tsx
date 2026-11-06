@@ -4,7 +4,7 @@ import { useState } from "react";
 import { lacakPaketTukar } from "@/app/actions/tukar";
 import type { Lacakan } from "@/lib/shipping/kiriminaja";
 
-/** Lacak paket Tukar Guling (endpoint tracking KiriminAja), riwayat ditampilkan di tempat. */
+/** Lacak paket Barter (endpoint tracking KiriminAja), riwayat ditampilkan di tempat. */
 export function LacakPaket({ shipmentId }: { shipmentId: string }) {
   const [busy, setBusy] = useState(false);
   const [hasil, setHasil] = useState<Lacakan | string | null>(null);

@@ -15,7 +15,7 @@ const masukan =
 /**
  * Pilih metode pembayaran DOKU. Tiap metode menampilkan biaya pembayarannya (ditanggung pembeli) untuk `neto`
  * — nominal bersih yang harus diterima Kongsi. `ringkas` = dropdown (untuk lembar sempit).
- * `keteng` = pembelian Keteng: kartu disembunyikan (server juga menolaknya).
+ * `keteng` = pembelian Saldo: kartu disembunyikan (server juga menolaknya).
  * `selisih` = tagihan berisi selisih tukar (uang rekber): hanya QRIS & Virtual Account.
  */
 export function PilihMetode({

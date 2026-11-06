@@ -10,7 +10,7 @@ import { formatKeping } from "@/lib/utils";
 
 export const metadata = { title: "Bayar Lelang — Kongsi Dagang" };
 
-/** Pemenang lelang membayar harga set + platform fee + biaya DOKU; Surat Jalan terbit setelah lunas. */
+/** Pemenang lelang membayar harga set + platform fee + biaya DOKU; Voucher terbit setelah lunas. */
 export default async function BayarLelangPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getSessionUser();
@@ -59,9 +59,9 @@ export default async function BayarLelangPage({ params }: { params: Promise<{ id
             </>
           ) : d.status === "lunas" ? (
             <p className="font-bold text-kongsi-ok">
-              ✓ Lunas. Surat Jalan ada di{" "}
+              ✓ Lunas. Voucher ada di{" "}
               <Link href="/pakhuis#surat-jalan" className="underline">
-                Pakhuis
+                Akun Saya
               </Link>
               .
             </p>

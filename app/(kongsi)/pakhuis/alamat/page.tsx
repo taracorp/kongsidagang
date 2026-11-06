@@ -15,10 +15,10 @@ export default async function AlamatPage() {
     <section className="py-[34px]">
       <div className="mx-auto max-w-[720px] space-y-5 px-5">
         <div className="text-center">
-          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Pakhuis-ku</div>
+          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Akun Saya</div>
           <h2 className="mt-1 font-fraunces text-[30px] font-black text-kongsi-indigo">Alamat kirim</h2>
           <p className="mt-1 text-[13px] text-kongsi-ink-soft">
-            Dipakai untuk Tukar Guling mode Kirim. Alamat hanya terlihat oleh kurir & lawan tukar setelah sepakat.
+            Dipakai untuk Barter mode Kirim. Alamat hanya terlihat oleh kurir & lawan tukar setelah sepakat.
           </p>
         </div>
 
@@ -52,7 +52,7 @@ export default async function AlamatPage() {
 
         <p className="text-center text-[12px]">
           <Link href="/tukar" className="font-bold text-kongsi-grenadine">
-            ← Kembali ke Tukar Guling
+            ← Kembali ke Barter
           </Link>
         </p>
       </div>

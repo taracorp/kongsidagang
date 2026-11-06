@@ -1234,3 +1234,23 @@ Traefik yang sudah ada di VPS, cukup atur port.
   harga rahasia 360000/300000 **tidak** ada di HTML publik. 0 produk/kode berubah.
 - **Rollback:** batalkan lelang via `/admin` (atau `Lel.batalkanLelang`); kembalikan `merchants.owner_id` ke
   `1f44b100` dan hapus 2 akun saudagar bila perlu (murni data, tak ada migrasi).
+
+### Ch 8.48 — Istilah diawamkan (Hybrid) + hapus "&" brand + lelang diaktifkan ulang
+2026-11-06
+- **Arahan Tara:** (1) istilah "aneh" (Pakhuis dll) diganti yang dipahami awam; (2) brand "Kongsi & Dagang" → "Kongsi Dagang" (tanpa "&"); (3) cek & aktifkan lelang.
+- **Istilah (Hybrid, disetujui Tara):** hanya **teks UI** yang berubah — **route & nama kode/tabel TETAP**, jadi tak ada link/SEO/data rusak & mudah di-rollback.
+  - Pakhuis→Akun Saya · Pundi→Dompet · Keteng→Saldo · Isi Pundi→Isi Saldo · Surat Jalan→Voucher ·
+    Juru Tunjuk→Pemandu Belanja · Tukar Guling→Barter · Neraca Harga→Banding Harga · Vendu→Lelang Khusus ·
+    Syahbandar→Admin Sengketa · Bea→Biaya Layanan · Gerbang Tebus→Pembayaran.
+  - TETAP: Lelang, Lapak, Saudagar, Cap, Bersegel, Kongsi Dagang.
+  - Penerapan: `perl` berurutan (hindari duplikasi spt "Saldo Keteng", "Neraca tukar"→"Ringkasan tukar",
+    `type==="vendu"?"Khusus"`) di 153 file `app/`+`components/`+`lib/` (kecuali `lib/generated`), plus `AGENTS.md`
+    (Kamus + prosa; kolom nama-kode berbacktick tak tersentuh). Catatan perubahan ditambah di Kamus (Ch 8.48).
+- **Brand "&":** hero Beranda (`app/(kongsi)/page.tsx`) dulu merender "Kongsi &amp; Dagang" → kini "Kongsi Dagang"
+  (TopBar & metadata sudah benar sejak awal).
+- **Lelang:** lelang 19 Okt (`600b20ea`) sudah `gagal` wajar (habis tanpa peserta). Diaktifkan lelang baru
+  `e6d75b4b` (Gold Glow Package, Beauty Center DRW; normal 465rb, deal 280rb & set 340rb rahasia, kapasitas 30,
+  kumpul 12 jam + tebak 24 jam) lewat `Lel.buatLelang/mulaiLelang` → status `kumpul`.
+- **Verifikasi:** `npx tsc --noEmit` ✅; grep sisa istilah lama & duplikasi = kosong; `/lelang` HTTP 200 tampil,
+  harga rahasia tak bocor.
+- **Rollback:** `git revert` commit ini (kode/teks). Lelang: batalkan via `/admin` / `Lel.batalkanLelang`.

@@ -186,7 +186,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
       <div className="mx-auto max-w-[720px] space-y-5 px-5">
         <div className="text-center">
           <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">
-            Tukar Guling · {kirim ? "Kirim kurir" : "COD"}
+            Barter · {kirim ? "Kirim kurir" : "COD"}
           </div>
           <h2 className="mt-1 font-fraunces text-[28px] font-black leading-tight text-kongsi-indigo">
             {d.mine.title} ⇄ {d.theirs.title}
@@ -198,7 +198,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
 
         {/* Ringkasan nilai, selisih & jaminan */}
         <div className={kartu}>
-          <h3 className={judul}>Neraca tukar</h3>
+          <h3 className={judul}>Ringkasan tukar</h3>
           <div className="text-[14px]">
             <div className={row}>
               <span>Barangku · {d.mine.title}</span>
@@ -215,7 +215,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
               </div>
             ) : d.topup > 0 ? (
               <div className={row}>
-                <span>{d.iPayTopup ? "Aku menambah Keteng" : `${lawan} menambah Keteng`}</span>
+                <span>{d.iPayTopup ? "Aku menambah Saldo" : `${lawan} menambah Saldo`}</span>
                 <b className="text-kongsi-grenadine">{formatKeping(d.topup)}</b>
               </div>
             ) : null}
@@ -231,7 +231,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
             </div>
             <div className="my-2 border-t-[1.5px] border-dashed border-kongsi-ink/25" />
             <div className={row}>
-              <span>Bea Tukar-ku</span>
+              <span>Biaya Layanan Tukar-ku</span>
               <b>{formatKeping(d.myFee)}</b>
             </div>
             {d.iReceiveSelisih && d.cadangan > 0 ? (
@@ -253,12 +253,12 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
               </div>
             ) : null}
             <div className={`${row} font-bold`}>
-              <span>{sebelumBayar && d.ditahanKu === 0 ? "Jaminan Keteng-ku (perkiraan)" : "Keteng-ku yang ditahan sekarang"}</span>
+              <span>{sebelumBayar && d.ditahanKu === 0 ? "Jaminan Saldo-ku (perkiraan)" : "Saldo-ku yang ditahan sekarang"}</span>
               <span>{formatKeping(sebelumBayar && d.ditahanKu === 0 ? d.jaminanKu : d.ditahanKu)}</span>
             </div>
             <InfoSelisih d={d} />
             <p className="mt-2 text-[12px] text-kongsi-ink-soft">
-              Keteng hanya untuk jaminan (bea, cadangan, deposit, ongkir); selisih nilai dibayar uang. Tukar jadi → bea
+              Saldo hanya untuk jaminan (bea, cadangan, deposit, ongkir); selisih nilai dibayar uang. Tukar jadi → bea
               diambil Kongsi, jaminan lain kembali. Batal → semua kembali, kecuali bea pihak penyebab batal.
             </p>
           </div>
@@ -271,7 +271,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
                 <h3 className={judul}>{lawan} mengajak tukar</h3>
                 <ul className="mb-3 list-disc space-y-1 pl-5 text-[13px] text-kongsi-ink-soft">
                   <li>
-                    Terima = jaminan Keteng-mu {formatKeping(d.jaminanKu)}
+                    Terima = jaminan Saldo-mu {formatKeping(d.jaminanKu)}
                     {kirim ? " + ongkir barang yang kamu terima" : ""} ditahan sekarang.
                   </li>
                   <li>
@@ -330,7 +330,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
                 <div className="mb-3 text-[13px]">
                   {d.setorKu.keteng > 0 ? (
                     <div className={row}>
-                      <span>Jaminan Keteng (bea{d.iReceiveSelisih ? " + cadangan" : ""}{kirim ? " + deposit + ongkir" : ""})</span>
+                      <span>Jaminan Saldo (bea{d.iReceiveSelisih ? " + cadangan" : ""}{kirim ? " + deposit + ongkir" : ""})</span>
                       <b>{formatKeping(d.setorKu.keteng)}</b>
                     </div>
                   ) : null}
@@ -443,7 +443,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
             {d.status === "dikirim" ? (
               <p className="mt-4 text-[13px] text-kongsi-ink-soft">
                 Siapkan & kemas barangmu — kurir menjemput sesuai jadwal. Bila satu pihak tidak menyerahkan paket 2×24 jam
-                setelah pihak lain mengirim, Syahbandar turun tangan.
+                setelah pihak lain mengirim, Admin Sengketa turun tangan.
               </p>
             ) : null}
 
@@ -495,7 +495,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
 
         {d.status === "done" || d.status === "resolved" ? (
           <div className={kartu}>
-            <h3 className={judul}>{d.status === "done" ? "Tukar selesai 🎉" : "Diputus Syahbandar"}</h3>
+            <h3 className={judul}>{d.status === "done" ? "Tukar selesai 🎉" : "Diputus Admin Sengketa"}</h3>
             {d.reason && d.status === "resolved" ? <p className="mb-3 text-[13px]">{d.reason}</p> : null}
             {d.ratedByMe ? (
               <p className="font-bold text-kongsi-ok">✓ Kamu sudah menilai {lawan}.</p>
@@ -510,7 +510,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
 
         {d.status === "disputed" ? (
           <div className={kartu}>
-            <h3 className={judul}>⚖️ Menunggu Syahbandar</h3>
+            <h3 className={judul}>⚖️ Menunggu Admin Sengketa</h3>
             <p className="text-[13px]">{d.reason}</p>
             {d.buktiUrl ? (
               <a href={d.buktiUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-[12px] font-bold text-kongsi-grenadine">
@@ -526,7 +526,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
             <h3 className={judul}>Tawaran {labelStatus(d.status)}</h3>
             {d.reason ? <p className="text-[13px]">{d.reason}</p> : null}
             <p className="mt-2 text-[12px] text-kongsi-ink-soft">
-              Jaminan Keteng yang ditahan sudah kembali ke Pundi
+              Jaminan Saldo yang ditahan sudah kembali ke Dompet
               {d.fault ? ` (bea pihak ${d.fault === d.me ? "kamu" : lawan} sebagai penyebab batal bisa hangus)` : ""}.
             </p>
           </div>
@@ -534,7 +534,7 @@ export default async function DealPage({ params }: { params: Promise<{ id: strin
 
         <p className="text-center text-[12px]">
           <Link href="/tukar" className="font-bold text-kongsi-grenadine">
-            ← Kembali ke Tukar Guling
+            ← Kembali ke Barter
           </Link>
         </p>
       </div>

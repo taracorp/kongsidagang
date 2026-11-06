@@ -13,7 +13,7 @@ import { Pill } from "./Pill";
 const fieldLabel = "mb-[5px] block text-[13px] font-bold";
 const fieldInput =
   "w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-3 py-[10px] font-work text-sm focus:outline-2 focus:outline-kongsi-beeswax";
-// Tombol pilihan = pola .jt-chip (Juru Tunjuk): kotak, border tebal, bayangan keras.
+// Tombol pilihan = pola .jt-chip (Pemandu Belanja): kotak, border tebal, bayangan keras.
 const pilihan =
   "cursor-pointer rounded-[6px] border-2 border-kongsi-ink px-4 py-[10px] text-[14px] font-bold shadow-hard-sm transition-transform hover:translate-x-[1px] hover:translate-y-[1px]";
 const pilihanOn = "bg-kongsi-grenadine text-kongsi-parchment";
@@ -214,7 +214,7 @@ export function TawarkanForm({
 
   return (
     <div className="rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-5 shadow-hard">
-      {/* Penanda langkah — pola bar Juru Tunjuk */}
+      {/* Penanda langkah — pola bar Pemandu Belanja */}
       <div className="mb-[6px] flex justify-center gap-[6px]">
         {LANGKAH.map((l, i) => (
           <i
@@ -398,7 +398,7 @@ export function TawarkanForm({
 
       {step === 2 && cat ? (
         <div>
-          <div className={fieldLabel}>Jujur soal kondisi — jawaban ini jadi patokan Syahbandar bila ada sengketa.</div>
+          <div className={fieldLabel}>Jujur soal kondisi — jawaban ini jadi patokan Admin Sengketa bila ada sengketa.</div>
           <div className="mt-2 space-y-3">
             {cat.checklist.map((c) => (
               <div

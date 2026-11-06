@@ -4,10 +4,10 @@ import { beriKabar } from "@/lib/domain/kabar-user";
 import { antrikanTransfer } from "@/lib/domain/transfer";
 import { BIAYA_TRANSFER, HARI_KERJA_PENCAIRAN, tambahHariKerja } from "@/lib/domain/tukar-aturan";
 
-// Klaim asuransi kurir (Fase 5, Ch 8.41). Paket Tukar Guling dikirim dengan asuransi KiriminAja (dibayar penerima paket
+// Klaim asuransi kurir (Fase 5, Ch 8.41). Paket Barter dikirim dengan asuransi KiriminAja (dibayar penerima paket
 // bersama ongkir). Paket hilang/rusak → pengurus mengajukan klaim ke KiriminAja dan mencatatnya di sini.
 // - Kongsi TIDAK menalangi: uang keluar hanya setelah klaim CAIR, sebesar yang benar-benar diterima, dipotong biaya
-//   transfer, ke penerima klaim (default: pemilik barang = pengirim paket; Syahbandar boleh menetapkan pihak lain).
+//   transfer, ke penerima klaim (default: pemilik barang = pengirim paket; Admin Sengketa boleh menetapkan pihak lain).
 // - Klaim ditolak kurir → tidak ada ganti dari Kongsi (tertulis di aturan & dikabarkan ke kedua pihak).
 
 const rp = (n: number) => `Rp ${n.toLocaleString("id-ID")}`;

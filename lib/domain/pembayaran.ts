@@ -6,7 +6,7 @@ import { lunasiBelanja } from "@/lib/domain/belanja";
 import { jalankanTujuan } from "@/lib/domain/bayar-langsung";
 import { kabariPengurus } from "@/lib/domain/kabar-user";
 
-// Rekonsiliasi pembayaran DOKU — supaya uang yang sudah masuk tidak pernah "nyangkut" tanpa barang/Keteng:
+// Rekonsiliasi pembayaran DOKU — supaya uang yang sudah masuk tidak pernah "nyangkut" tanpa barang/Saldo:
 // - notifikasi DOKU bisa terlambat/hilang, dan VA kadang dibayar setelah pesanan kami tandai kedaluwarsa;
 // - cron menanyakan status ke DOKU untuk tagihan belum lunas ≤ 48 jam, lalu memprosesnya bila ternyata lunas;
 // - nominal yang tidak cocok TIDAK diproses otomatis: dicatat di `pembayaran_bermasalah` + kabar ke pengurus.
@@ -36,15 +36,15 @@ export async function catatBermasalah(invoice: string, jenis: JenisBermasalah, n
 export async function prosesLunas(invoice: string, amount: number, channel: string | null): Promise<"lunas" | "sudah" | "tolak"> {
   if (invoice.startsWith("KD-BLJ-")) {
     const hasil = await lunasiBelanja(invoice, amount, channel);
-    if (hasil === "tolak") await catatBermasalah(invoice, "nominal_tidak_cocok", amount, `DOKU melaporkan lunas Rp ${amount.toLocaleString("id-ID")}, tetapi pesanan belanja tidak ditemukan atau nominalnya berbeda. Surat Jalan TIDAK diterbitkan.`);
+    if (hasil === "tolak") await catatBermasalah(invoice, "nominal_tidak_cocok", amount, `DOKU melaporkan lunas Rp ${amount.toLocaleString("id-ID")}, tetapi pesanan belanja tidak ditemukan atau nominalnya berbeda. Voucher TIDAK diterbitkan.`);
     return hasil;
   }
   const hasil = await lunasiIsiPundi(invoice, amount, channel);
   if (hasil === "tolak") {
-    await catatBermasalah(invoice, "nominal_tidak_cocok", amount, `DOKU melaporkan lunas Rp ${amount.toLocaleString("id-ID")}, tetapi tagihan Keteng tidak ditemukan atau nominalnya berbeda. Keteng TIDAK dikreditkan.`);
+    await catatBermasalah(invoice, "nominal_tidak_cocok", amount, `DOKU melaporkan lunas Rp ${amount.toLocaleString("id-ID")}, tetapi tagihan Saldo tidak ditemukan atau nominalnya berbeda. Saldo TIDAK dikreditkan.`);
     return hasil;
   }
-  // Bayar Langsung: jalankan aksi tujuannya (idempoten; galat tujuan → Keteng tetap di Pundi + kabar).
+  // Bayar Langsung: jalankan aksi tujuannya (idempoten; galat tujuan → Saldo tetap di Dompet + kabar).
   await jalankanTujuan(invoice).catch((e: Error) => catatBermasalah(invoice, "gagal_proses", amount, `Tujuan pembayaran gagal dijalankan: ${e.message}`));
   return hasil;
 }

@@ -67,7 +67,7 @@ export default async function LabelPage({ params }: { params: Promise<{ jenis: s
       pengirim: { ...o, city: kota(o.area) },
       penerima: { ...t, city: kota(t.area) },
       dibuat: s.created_at,
-      catatan: "Tukar Guling",
+      catatan: "Barter",
     };
   }
   if (!d) notFound();

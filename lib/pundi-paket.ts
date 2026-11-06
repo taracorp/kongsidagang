@@ -1,5 +1,5 @@
-// Isi Pundi (Keteng — khusus Tukar Guling). Fungsi murni: dipakai client & server.
-// Sejak 7 Okt 2026 (keputusan Tara): TANPA bonus paket. Keteng yang masuk = nominal;
+// Isi Saldo (Saldo — khusus Barter). Fungsi murni: dipakai client & server.
+// Sejak 7 Okt 2026 (keputusan Tara): TANPA bonus paket. Saldo yang masuk = nominal;
 // pembeli membayar nominal + biaya DOKU sesuai metode (lib/payment/biaya.ts), tanpa platform fee.
 // - Nominal cepat: tombol siap pakai.
 // - Nominal lain: bebas, TOPUP_MIN–TOPUP_MAX, kelipatan Rp 1.000.
@@ -9,7 +9,7 @@ export const TOPUP_MIN = 10_000;
 export const TOPUP_MAX = 50_000_000;
 export const TOPUP_KELIPATAN = 1_000;
 
-/** Validasi nominal Isi Pundi → Keteng yang masuk (1:1). */
+/** Validasi nominal Isi Saldo → Saldo yang masuk (1:1). */
 export function nominalIsi(pilihan: string | number): number {
   const n = Number(String(pilihan).replace(/\D/g, ""));
   if (!Number.isInteger(n) || n <= 0) throw new Error("Isi nominal.");
@@ -26,16 +26,16 @@ export function saranIsi(kurang: number): number {
   return Math.min(TOPUP_MAX, Math.max(TOPUP_MIN, naik));
 }
 
-/** Tautan ke Pakhuis dengan nominal Isi Pundi sudah terisi. */
+/** Tautan ke Akun Saya dengan nominal Isi Saldo sudah terisi. */
 export function tautanIsi(kurang: number): string {
   return `/pakhuis?isi_nominal=${saranIsi(kurang)}#isi-pundi`;
 }
 
 /**
- * Keteng yang dibeli lewat Bayar Langsung (Tukar Guling).
+ * Saldo yang dibeli lewat Bayar Langsung (Barter).
  * - "penuh": seluruh kebutuhan.
  * - "kurang": kebutuhan dikurangi saldo.
- * Keduanya dibulatkan ke atas ke Rp1.000 dan minimal Rp10.000; kelebihannya tetap jadi Keteng di Pundi.
+ * Keduanya dibulatkan ke atas ke Rp1.000 dan minimal Rp10.000; kelebihannya tetap jadi Saldo di Dompet.
  */
 export function nominalLangsung(kebutuhan: number, saldo: number, cara: "kurang" | "penuh"): number {
   const dasar = cara === "penuh" ? kebutuhan : kebutuhan - Math.max(0, saldo);
@@ -44,7 +44,7 @@ export function nominalLangsung(kebutuhan: number, saldo: number, cara: "kurang"
 }
 
 /**
- * Keteng yang dibeli bersama uang rekber (selisih tukar) dalam satu tagihan: tanpa rekber = `nominalLangsung`;
+ * Saldo yang dibeli bersama uang rekber (selisih tukar) dalam satu tagihan: tanpa rekber = `nominalLangsung`;
  * dengan rekber = kekurangan saja (bulat Rp1.000), dinaikkan bila total tagihan di bawah minimum Rp10.000.
  */
 export function ketengDibeli(kebutuhan: number, saldo: number, cara: "kurang" | "penuh", uang: number): number {

@@ -392,7 +392,7 @@ export function ValidasiVoucher({ m }: { m: LapakKelola }) {
                 </button>
               ) : (
                 <button type="button" onClick={mulaiKamera} className={cn(tombolKecil, "w-full bg-kongsi-beeswax px-3 py-2 text-sm")}>
-                  📷 Pindai QR Surat Jalan
+                  📷 Pindai QR Voucher
                 </button>
               )}
               <video ref={videoRef} muted playsInline className={cn("mt-2 w-full rounded-[4px] border-2 border-kongsi-ink", !scanning && "hidden")} />

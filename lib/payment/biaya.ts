@@ -5,7 +5,7 @@
 // Prinsip (keputusan Tara, 7 Okt 2026):
 // - Biaya DOKU ditanggung pembeli, sesuai metode yang ia pilih (termasuk PPN 11% atas biaya DOKU).
 // - Platform fee flat per transaksi belanja = pendapatan Kongsi (menutup biaya setoran ke lapak + untung tipis).
-// - Isi Pundi (Keteng, khusus Tukar Guling): hanya biaya DOKU, tanpa platform fee, tanpa bonus.
+// - Isi Saldo (Saldo, khusus Barter): hanya biaya DOKU, tanpa platform fee, tanpa bonus.
 
 /** PPN efektif 11% (tarif 12% × DPP 11/12) atas biaya layanan DOKU. */
 export const PPN = 0.11;
@@ -65,14 +65,14 @@ export function cariMetode(kode: string): Metode {
 }
 
 /**
- * Keteng (Isi Pundi / Bayar Langsung) TIDAK boleh dibeli dengan kartu: chargeback kartu bisa datang berminggu-minggu
- * setelah Keteng dibelanjakan di Tukar Guling, dan Kongsi yang menanggung. Kartu hanya untuk belanja e-voucher.
+ * Saldo (Isi Saldo / Bayar Langsung) TIDAK boleh dibeli dengan kartu: chargeback kartu bisa datang berminggu-minggu
+ * setelah Saldo dibelanjakan di Barter, dan Kongsi yang menanggung. Kartu hanya untuk belanja e-voucher.
  */
 export const bolehUntukKeteng = (m: Metode) => m.grup !== "kartu";
 export const METODE_AWAL_KETENG = (METODE_AKTIF.find((m) => m.grup === "qris") ?? METODE_AKTIF.find(bolehUntukKeteng) ?? METODE[0]).kode;
 
 /**
- * Selisih Tukar Guling (uang rekber) hanya lewat QRIS / Virtual Account: biayanya kecil & tetap, jadi cadangan biaya
+ * Selisih Barter (uang rekber) hanya lewat QRIS / Virtual Account: biayanya kecil & tetap, jadi cadangan biaya
  * pengembalian dana yang ditahan dari penerima selisih tetap wajar; tanpa kartu (chargeback) & e-wallet MDR tinggi.
  */
 export const bolehUntukSelisih = (m: Metode) => m.grup === "qris" || m.grup === "va";
@@ -86,7 +86,7 @@ export function cariMetodeSelisih(kode: string): Metode {
 
 export function cariMetodeKeteng(kode: string): Metode {
   const m = cariMetode(kode);
-  if (!bolehUntukKeteng(m)) throw new Error("Kartu kredit/debit tidak bisa dipakai untuk Keteng. Pilih QRIS, Virtual Account, atau e-wallet.");
+  if (!bolehUntukKeteng(m)) throw new Error("Kartu kredit/debit tidak bisa dipakai untuk Saldo. Pilih QRIS, Virtual Account, atau e-wallet.");
   return m;
 }
 

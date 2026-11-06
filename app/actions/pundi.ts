@@ -14,7 +14,7 @@ import { run, requireUser, type ActionResult } from "./_util";
 import { saklarUji } from "@/lib/mode-uji";
 
 /**
- * Isi Pundi (Keteng, khusus Tukar Guling): DOKU → kembalikan URL halaman bayar; mode demo → langsung masuk.
+ * Isi Saldo (Saldo, khusus Barter): DOKU → kembalikan URL halaman bayar; mode demo → langsung masuk.
  * `pilihan` = nominal rupiah ("1500000"), `metode` = kode DOKU; pembeli menanggung biaya pembayaran.
  */
 export async function isiPundi(pilihan: string, metode: string): Promise<ActionResult<{ url?: string }>> {
@@ -35,7 +35,7 @@ export async function isiPundi(pilihan: string, metode: string): Promise<ActionR
       await topupDemo(user.id, String(pilihan));
       return {};
     }
-    throw new Error("Isi Pundi belum tersedia.");
+    throw new Error("Isi Saldo belum tersedia.");
   });
 }
 
@@ -55,8 +55,8 @@ export async function bayarTiruan(invoice: string) {
 }
 
 /**
- * Bayar Langsung (Tukar Guling): bayar lewat DOKU tanpa Isi Pundi dulu. Keteng yang dibutuhkan dihitung server
- * dari tujuan + saldo, pembeli menanggung biaya metode; setelah lunas Keteng masuk lalu aksi tujuannya jalan.
+ * Bayar Langsung (Barter): bayar lewat DOKU tanpa Isi Saldo dulu. Saldo yang dibutuhkan dihitung server
+ * dari tujuan + saldo, pembeli menanggung biaya metode; setelah lunas Saldo masuk lalu aksi tujuannya jalan.
  */
 export async function bayarLangsung(
   tujuan: Tujuan,

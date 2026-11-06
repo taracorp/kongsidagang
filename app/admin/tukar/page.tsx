@@ -21,7 +21,7 @@ export default async function AdminTukar() {
   return (
     <div className="space-y-3">
       <p className="text-[13px] text-kongsi-ink-soft">
-        ⚖️ <b>Syahbandar</b> — adili sengketa Tukar Guling: sahkan atau batalkan, tetapkan pihak bersalah (bea-nya hangus,
+        ⚖️ <b>Admin Sengketa</b> — adili sengketa Barter: sahkan atau batalkan, tetapkan pihak bersalah (bea-nya hangus,
         menanggung biaya pengembalian selisih, dicatat pelanggaran). Tidak ada ganti rugi antar-user. Sengketa yang
         belum diputus {HARI_ESKALASI} hari dikabarkan ke Ketua.
       </p>
@@ -56,7 +56,7 @@ export default async function AdminTukar() {
                       <b>{d.selisihStatus ?? "belum dibayar"}</b>
                     </div>
                   ) : d.topup > 0 ? (
-                    <div>Tambah Keteng (alur lama) {formatKeping(d.topup)}</div>
+                    <div>Tambah Saldo (alur lama) {formatKeping(d.topup)}</div>
                   ) : null}
                   {d.mode === "cod" ? (
                     <div>

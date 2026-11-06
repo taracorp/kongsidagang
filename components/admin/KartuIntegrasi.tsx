@@ -18,13 +18,13 @@ async function cekSearxng(): Promise<boolean> {
 export async function KartuIntegrasi() {
   const daftar: Status[] = [
     {
-      nama: "DOKU (Isi Pundi)",
+      nama: "DOKU (Isi Saldo)",
       aktif: !!dokuConfig() && !saklarUji("DOKU_MOCK"),
       ket: saklarUji("DOKU_MOCK") ? "mode tiruan" : (process.env.DOKU_BASE_URL ?? "https://api.doku.com"),
       langkah: ["Isi DOKU_CLIENT_ID & DOKU_SECRET_KEY (SK-…) di .env VPS", "URL notifikasi Back Office: /api/doku/notifikasi"],
     },
     {
-      nama: "KiriminAja (Tukar Guling mode Kirim)",
+      nama: "KiriminAja (Barter mode Kirim)",
       aktif: kirimAktif() && !saklarUji("KIRIMINAJA_MOCK"),
       ket: kirimAktif() ? "aktif" : "menunggu API key — mode Kirim & Alamat kirim disembunyikan",
       langkah: [

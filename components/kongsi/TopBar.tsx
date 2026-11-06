@@ -80,8 +80,8 @@ export function TopBar() {
             href={loggedIn ? "/pakhuis" : "/masuk"}
             className="whitespace-nowrap rounded-[3px] border-2 border-kongsi-ink bg-kongsi-beeswax px-[13px] py-[5px] text-center text-[13px] font-bold leading-tight text-kongsi-ink shadow-hard-sm transition-transform hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[2px_2px_0_#3a2417]"
           >
-            {loggedIn ? "Pakhuis-ku" : "Masuk"}
-            {tampil ? <span className="block text-[10px] font-semibold">{ringkas(tampil.saldo)} Keteng</span> : null}
+            {loggedIn ? "Akun Saya" : "Masuk"}
+            {tampil ? <span className="block text-[10px] font-semibold">{ringkas(tampil.saldo)} Saldo</span> : null}
           </Link>
         </div>
       </div>

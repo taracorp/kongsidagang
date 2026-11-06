@@ -31,7 +31,7 @@ export default async function KabarSayaPage() {
         <div className="mx-auto max-w-md px-5 text-center">
           <h2 className="font-fraunces text-[28px] font-black text-kongsi-indigo">Kabar untukmu</h2>
           <p className="mt-2 text-[13px] text-kongsi-ink-soft">
-            Masuk untuk melihat kabar tawaran tukar, Surat Jalan, dan pembayaranmu.
+            Masuk untuk melihat kabar tawaran tukar, Voucher, dan pembayaranmu.
           </p>
           <KongsiLinkButton href="/masuk" variant="primary" className="mt-4">
             Masuk
@@ -59,7 +59,7 @@ export default async function KabarSayaPage() {
         </div>
         {daftar.length === 0 ? (
           <p className="rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-4 py-10 text-center text-[13px] text-kongsi-ink-soft">
-            Belum ada kabar. Kabar tawaran tukar, Surat Jalan, dan pembayaran akan muncul di sini.
+            Belum ada kabar. Kabar tawaran tukar, Voucher, dan pembayaran akan muncul di sini.
           </p>
         ) : (
           <ul className="overflow-hidden rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment shadow-hard">

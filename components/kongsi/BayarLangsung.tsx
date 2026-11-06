@@ -10,9 +10,9 @@ import { KongsiButton } from "./KongsiButton";
 import { PilihMetode } from "./PilihMetode";
 
 /**
- * Bayar Langsung untuk Tukar Guling lewat DOKU, tanpa Isi Pundi dulu; aksinya dijalankan otomatis setelah lunas.
- * - `kebutuhan` = Keteng jaminan yang perlu ditahan; kekurangannya dibelikan Keteng (1 Rupiah = 1 Keteng).
- * - `uang` = selisih tukar + biaya transfer (uang rekber, BUKAN Keteng) — hanya QRIS / Virtual Account.
+ * Bayar Langsung untuk Barter lewat DOKU, tanpa Isi Saldo dulu; aksinya dijalankan otomatis setelah lunas.
+ * - `kebutuhan` = Saldo jaminan yang perlu ditahan; kekurangannya dibelikan Saldo (1 Rupiah = 1 Saldo).
+ * - `uang` = selisih tukar + biaya transfer (uang rekber, BUKAN Saldo) — hanya QRIS / Virtual Account.
  * Saldo sebagian → "pakai saldo + bayar kekurangan" atau "bayar penuh". Angka di tombol hanya perkiraan; server
  * menghitung ulang. `kebutuhan` null = belum bisa dihitung di browser (mis. ongkir kurir) → tombol tanpa angka.
  */
@@ -44,7 +44,7 @@ export function BayarLangsung({
     const kurang = kebutuhan != null ? kebutuhan - saldo : 0;
     return (
       <a href={tautanIsi(kurang)} className="font-bold text-kongsi-grenadine underline">
-        Pembayaran belum tersedia — Isi Pundi
+        Pembayaran belum tersedia — Isi Saldo
       </a>
     );
   }
@@ -107,8 +107,8 @@ export function BayarLangsung({
         {adaUang
           ? `Selisih ${formatKeping(uang)} (termasuk biaya transfer pencairan) ditahan Kongsi sebagai uang — diteruskan ke rekening lawan saat tukar selesai, kembali ke rekeningmu bila batal. `
           : ""}
-        Jaminan yang kurang dibelikan Keteng (1 Rupiah = 1 Keteng) lalu langsung ditahan, ditambah biaya pembayaran
-        metode pilihanmu. Sisa pembulatan tetap di Pundi-mu.
+        Jaminan yang kurang dibelikan Saldo (1 Rupiah = 1 Saldo) lalu langsung ditahan, ditambah biaya pembayaran
+        metode pilihanmu. Sisa pembulatan tetap di Dompet-mu.
       </p>
       {err ? (
         <p className="rounded-[4px] border-2 border-kongsi-grenadine bg-kongsi-parchment-3 px-3 py-2 text-[12px] text-kongsi-grenadine-dark">

@@ -25,7 +25,7 @@ export default async function AdminLelang() {
       <div className="rounded-[5px] border-2 border-kongsi-grenadine bg-kongsi-parchment-3 px-[15px] py-[11px] text-[13px] text-kongsi-grenadine-dark">
         ⚠️ <b className="text-kongsi-grenadine">Rahasia:</b> harga deal &amp; set hanya untuk pengurus; halaman publik baru
         membuka harga set saat pemenang diumumkan. Pengurus tidak boleh ikut lelang. Pemenang wajib membayar harga set +
-        platform fee + biaya pembayaran sebelum Surat Jalan terbit; tidak bayar → hak turun ke peringkat 2 lalu 3, lalu lelang
+        platform fee + biaya pembayaran sebelum Voucher terbit; tidak bayar → hak turun ke peringkat 2 lalu 3, lalu lelang
         gagal tanpa kewajiban ke lapak.
       </div>
 
@@ -49,7 +49,7 @@ export default async function AdminLelang() {
             {auctions.map((a) => (
               <tr key={a.id} className="even:bg-kongsi-sage/10">
                 <td className={sel}>
-                  <b>{a.clue_category}</b> {a.type === "vendu" ? "· Vendu" : ""}
+                  <b>{a.clue_category}</b> {a.type === "vendu" ? "· Lelang Khusus" : ""}
                   <div className="text-kongsi-bad">
                     {a.lapak ?? a.clue_name_masked} — {a.produk ?? "—"}
                   </div>

@@ -1,4 +1,4 @@
-// Mesin Taksiran Tukar Guling — fungsi murni (tanpa DB), dipakai server & pratinjau client.
+// Mesin Taksiran Barter — fungsi murni (tanpa DB), dipakai server & pratinjau client.
 // Server SELALU menghitung ulang saat menyimpan; angka dari client tidak dipercaya.
 //
 // Komoditas : qty × harga per satuan terbaru × faktor kondisi.

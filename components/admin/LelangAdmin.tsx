@@ -105,7 +105,7 @@ export function FormLelangBaru({ produk }: { produk: { id: string; label: string
         </label>
         <select id="type" name="type" className={masukan}>
           <option value="reguler">Reguler</option>
-          <option value="vendu">Vendu (khusus login)</option>
+          <option value="vendu">Lelang Khusus (khusus login)</option>
         </select>
       </div>
       <div className="sm:col-span-2">

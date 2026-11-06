@@ -23,7 +23,7 @@ export default async function LapakPage() {
           <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Lapak Saudagar</div>
           <h2 className="mt-1 font-fraunces text-[32px] font-black text-kongsi-indigo">Lorong para saudagar</h2>
           <p className="mt-1 text-[13px] text-kongsi-ink-soft">
-            Beli e-voucher perawatan, tebus di cabang pilihanmu dengan kode Surat Jalan.
+            Beli e-voucher perawatan, tebus di cabang pilihanmu dengan kode Voucher.
           </p>
         </div>
         {lapak.length === 0 ? (

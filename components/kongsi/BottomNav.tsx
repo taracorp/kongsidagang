@@ -7,8 +7,8 @@ import { IconHome, IconBarter, IconScale, IconShop, IconNews } from "./icons";
 
 const tabs = [
   { href: "/", label: "Beranda", Icon: IconHome, exact: true },
-  { href: "/tukar", label: "Tukar Guling", Icon: IconBarter },
-  { href: "/neraca", label: "Neraca", Icon: IconScale },
+  { href: "/tukar", label: "Barter", Icon: IconBarter },
+  { href: "/neraca", label: "Banding Harga", Icon: IconScale },
   { href: "/lapak", label: "Lapak", Icon: IconShop },
   { href: "/kabar", label: "Kabar", Icon: IconNews },
 ];

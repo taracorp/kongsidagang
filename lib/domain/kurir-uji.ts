@@ -4,7 +4,7 @@ import type { Prisma } from "@/lib/generated/prisma/client";
 import { kurir, kurirSandbox, normalisasiHp, orderIdKurir, type Alamat, type Wilayah } from "@/lib/shipping/kiriminaja";
 
 // Uji Kurir (admin): uji koneksi, cakupan, ongkir, buat paket, lacak, batal, dan log webhook KiriminAja.
-// Dipakai untuk UAT sandbox MitraAPI dan diagnosa di produksi. Semua lewat driver yang sama dengan Tukar Guling.
+// Dipakai untuk UAT sandbox MitraAPI dan diagnosa di produksi. Semua lewat driver yang sama dengan Barter.
 
 function driver() {
   const d = kurir();

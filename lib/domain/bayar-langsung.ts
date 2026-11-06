@@ -9,10 +9,10 @@ import { beriKabar } from "@/lib/domain/kabar-user";
 import { BIAYA_TRANSFER, HARI_KERJA_PENCAIRAN, tambahHariKerja } from "@/lib/domain/tukar-aturan";
 import { ketengDibeli, TOPUP_MAX } from "@/lib/pundi-paket";
 
-// Bayar Langsung (khusus Tukar Guling): user membayar lewat DOKU tanpa Isi Pundi dulu.
-// - Keteng jaminan yang kurang diterbitkan 1:1 (lunasiIsiPundi); pembeli menanggung biaya DOKU metode pilihannya.
-// - Selisih tukar (v3) ikut di tagihan yang sama sebagai UANG rekber (bukan Keteng), hanya lewat QRIS/VA.
-// - Setelah lunas, aksi tujuannya dijalankan otomatis (jalankanTujuan). Bila gagal: Keteng tetap di Pundi, uang
+// Bayar Langsung (khusus Barter): user membayar lewat DOKU tanpa Isi Saldo dulu.
+// - Saldo jaminan yang kurang diterbitkan 1:1 (lunasiIsiPundi); pembeli menanggung biaya DOKU metode pilihannya.
+// - Selisih tukar (v3) ikut di tagihan yang sama sebagai UANG rekber (bukan Saldo), hanya lewat QRIS/VA.
+// - Setelah lunas, aksi tujuannya dijalankan otomatis (jalankanTujuan). Bila gagal: Saldo tetap di Dompet, uang
 //   selisih dikembalikan ke rekening pembayar (dipotong biaya transfer) lewat transfer keluar.
 // Belanja e-voucher TIDAK lewat sini: dibayar uang langsung (lib/domain/belanja.ts).
 
@@ -66,10 +66,10 @@ export async function hitungKebutuhan(userId: string, tujuan: Tujuan, m: Muatan)
 }
 
 const NAMA_TUJUAN: Record<Tujuan, string> = {
-  tukar_ajukan: "Ajukan Tukar Guling",
-  tukar_terima: "Terima Tukar Guling",
-  tukar_ongkir: "Ongkir Tukar Guling",
-  tukar_setor: "Setor Tukar Guling",
+  tukar_ajukan: "Ajukan Barter",
+  tukar_terima: "Terima Barter",
+  tukar_ongkir: "Ongkir Barter",
+  tukar_setor: "Setor Barter",
 };
 
 /** Halaman kembali setelah bayar. */
@@ -101,7 +101,7 @@ export async function mulaiBayarLangsung(
   const w = await prisma.wallet.findUnique({ where: { user_id: user.id }, select: { balance: true } });
   const saldo = w?.balance ?? 0;
   const keteng = ketengDibeli(kebutuhan, saldo, cara === "penuh" ? "penuh" : "kurang", uang);
-  if (keteng <= 0 && uang <= 0) throw new Error("Saldo Keteng sudah cukup — bayar pakai Keteng saja.");
+  if (keteng <= 0 && uang <= 0) throw new Error("Saldo sudah cukup — bayar pakai Saldo saja.");
   if (keteng + uang > TOPUP_MAX) throw new Error(`Maksimal Rp ${TOPUP_MAX.toLocaleString("id-ID")} per pembayaran.`);
   const data = { tujuan, muatan: muatan as unknown as Prisma.InputJsonValue };
 
@@ -151,7 +151,7 @@ export async function mulaiBayarLangsung(
     return { url: tautanHasil(invoice), invoice };
   }
 
-  const judul = keteng > 0 ? `${keteng.toLocaleString("id-ID")} Keteng jaminan - ${NAMA_TUJUAN[tujuan]}` : NAMA_TUJUAN[tujuan];
+  const judul = keteng > 0 ? `${keteng.toLocaleString("id-ID")} Saldo jaminan - ${NAMA_TUJUAN[tujuan]}` : NAMA_TUJUAN[tujuan];
   return buatPesananBayar(
     user,
     { packageId: "langsung", keteng, rekber: uang, rekberNama: "Selisih tukar + biaya transfer (ditahan Kongsi)", metode, itemName: judul, menit },
@@ -181,7 +181,7 @@ export async function jalankanTujuan(invoice: string): Promise<void> {
     let hasil = "";
     switch (tujuan) {
       case "tukar_ajukan": {
-        // Tagihan lama: sejak v3 mengajukan gratis (Keteng tetap di Pundi).
+        // Tagihan lama: sejak v3 mengajukan gratis (Saldo tetap di Dompet).
         const a = m as MuatanAjukan;
         ref = await Tukar.ajukan(o.user_id, a.myItemId, a.targetId, a.topup, { mode: a.mode, addressId: a.addressId });
         hasil = "Tawaran tukar terkirim";
@@ -220,11 +220,11 @@ export async function jalankanTujuan(invoice: string): Promise<void> {
   } catch (e) {
     const pesan = e instanceof Error ? e.message : "Terjadi kesalahan.";
     // Saldo kurang di titik ini berarti kebutuhan berubah (mis. ongkir naik) sejak tagihan dibuat.
-    const alasan = /saldo keteng tidak cukup/i.test(pesan) ? "Jumlah yang ditahan berubah sejak tagihan dibuat, Keteng belum cukup." : pesan;
+    const alasan = /saldo keteng tidak cukup/i.test(pesan) ? "Jumlah yang ditahan berubah sejak tagihan dibuat, Saldo belum cukup." : pesan;
     await prisma.$transaction(async (tx) => {
       await tx.topupOrder.update({ where: { id: o.id }, data: { tujuan_status: "gagal", tujuan_hasil: alasan.slice(0, 300) } });
       // Uang selisih tidak bisa dipakai → kembali ke rekening pembayar (dipotong biaya transfer: pembayaran terlambat /
-      // aksi tidak lagi berlaku). Keteng bagian tagihan tetap di Pundi.
+      // aksi tidak lagi berlaku). Saldo bagian tagihan tetap di Dompet.
       if (o.rekber > 0) {
         await antrikanTransfer(tx, {
           jenis: "refund_selisih",
@@ -239,8 +239,8 @@ export async function jalankanTujuan(invoice: string): Promise<void> {
       }
       await beriKabar(tx, o.user_id, {
         kind: "pundi",
-        title: o.keteng > 0 ? `Pembayaran masuk: +${o.keteng.toLocaleString("id-ID")} Keteng` : "Pembayaran masuk, belum bisa diproses",
-        body: `${NAMA_TUJUAN[tujuan]} belum bisa diproses: ${alasan}${o.keteng > 0 ? " Keteng-mu aman di Pundi." : ""}${o.rekber > 0 ? " Uang selisih dikembalikan ke rekeningmu." : ""}`,
+        title: o.keteng > 0 ? `Pembayaran masuk: +${o.keteng.toLocaleString("id-ID")} Saldo` : "Pembayaran masuk, belum bisa diproses",
+        body: `${NAMA_TUJUAN[tujuan]} belum bisa diproses: ${alasan}${o.keteng > 0 ? " Saldo-mu aman di Dompet." : ""}${o.rekber > 0 ? " Uang selisih dikembalikan ke rekeningmu." : ""}`,
         href: tautanHasil(o.invoice_number),
       });
     });

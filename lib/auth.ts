@@ -23,7 +23,7 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
-        // Pengganti trigger handle_new_user: siapkan profil + Pundi kosong.
+        // Pengganti trigger handle_new_user: siapkan profil + Dompet kosong.
         after: async (user) => {
           await prisma.profile.upsert({
             where: { id: user.id },

@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 
 /**
  * Dipanggil crontab VPS (mis. tiap 10 menit): kedaluwarsa, konfirmasi otomatis paket sampai,
- * penahanan silang Tukar Guling, rekonsiliasi paket kurir (cek order ragu, minta batal), dan
- * Surat Jalan yang lewat masa berlaku, serta rekonsiliasi pembayaran DOKU yang belum lunas.
+ * penahanan silang Barter, rekonsiliasi paket kurir (cek order ragu, minta batal), dan
+ * Voucher yang lewat masa berlaku, serta rekonsiliasi pembayaran DOKU yang belum lunas.
  */
 export async function POST(req: Request) {
   const secret = process.env.CRON_SECRET;

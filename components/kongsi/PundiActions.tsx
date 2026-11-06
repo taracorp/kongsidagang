@@ -12,7 +12,7 @@ const rb = (n: number) => `${(n / 1000).toLocaleString("id-ID")}rb`;
 const singkat = (n: number) => (n >= 1_000_000 ? `${(n / 1_000_000).toLocaleString("id-ID")}jt` : rb(n));
 
 /**
- * Isi Pundi (Keteng — khusus Tukar Guling). Keteng masuk = nominal, tanpa bonus; pembeli membayar nominal +
+ * Isi Saldo (Saldo — khusus Barter). Saldo masuk = nominal, tanpa bonus; pembeli membayar nominal +
  * biaya pembayaran metode pilihannya (tanpa platform fee).
  */
 export function IsiPundiPaket({ mode, saran }: { mode: "doku" | "demo" | null; saran?: number | null }) {
@@ -70,7 +70,7 @@ export function IsiPundiPaket({ mode, saran }: { mode: "doku" | "demo" | null; s
         </div>
       ) : null}
 
-      <div className="text-[11px] font-bold uppercase tracking-[1.5px] opacity-85">Isi Pundi (untuk Tukar Guling)</div>
+      <div className="text-[11px] font-bold uppercase tracking-[1.5px] opacity-85">Isi Saldo (untuk Barter)</div>
       <div className="mt-2 grid grid-cols-4 gap-2">
         {NOMINAL_CEPAT.map((n) => (
           <button
@@ -121,13 +121,13 @@ export function IsiPundiPaket({ mode, saran }: { mode: "doku" | "demo" | null; s
         className="mt-[12px] inline-block cursor-pointer rounded-[3px] border-2 border-kongsi-ink bg-kongsi-beeswax px-[22px] py-3 text-sm font-bold text-kongsi-ink shadow-hard transition-transform hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-hard-sm disabled:opacity-60"
       >
         {mode === null
-          ? "Isi Pundi belum tersedia"
+          ? "Isi Saldo belum tersedia"
           : busy
             ? mode === "doku"
               ? "Membuka DOKU…"
               : "Mengisi…"
             : nominal
-              ? `Isi ${nominal.toLocaleString("id-ID")} Keteng — bayar Rp ${(tagihan?.total ?? nominal).toLocaleString("id-ID")}${mode === "demo" ? " (demo)" : ""}`
+              ? `Isi ${nominal.toLocaleString("id-ID")} Saldo — bayar Rp ${(tagihan?.total ?? nominal).toLocaleString("id-ID")}${mode === "demo" ? " (demo)" : ""}`
               : "Pilih atau isi nominal"}
       </button>
       {err || (pick === lain && lain && salah) ? (
@@ -135,8 +135,8 @@ export function IsiPundiPaket({ mode, saran }: { mode: "doku" | "demo" | null; s
       ) : null}
       <p className="mt-2 text-[11px] opacity-80">
         {tagihan ? `Termasuk biaya pembayaran Rp ${tagihan.biaya.toLocaleString("id-ID")} (potongan DOKU + PPN). ` : ""}
-        Keteng hanya untuk Tukar Guling (bea, tambah Keteng, ongkir) dan tidak dapat diuangkan kembali. Belanja e-voucher
-        dibayar langsung tanpa Keteng.
+        Saldo hanya untuk Barter (bea, tambah Saldo, ongkir) dan tidak dapat diuangkan kembali. Belanja e-voucher
+        dibayar langsung tanpa Saldo.
       </p>
     </div>
   );

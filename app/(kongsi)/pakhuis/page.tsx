@@ -56,8 +56,8 @@ export default async function PakhuisPage({
     ? 100
     : Math.max(0, Math.min(100, Math.round(((data.totalSpend - curMin) / (nextMin - curMin)) * 100)));
   const nextLevelNote = isMax
-    ? "Kamu di puncak — Juragan. Hak penuh: Vendu prioritas."
-    : `Rp ${(nextMin - data.totalSpend).toLocaleString("id-ID")} lagi menuju ${levelTangga[levelIndex + 1]} — buka akses Vendu lebih leluasa.`;
+    ? "Kamu di puncak — Juragan. Hak penuh: Lelang Khusus prioritas."
+    : `Rp ${(nextMin - data.totalSpend).toLocaleString("id-ID")} lagi menuju ${levelTangga[levelIndex + 1]} — buka akses Lelang Khusus lebih leluasa.`;
 
   const aktif = data.vouchers.filter((v) => v.status === "aktif");
   const selesai = data.vouchers.filter((v) => v.status !== "aktif");
@@ -71,7 +71,7 @@ export default async function PakhuisPage({
       <div className="mx-auto max-w-[1080px] px-5">
         <div className="mb-5 flex items-end justify-between gap-3">
           <div>
-            <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Pakhuis-ku</div>
+            <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Akun Saya</div>
             <h2 className="mt-1 font-fraunces text-[32px] font-black text-kongsi-indigo">Halo, {data.name}</h2>
           </div>
           <LogoutButton />
@@ -85,38 +85,38 @@ export default async function PakhuisPage({
             )}
           >
             {pesanan.status === "paid" ? (
-              <b>✓ Pembayaran diterima — {pesanan.keteng.toLocaleString("id-ID")} Keteng masuk Pundi.</b>
+              <b>✓ Pembayaran diterima — {pesanan.keteng.toLocaleString("id-ID")} Saldo masuk Dompet.</b>
             ) : pesanan.status === "pending" ? (
               <>
                 <b>Menunggu konfirmasi pembayaran…</b> Bila sudah bayar, muat ulang halaman ini sebentar lagi.
               </>
             ) : (
               <b className="text-kongsi-bad">
-                Pembayaran {pesanan.status === "expired" ? "kedaluwarsa" : "gagal"}. Keteng tidak berubah.
+                Pembayaran {pesanan.status === "expired" ? "kedaluwarsa" : "gagal"}. Saldo tidak berubah.
               </b>
             )}
             <div className="mt-1 text-[11px] text-kongsi-ink-soft">Invoice {pesanan.invoice_number}</div>
           </div>
         ) : null}
 
-        {/* 1. Pundi */}
+        {/* 1. Dompet */}
         <div className="relative mb-[22px] overflow-hidden rounded-[8px] border-2 border-kongsi-ink bg-kongsi-grenadine p-[22px_24px] text-kongsi-parchment shadow-hard">
-          <div className="text-[11px] font-bold uppercase tracking-[2px] opacity-85">Saldo Pundi</div>
+          <div className="text-[11px] font-bold uppercase tracking-[2px] opacity-85">Saldo Dompet</div>
           <div className="mt-[3px] font-fraunces text-[38px] font-black leading-none">
-            {data.balance.toLocaleString("id-ID")} <small className="text-[15px] opacity-80">Keteng</small>
+            {data.balance.toLocaleString("id-ID")} <small className="text-[15px] opacity-80">Saldo</small>
           </div>
-          <div className="mt-1 text-[12px] opacity-85">1 Keteng = Rp 1 · khusus Tukar Guling · tidak dapat diuangkan</div>
+          <div className="mt-1 text-[12px] opacity-85">1 Saldo = Rp 1 · khusus Barter · tidak dapat diuangkan</div>
           <IsiPundiPaket mode={modeIsi} saran={saran} />
           <CompassRose size={90} className="absolute -bottom-2 -right-2 text-kongsi-parchment opacity-15" />
         </div>
 
-        {/* 2. Surat Jalan */}
+        {/* 2. Voucher */}
         <h3 id="surat-jalan" className="mb-3 scroll-mt-24 font-fraunces text-xl font-black text-kongsi-indigo">
-          Surat Jalan ({aktif.length} aktif)
+          Voucher ({aktif.length} aktif)
         </h3>
         {aktif.length === 0 ? (
           <p className="mb-4 rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-4 py-6 text-center text-[13px] text-kongsi-ink-soft">
-            Belum ada Surat Jalan aktif. Beli e-voucher di lapak atau menangi lelang untuk mendapatkannya.
+            Belum ada Voucher aktif. Beli e-voucher di lapak atau menangi lelang untuk mendapatkannya.
           </p>
         ) : (
           <div className="mb-4 space-y-3">
@@ -157,7 +157,7 @@ export default async function PakhuisPage({
         )}
         {selesai.length ? (
           <details className="mb-[22px] text-[13px]">
-            <summary className="cursor-pointer font-bold text-kongsi-grenadine">Surat Jalan terpakai / kedaluwarsa ({selesai.length})</summary>
+            <summary className="cursor-pointer font-bold text-kongsi-grenadine">Voucher terpakai / kedaluwarsa ({selesai.length})</summary>
             <ul className="mt-2 space-y-1">
               {selesai.map((v) => (
                 <li key={v.id} className="flex justify-between gap-3 border-b-[1.5px] border-kongsi-ink/10 py-1">
@@ -223,11 +223,11 @@ export default async function PakhuisPage({
           </div>
         </div>
 
-        {/* 4. Riwayat Pundi */}
-        <h3 className="mb-3 font-fraunces text-xl font-black text-kongsi-indigo">Riwayat Pundi</h3>
+        {/* 4. Riwayat Dompet */}
+        <h3 className="mb-3 font-fraunces text-xl font-black text-kongsi-indigo">Riwayat Dompet</h3>
         {data.ledger.length === 0 ? (
           <p className="mb-[22px] rounded-[6px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 px-4 py-6 text-center text-[13px] text-kongsi-ink-soft">
-            Belum ada transaksi Keteng.
+            Belum ada transaksi Saldo.
           </p>
         ) : (
           <div className="mb-[22px] overflow-hidden rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment">
@@ -251,7 +251,7 @@ export default async function PakhuisPage({
           </div>
         )}
 
-        {/* 5. Rekening & transfer (Tukar Guling) */}
+        {/* 5. Rekening & transfer (Barter) */}
         <h3 id="transfer" className="mb-3 scroll-mt-24 font-fraunces text-xl font-black text-kongsi-indigo">
           Rekening & transfer
         </h3>
@@ -285,8 +285,8 @@ export default async function PakhuisPage({
           ) : null}
           {catatan > 0 ? (
             <p className={cn("rounded-[4px] px-2 py-1", blokir ? "bg-kongsi-grenadine text-kongsi-parchment" : "bg-kongsi-parchment-3")}>
-              Catatan pelanggaran Tukar Guling 30 hari terakhir: <b>{catatan}/3</b>
-              {blokir ? ` — tidak bisa ikut Tukar Guling sampai ${tgl(blokir.toISOString())}.` : "."}
+              Catatan pelanggaran Barter 30 hari terakhir: <b>{catatan}/3</b>
+              {blokir ? ` — tidak bisa ikut Barter sampai ${tgl(blokir.toISOString())}.` : "."}
             </p>
           ) : null}
         </div>
@@ -307,7 +307,7 @@ export default async function PakhuisPage({
               href="/pakhuis/alamat"
               className="flex items-center justify-between rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment-3 px-4 py-3 shadow-hard-sm"
             >
-              <span className="font-fraunces font-black text-kongsi-indigo">📦 Alamat kirim (Tukar Guling)</span>
+              <span className="font-fraunces font-black text-kongsi-indigo">📦 Alamat kirim (Barter)</span>
               <span className="text-[13px] font-bold text-kongsi-ink">→</span>
             </a>
           ) : null}

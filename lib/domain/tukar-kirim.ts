@@ -17,7 +17,7 @@ import {
   type Wilayah,
 } from "@/lib/shipping/kiriminaja";
 
-// Mode Kirim Tukar Guling (KiriminAja, express).
+// Mode Kirim Barter (KiriminAja, express).
 // 1. B menerima + memilih alamat → tarif termurah dua arah dihitung, dua paket "quoted" dibuat. B langsung menahan
 //    ongkir paket A→B (barang yang B terima, "bayar apa yang kamu terima") + deposit + bea (tukar.ts tahanJaminan).
 // 2. A menyetor dalam tenggat: ongkir paket B→A + deposit + bea (+ selisih uang bila ia pembayar).
@@ -327,7 +327,7 @@ async function majukanKeDikirim(dealId: string) {
   });
 }
 
-/** Kembalikan ongkir (Keteng) setelah KiriminAja PASTI membatalkan (KA Credit kembali). Atomik & idempoten. */
+/** Kembalikan ongkir (Saldo) setelah KiriminAja PASTI membatalkan (KA Credit kembali). Atomik & idempoten. */
 async function selesaikanBatalPaket(tx: Tx, shipmentId: string, sebab: string) {
   const s = await tx.barterShipment.findUnique({ where: { id: shipmentId } });
   if (!s) return false;
@@ -339,8 +339,8 @@ async function selesaikanBatalPaket(tx: Tx, shipmentId: string, sebab: string) {
   const amt = ongkirDari(s);
   // Ongkir masih ditahan (belum ditagih) → kembalikan tahanannya; sudah ditagih → kredit balik (KA Credit sudah kembali).
   const h = await tx.walletHold.findFirst({ where: { deal_id: s.deal_id, user_id: s.payer_id, kind: "ongkir", status: "ditahan" } });
-  if (h) await refundHold(tx, h.id, "Ongkir Tukar Guling dikembalikan (order kurir dibatalkan)");
-  else if (amt > 0) await credit(tx, s.payer_id, amt, "refund_ongkir", "Ongkir Tukar Guling dikembalikan (order kurir dibatalkan)");
+  if (h) await refundHold(tx, h.id, "Ongkir Barter dikembalikan (order kurir dibatalkan)");
+  else if (amt > 0) await credit(tx, s.payer_id, amt, "refund_ongkir", "Ongkir Barter dikembalikan (order kurir dibatalkan)");
   return true;
 }
 
@@ -398,7 +398,7 @@ export async function rekonsiliasiPaket(): Promise<{ dicek: number; dibatalkan: 
         awb = l.awb;
       }
       if (!awb) continue; // belum ada AWB → tunggu
-      const r = await drv.batalkan(awb, "Tukar Guling dibatalkan").catch((e: Error) => e);
+      const r = await drv.batalkan(awb, "Barter dibatalkan").catch((e: Error) => e);
       if (r instanceof Error) {
         if (r instanceof KiriminAjaError) {
           // Ditolak (mis. sudah dijemput) → ongkir hangus: menutup KA Credit yang sudah terpakai.
@@ -503,7 +503,7 @@ async function evaluasiDeal(dealId: string) {
     if (!["agreed", "dikirim", "diterima"].includes(d.status) || d.mode !== "kirim") return;
     const masalah = d.shipments.find((s) => ["canceled", "returned", "problem"].includes(s.status) && s.order_id);
     if (masalah) {
-      const fault = null; // kurir/sistem — Syahbandar yang menilai
+      const fault = null; // kurir/sistem — Admin Sengketa yang menilai
       await sengketaSistem(tx, d, `Paket ${masalah.leg === "a_to_b" ? "A→B" : "B→A"}: ${masalah.status_text ?? masalah.status}`, fault);
       return;
     }

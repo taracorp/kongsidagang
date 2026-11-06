@@ -26,7 +26,7 @@ export default async function BayarSelesaiPage({ searchParams }: { searchParams:
       <div className={`${kartu} border-dashed border-kongsi-olive bg-kongsi-parchment-3`}>
         <p className="text-kongsi-ink-soft">Pembayaran tidak ditemukan.</p>
         <KongsiLinkButton href="/pakhuis" variant="gold" className="mt-4">
-          Ke Pakhuis
+          Ke Akun Saya
         </KongsiLinkButton>
       </div>
     );
@@ -61,7 +61,7 @@ export default async function BayarSelesaiPage({ searchParams }: { searchParams:
         <div className="font-fraunces text-xl font-black text-kongsi-ok">✓ Pembayaran berhasil</div>
         <p className="mt-2 text-sm text-kongsi-ink-soft">
           {o.rekber > 0 ? `Selisih ${formatKeping(o.rekber)} (termasuk biaya transfer) ditahan Kongsi sampai tukar selesai. ` : ""}
-          {o.keteng > 0 ? `${o.keteng.toLocaleString("id-ID")} Keteng masuk lalu langsung ditahan sebagai jaminan. ` : ""}
+          {o.keteng > 0 ? `${o.keteng.toLocaleString("id-ID")} Saldo masuk lalu langsung ditahan sebagai jaminan. ` : ""}
           {o.tujuan_hasil}.
         </p>
         <KongsiLinkButton href={o.tujuan_ref ? `/tukar/deal/${o.tujuan_ref}` : "/tukar"} variant="primary" className="mt-4">
@@ -75,8 +75,8 @@ export default async function BayarSelesaiPage({ searchParams }: { searchParams:
         <div className="font-fraunces text-xl font-black text-kongsi-grenadine">Pembayaran masuk, pesanan belum diproses</div>
         <p className="mt-2 text-sm">{o.tujuan_hasil}</p>
         <p className="mt-2 text-sm text-kongsi-ink-soft">
-          {o.keteng > 0 ? `${o.keteng.toLocaleString("id-ID")} Keteng sudah masuk dan aman di Pundi-mu. ` : ""}
-          {o.rekber > 0 ? "Uang selisih dikembalikan ke rekeningmu (dipotong biaya transfer) paling lambat 2 hari kerja." : "Coba lagi dengan bayar pakai Keteng."}
+          {o.keteng > 0 ? `${o.keteng.toLocaleString("id-ID")} Saldo sudah masuk dan aman di Dompet-mu. ` : ""}
+          {o.rekber > 0 ? "Uang selisih dikembalikan ke rekeningmu (dipotong biaya transfer) paling lambat 2 hari kerja." : "Coba lagi dengan bayar pakai Saldo."}
         </p>
         <KongsiLinkButton href="/tukar" variant="primary" className="mt-4">
           Coba lagi
@@ -89,7 +89,7 @@ export default async function BayarSelesaiPage({ searchParams }: { searchParams:
     <section className="py-[34px]">
       <div className="mx-auto max-w-[1080px] px-5">
         <div className="mb-[22px] text-center">
-          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Gerbang Tebus</div>
+          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Pembayaran</div>
           <h2 className="mt-1 font-fraunces text-[30px] font-black text-kongsi-indigo">Hasil pembayaran</h2>
         </div>
         {isi}
@@ -125,11 +125,11 @@ async function HasilBelanja({ userId, invoice }: { userId: string; invoice: stri
       <div className={`${kartu} border-kongsi-ok bg-kongsi-sage/30`}>
         <div className="font-fraunces text-xl font-black text-kongsi-ok">✓ Pembayaran berhasil</div>
         <p className="mt-2 text-sm text-kongsi-ink-soft">
-          {formatKeping(o.total)} diterima. Surat Jalan sudah terbit — tunjukkan kodenya ke petugas di cabang yang kamu pilih.
+          {formatKeping(o.total)} diterima. Voucher sudah terbit — tunjukkan kodenya ke petugas di cabang yang kamu pilih.
         </p>
         <PantauBayar kosongkanKeranjang />
         <KongsiLinkButton href="/pakhuis#surat-jalan" variant="primary" className="mt-4">
-          Lihat Surat Jalan
+          Lihat Voucher
         </KongsiLinkButton>
       </div>
     );
@@ -141,7 +141,7 @@ async function HasilBelanja({ userId, invoice }: { userId: string; invoice: stri
         </div>
         <p className="mt-2 text-sm text-kongsi-ink-soft">
           DOKU belum menerima pembayaran untuk pesanan ini; keranjangmu masih utuh. Bila kamu terlanjur membayar, kami
-          mengecek ulang ke DOKU otomatis selama 48 jam lalu menerbitkan Surat Jalan — jangan bayar dua kali.
+          mengecek ulang ke DOKU otomatis selama 48 jam lalu menerbitkan Voucher — jangan bayar dua kali.
         </p>
         <KongsiLinkButton href="/bayar" variant="primary" className="mt-4">
           Coba lagi
@@ -153,7 +153,7 @@ async function HasilBelanja({ userId, invoice }: { userId: string; invoice: stri
     <section className="py-[34px]">
       <div className="mx-auto max-w-[1080px] px-5">
         <div className="mb-[22px] text-center">
-          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Gerbang Tebus</div>
+          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Pembayaran</div>
           <h2 className="mt-1 font-fraunces text-[30px] font-black text-kongsi-indigo">Hasil pembayaran</h2>
         </div>
         {isi}

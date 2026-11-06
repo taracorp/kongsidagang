@@ -201,7 +201,7 @@ export function BayarClient({
     <section className="py-[34px]">
       <div className="mx-auto max-w-[1080px] px-5">
         <div className="mb-[22px] text-center">
-          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Gerbang Tebus</div>
+          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Pembayaran</div>
           <h2 className="mt-1 font-fraunces text-[30px] font-black text-kongsi-indigo">Satu langkah lagi</h2>
         </div>
 

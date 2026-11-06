@@ -56,7 +56,7 @@ function keHasil(r: {
   };
 }
 
-/** Harga dari loji mitra (Neraca) yang product_key-nya cocok dengan kueri. */
+/** Harga dari loji mitra (Banding Harga) yang product_key-nya cocok dengan kueri. */
 async function dariLapak(kueri: string): Promise<Mentah[]> {
   const tk = tokenKueri(kueri);
   if (tk.kuat.length === 0) return [];

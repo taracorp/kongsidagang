@@ -19,7 +19,7 @@ export default async function NeracaPage({
       <div className="mx-auto max-w-[1080px] px-5">
         <div className="mb-5 text-center">
           <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">
-            Neraca Harga · Dacin Kongsi
+            Banding Harga · Dacin Kongsi
           </div>
           <h2 className="mt-1 font-fraunces text-[32px] font-black text-kongsi-indigo">
             Timbang harga terbaik

@@ -27,7 +27,7 @@ const items: Item[] = [
   { href: "/admin", label: "Ringkasan", Icon: IconHome, roles: "all" },
   { href: "/admin/lelang", label: "Balai Lelang", Icon: CompassRose, roles: "adminUp" },
   { href: "/admin/saudagar", label: "Saudagar", Icon: IconShop, roles: "adminUp" },
-  { href: "/admin/neraca", label: "Neraca & Pariwara", Icon: IconScale, roles: "adminUp" },
+  { href: "/admin/neraca", label: "Banding Harga & Pariwara", Icon: IconScale, roles: "adminUp" },
   { href: "/admin/tukar", label: "Sengketa Tukar", Icon: IconBarter, roles: "adminUp" },
   { href: "/admin/setoran", label: "Setoran Lapak", Icon: IconShop, roles: "adminUp" },
   { href: "/admin/promo", label: "Promo Kongsi", Icon: IconScale, roles: "adminUp" },

@@ -228,7 +228,7 @@ export type DealDetail = {
   giliran: "a" | "b" | null;
   /** yang harus kusetor sekarang (null bila bukan giliranku) */
   setorKu: { keteng: number; uang: number } | null;
-  /** perkiraan Keteng jaminanku (sebelum/selama menunggu bayar; ongkir Kirim bisa belum diketahui) */
+  /** perkiraan Saldo jaminanku (sebelum/selama menunggu bayar; ongkir Kirim bisa belum diketahui) */
   jaminanKu: number;
   ditahanKu: number;
   transferKu: { jenis: string; nominal: number; status: string; tenggat: string }[];
@@ -427,7 +427,7 @@ export type DisputeDeal = {
   ditahan: { pihak: "a" | "b"; kind: string; amount: number }[];
 };
 
-/** Sengketa Tukar Guling untuk Syahbandar (admin saja), lengkap dengan status pindaian, paket, dan tahanan. */
+/** Sengketa Barter untuk Admin Sengketa (admin saja), lengkap dengan status pindaian, paket, dan tahanan. */
 export async function getDisputedDeals(): Promise<DisputeDeal[]> {
   await connection(); // data DB selalu per-request, jangan diprerender saat build
   try {

@@ -21,7 +21,7 @@ export default async function BayarTiruanPage({ searchParams }: { searchParams: 
   if (!belanja && !t) notFound();
   const o = belanja
     ? { invoice_number: belanja.invoice_number!, price: belanja.total, status: belanja.status, info: `E-voucher · metode ${belanja.metode}` }
-    : { invoice_number: t!.invoice_number, price: t!.price, status: t!.status, info: `${t!.keteng.toLocaleString("id-ID")} Keteng · metode ${t!.metode ?? "-"}` };
+    : { invoice_number: t!.invoice_number, price: t!.price, status: t!.status, info: `${t!.keteng.toLocaleString("id-ID")} Saldo · metode ${t!.metode ?? "-"}` };
   const kembali = belanja || t!.tujuan !== "isi" ? tautanHasil(o.invoice_number) : `/pakhuis?isi=${encodeURIComponent(o.invoice_number)}`;
 
   return (

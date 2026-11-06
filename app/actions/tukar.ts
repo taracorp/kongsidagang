@@ -319,7 +319,7 @@ export async function tarikTukar(dealId: string) {
   });
 }
 
-/** Setor jaminan Keteng dari saldo (tanpa selisih uang). Semua lunas di mode Kirim → order kurir dibuat. */
+/** Setor jaminan Saldo dari saldo (tanpa selisih uang). Semua lunas di mode Kirim → order kurir dibuat. */
 export async function setorTukar(dealId: string) {
   return run(async () => {
     const user = await requireUser();
@@ -343,7 +343,7 @@ export async function batalDiTempat(dealId: string, alasan: string, tidakSesuai 
   });
 }
 
-/** Ajukan ke Syahbandar: alasan + foto bukti wajib (FormData: dealId, alasan, bukti). */
+/** Ajukan ke Admin Sengketa: alasan + foto bukti wajib (FormData: dealId, alasan, bukti). */
 export async function ajukanSengketa(form: FormData) {
   return run(async () => {
     const user = await requireUser();
@@ -398,7 +398,7 @@ export async function nilaiTukar(dealId: string, stars: number, comment?: string
   });
 }
 
-/** Syahbandar memutus sengketa: sah / batal + pihak bersalah + alasan (tercatat). */
+/** Admin Sengketa memutus sengketa: sah / batal + pihak bersalah + alasan (tercatat). */
 export async function putusSengketa(dealId: string, keputusan: "sah" | "batal", bersalah: "a" | "b" | null, alasan: string) {
   return run(async () => {
     const s = await requireAdminUp();
@@ -406,7 +406,7 @@ export async function putusSengketa(dealId: string, keputusan: "sah" | "batal", 
   });
 }
 
-/** Lacak paket Tukar Guling (pihak deal atau admin). Sorting code & AWB terbaru ikut disimpan. */
+/** Lacak paket Barter (pihak deal atau admin). Sorting code & AWB terbaru ikut disimpan. */
 export async function lacakPaketTukar(shipmentId: string) {
   return run(async () => {
     const user = await requireUser();

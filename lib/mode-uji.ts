@@ -1,6 +1,6 @@
 // Saklar mode uji (demo/tiruan). Di produksi (NODE_ENV=production) SELALU mati, kecuali instance uji yang
-// sengaja mengizinkan lewat IZINKAN_MOCK=true. Mencegah Keteng/voucher gratis bila saklar terbawa ke produksi.
-//   ENABLE_TOPUP_DEMO — Isi Pundi & belanja tanpa pembayaran
+// sengaja mengizinkan lewat IZINKAN_MOCK=true. Mencegah Saldo/voucher gratis bila saklar terbawa ke produksi.
+//   ENABLE_TOPUP_DEMO — Isi Saldo & belanja tanpa pembayaran
 //   DOKU_MOCK         — halaman bayar tiruan (user bisa menandai lunas sendiri)
 //   KIRIMINAJA_MOCK   — kurir tiruan (token webhook publik "tiruan")
 

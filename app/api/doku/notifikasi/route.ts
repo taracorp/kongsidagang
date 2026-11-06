@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   const status = String(body.transaction?.status ?? "").toUpperCase();
   if (!invoice) return new Response("Bad request", { status: 400 });
 
-  // Lunas: belanja (KD-BLJ-…) → Surat Jalan terbit; Keteng → dikredit + Bayar Langsung dijalankan.
+  // Lunas: belanja (KD-BLJ-…) → Voucher terbit; Saldo → dikredit + Bayar Langsung dijalankan.
   // Nominal tidak cocok dicatat sebagai pembayaran bermasalah (tidak diproses otomatis).
   if (status === "SUCCESS") await prosesLunas(invoice, Number(body.order?.amount), body.channel?.id ?? null);
   else if (status === "FAILED" || status === "EXPIRED") {

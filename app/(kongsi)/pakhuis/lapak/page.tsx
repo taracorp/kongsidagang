@@ -33,7 +33,7 @@ export default async function KelolaLapakPage() {
     <section className="py-[34px]">
       <div className="mx-auto max-w-[1080px] space-y-6 px-5">
         <div>
-          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Pakhuis-ku</div>
+          <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">Akun Saya</div>
           <h2 className="mt-1 font-fraunces text-[30px] font-black text-kongsi-indigo">Kelola Lapak</h2>
         </div>
 

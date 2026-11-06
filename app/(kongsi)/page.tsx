@@ -33,12 +33,10 @@ export default async function Beranda() {
             Anno 1602 — dihidupkan kembali
           </div>
           <h1 className="font-fraunces text-[52px] font-black leading-[0.93] text-kongsi-indigo [text-shadow:2px_2px_0_rgba(231,162,74,0.5)]">
-            Kongsi{" "}
-            <span className="font-medium italic text-kongsi-grenadine">&amp;</span>{" "}
-            Dagang
+            Kongsi <span className="text-kongsi-grenadine">Dagang</span>
           </h1>
           <p className="mx-auto mt-4 max-w-[540px] text-base text-kongsi-ink-soft">
-            Balai lelang, neraca harga, dan lapak para saudagar — satu jalur
+            Balai lelang, banding harga, dan lapak para saudagar — satu jalur
             perdagangan tempat kamu menawar, menimbang, dan berbelanja dengan
             seru.
           </p>
@@ -64,7 +62,7 @@ export default async function Beranda() {
               🧭
             </div>
             <h3 className="font-fraunces text-[22px] font-black leading-tight">
-              Bingung cari apa? Panggil Juru Tunjuk.
+              Bingung cari apa? Panggil Pemandu Belanja.
             </h3>
             <p className="text-sm">
               Pelayan Kongsi bakal nanya beberapa hal — kebutuhan perawatanmu,
@@ -76,7 +74,7 @@ export default async function Beranda() {
               block
               className="mt-1"
             >
-              Panggil Juru Tunjuk
+              Panggil Pemandu Belanja
             </KongsiLinkButton>
           </div>
         </div>

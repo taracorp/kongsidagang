@@ -11,7 +11,7 @@ const fieldLabel = "mb-[5px] block text-[13px] font-bold";
 const fieldInput =
   "w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-3 py-[10px] font-work text-sm focus:outline-2 focus:outline-kongsi-beeswax";
 
-const tags = ["Tips Belanja", "Cerita Saudagar", "Rempah", "Tukar Guling", "Pekan Raya"];
+const tags = ["Tips Belanja", "Cerita Saudagar", "Rempah", "Barter", "Pekan Raya"];
 const tones = ["indigo", "grenadine", "beeswax", "sage", "olive"];
 const MIN_PARAGRAF = 3;
 

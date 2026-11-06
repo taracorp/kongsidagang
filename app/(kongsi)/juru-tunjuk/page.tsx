@@ -45,7 +45,7 @@ export default function JuruTunjukPage() {
       sub: "Voucher ditebus di cabang pilihanmu.",
       chips: [...kota.map((k) => ({ em: "📍", label: k, nilai: k })), { em: "🗺️", label: "Mana saja", nilai: "" }],
     },
-    { q: "Kisaran harga?", sub: "Sesuaikan dengan isi Pundi.", chips: ANGGARAN },
+    { q: "Kisaran harga?", sub: "Sesuaikan dengan isi Dompet.", chips: ANGGARAN },
   ];
   const done = step >= steps.length;
 
@@ -115,7 +115,7 @@ export default function JuruTunjukPage() {
         ) : (
           <div>
             <div className="mb-[6px] font-fraunces text-[26px] font-black text-kongsi-indigo">
-              {loading ? "Juru Tunjuk mencari…" : "Ini temuan Juru Tunjuk"}
+              {loading ? "Pemandu Belanja mencari…" : "Ini temuan Pemandu Belanja"}
             </div>
             <div className="mb-4 text-sm text-kongsi-ink-soft">{answers.map((a) => a.label).join(" · ")}</div>
             {loading ? (

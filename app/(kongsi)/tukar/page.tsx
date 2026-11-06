@@ -126,7 +126,7 @@ export default async function TukarPage() {
       <div className="mx-auto max-w-[1080px] px-5">
         <div className="mb-[22px] text-center">
           <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">
-            Tukar Guling
+            Barter
           </div>
           <h2 className="mt-1 font-fraunces text-[32px] font-black text-kongsi-indigo">
             Barter antar sesama
@@ -142,10 +142,10 @@ export default async function TukarPage() {
           </h3>
           <p className="text-[13px] text-kongsi-ink-soft">
             Unggah barangmu — Kongsi menaksir nilainya. Kalau timpang, yang lebih
-            rendah <b>tambah Keteng</b>. Bea Tukar cuma 10% (maks Rp 10.000) per
+            rendah <b>tambah Saldo</b>. Biaya Layanan Tukar cuma 10% (maks Rp 10.000) per
             pihak, ditahan sampai tukar selesai — ketemuan di Titik Aman (COD) atau
             dikirim kurir.
-            Sengketa diadili <b>Syahbandar</b>.
+            Sengketa diadili <b>Admin Sengketa</b>.
           </p>
           <KongsiLinkButton
             href={user ? "/tukar/tawarkan" : "/masuk"}

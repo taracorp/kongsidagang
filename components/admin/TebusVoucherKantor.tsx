@@ -4,7 +4,7 @@ import { useState } from "react";
 import { tebusVoucherKantor } from "@/app/actions/belanja";
 import { cn } from "@/lib/utils";
 
-/** Admin menebus Surat Jalan hadiah lelang (voucher tanpa lapak). */
+/** Admin menebus Voucher hadiah lelang (voucher tanpa lapak). */
 export function TebusVoucherKantor() {
   const [kode, setKode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,7 +23,7 @@ export function TebusVoucherKantor() {
 
   return (
     <div className="rounded-[6px] border-2 border-kongsi-ink bg-kongsi-parchment p-4 shadow-hard-sm">
-      <h3 className="mb-2 font-fraunces text-lg font-black text-kongsi-indigo">Tebus Surat Jalan hadiah lelang</h3>
+      <h3 className="mb-2 font-fraunces text-lg font-black text-kongsi-indigo">Tebus Voucher hadiah lelang</h3>
       <form onSubmit={tebus} className="flex gap-2">
         <input
           value={kode}

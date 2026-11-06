@@ -204,10 +204,10 @@ export async function ubahProfilLapak(merchantId: string, form: FormData) {
   });
 }
 
-// ---------- Juru Tunjuk: cari produk by tag & kisaran harga (publik) ----------
+// ---------- Pemandu Belanja: cari produk by tag & kisaran harga (publik) ----------
 
 
-/** Juru Tunjuk: perawatan sesuai kebutuhan (tag), anggaran, dan kota cabang. Terbuka untuk tamu. */
+/** Pemandu Belanja: perawatan sesuai kebutuhan (tag), anggaran, dan kota cabang. Terbuka untuk tamu. */
 export async function cariJuruTunjuk(tag: string, min: number, max: number, kota: string | null) {
   return run(async () => {
     const lo = Math.max(0, Math.floor(Number(min) || 0));

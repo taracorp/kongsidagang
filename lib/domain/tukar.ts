@@ -40,7 +40,7 @@ import {
   type Pihak,
 } from "@/lib/domain/tukar-aturan";
 
-// Alur Tukar Guling v3 (Ch 8.35). Semua mutasi di dalam $transaction dengan baris deal dikunci; Keteng lewat helper
+// Alur Barter v3 (Ch 8.35). Semua mutasi di dalam $transaction dengan baris deal dikunci; Saldo lewat helper
 // rekber di pundi.ts; uang keluar lewat transfer.ts.
 //
 // Ajukan   : gratis (tanpa tahanan). Maks 3 tawaran menunggu per pengaju, kedaluwarsa 72 jam.
@@ -162,10 +162,10 @@ const LABEL_SANKSI: Record<JenisSanksi, string> = {
   tidak_bayar: "tidak membayar sebelum batas waktu",
   batal_sepihak: "membatalkan sepihak",
   barang_tidak_sesuai: "barang tidak sesuai",
-  putusan_syahbandar: "diputus bersalah oleh Syahbandar",
+  putusan_syahbandar: "diputus bersalah oleh Admin Sengketa",
 };
 
-/** Sampai kapan user diblokir dari Tukar Guling (3 strike dalam 30 hari → 30 hari), atau null. */
+/** Sampai kapan user diblokir dari Barter (3 strike dalam 30 hari → 30 hari), atau null. */
 export async function blokirSampai(db: Tx | typeof prisma, userId: string, now = new Date()): Promise<Date | null> {
   const rows = await db.sanksiTukar.findMany({
     where: { user_id: userId, created_at: { gt: new Date(now.getTime() - (HARI_STRIKE + HARI_BLOKIR) * HARI) } },
@@ -184,7 +184,7 @@ export async function blokirSampai(db: Tx | typeof prisma, userId: string, now =
   return sampai && sampai > now ? sampai : null;
 }
 
-/** Jumlah catatan pelanggaran dalam jendela strike (untuk Pakhuis). */
+/** Jumlah catatan pelanggaran dalam jendela strike (untuk Akun Saya). */
 export function jumlahSanksi(db: Tx | typeof prisma, userId: string) {
   return db.sanksiTukar.count({ where: { user_id: userId, created_at: { gt: new Date(Date.now() - HARI_STRIKE * HARI) } } });
 }
@@ -193,7 +193,7 @@ async function pastikanTidakDiblokir(db: Tx, userId: string) {
   const s = await blokirSampai(db, userId);
   if (s) {
     throw new Error(
-      `Akunmu sedang tidak bisa ikut Tukar Guling sampai ${s.toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta", day: "numeric", month: "long" })} (${BATAS_STRIKE} catatan pelanggaran dalam ${HARI_STRIKE} hari).`,
+      `Akunmu sedang tidak bisa ikut Barter sampai ${s.toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta", day: "numeric", month: "long" })} (${BATAS_STRIKE} catatan pelanggaran dalam ${HARI_STRIKE} hari).`,
     );
   }
 }
@@ -204,10 +204,10 @@ async function catatSanksi(tx: Tx, userId: string, dealId: string, jenis: JenisS
   const blokir = await blokirSampai(tx, userId);
   await beriKabar(tx, userId, {
     kind: "tukar",
-    title: `Catatan pelanggaran Tukar Guling (${Math.min(n, BATAS_STRIKE)}/${BATAS_STRIKE})`,
+    title: `Catatan pelanggaran Barter (${Math.min(n, BATAS_STRIKE)}/${BATAS_STRIKE})`,
     body: blokir
-      ? `Karena ${LABEL_SANKSI[jenis]}. Kamu tidak bisa ikut Tukar Guling ${HARI_BLOKIR} hari.`
-      : `Karena ${LABEL_SANKSI[jenis]}. ${BATAS_STRIKE} catatan dalam ${HARI_STRIKE} hari = tidak bisa ikut Tukar Guling ${HARI_BLOKIR} hari.`,
+      ? `Karena ${LABEL_SANKSI[jenis]}. Kamu tidak bisa ikut Barter ${HARI_BLOKIR} hari.`
+      : `Karena ${LABEL_SANKSI[jenis]}. ${BATAS_STRIKE} catatan dalam ${HARI_STRIKE} hari = tidak bisa ikut Barter ${HARI_BLOKIR} hari.`,
     href: `/tukar/deal/${dealId}`,
   });
 }
@@ -236,11 +236,11 @@ export async function selesaikan(tx: Tx, d: DealRow, status: "done" | "resolved"
   const holds = await tx.walletHold.findMany({ where: { deal_id: d.id, status: "ditahan" } });
   for (const h of holds) {
     const p: Pihak = h.user_id === d.itemA.user_id ? "a" : "b";
-    if (h.kind === "bea") await captureHold(tx, h.id, "bea_tukar", `Bea Tukar Guling: ${labelDeal(d)}`);
-    else if (h.kind === "tambah") await releaseHold(tx, h.id, pemilik(d, lawan(p)), "Tambahan Keteng dari Tukar Guling");
+    if (h.kind === "bea") await captureHold(tx, h.id, "bea_tukar", `Biaya Layanan Barter: ${labelDeal(d)}`);
+    else if (h.kind === "tambah") await releaseHold(tx, h.id, pemilik(d, lawan(p)), "Tambahan Saldo dari Barter");
     // Paket sudah sampai → kurir sudah dibayar dari KA Credit; ongkir yang masih ditahan menutupnya.
-    else if (h.kind === "ongkir") await captureHold(tx, h.id, "ongkir_tukar", `Ongkir Tukar Guling: ${labelDeal(d)}`);
-    else await refundHold(tx, h.id, h.kind === "deposit" ? "Deposit Tukar Guling kembali" : "Jaminan Tukar Guling kembali");
+    else if (h.kind === "ongkir") await captureHold(tx, h.id, "ongkir_tukar", `Ongkir Barter: ${labelDeal(d)}`);
+    else await refundHold(tx, h.id, h.kind === "deposit" ? "Deposit Barter kembali" : "Jaminan Barter kembali");
   }
 
   // Selisih uang → rekening penerima, paling lambat 2 hari kerja (biaya transfer sudah dibayar pembayar selisih).
@@ -272,7 +272,7 @@ export async function selesaikan(tx: Tx, d: DealRow, status: "done" | "resolved"
     tx,
     d,
     "keduanya",
-    status === "done" ? "Tukar selesai 🎉 Beri nilai lawan tukarmu" : "Sengketa diputus Syahbandar",
+    status === "done" ? "Tukar selesai 🎉 Beri nilai lawan tukarmu" : "Sengketa diputus Admin Sengketa",
     `${note ?? labelDeal(d)}.${catatanSelisih}`,
   );
 }
@@ -280,7 +280,7 @@ export async function selesaikan(tx: Tx, d: DealRow, status: "done" | "resolved"
 export type OpsiBatal = {
   /** Pihak penyebab batal: menanggung biaya pengembalian selisih & dapat catatan pelanggaran (bila `sanksi`). */
   fault?: Pihak | null;
-  /** Bea pihak bersalah hangus (jadi pendapatan platform). */
+  /** Biaya Layanan pihak bersalah hangus (jadi pendapatan platform). */
   hanguskanBea?: boolean;
   sanksi?: JenisSanksi | null;
 };
@@ -308,7 +308,7 @@ export async function batalkan(
   for (const h of holds) {
     if (h.kind === "ongkir" && ongkirDiKurir.has(h.user_id)) continue;
     if (h.kind === "bea" && opsi.hanguskanBea && h.user_id === uidBersalah) {
-      await captureHold(tx, h.id, "bea_tukar_hangus", `Bea Tukar hangus (pihak penyebab batal): ${labelDeal(d)}`);
+      await captureHold(tx, h.id, "bea_tukar_hangus", `Biaya Layanan Tukar hangus (pihak penyebab batal): ${labelDeal(d)}`);
       beaHangus += h.amount;
       continue;
     }
@@ -318,10 +318,10 @@ export async function batalkan(
       cadanganDipakai = true;
       kompensasiDoku = Math.max(0, Math.min(d.selisih_biaya_doku, h.amount - BIAYA_TRANSFER));
       const sisa = h.amount - BIAYA_TRANSFER - kompensasiDoku;
-      if (sisa > 0) await credit(tx, h.user_id, sisa, "lepas", "Sisa cadangan Tukar Guling kembali");
+      if (sisa > 0) await credit(tx, h.user_id, sisa, "lepas", "Sisa cadangan Barter kembali");
       continue;
     }
-    await refundHold(tx, h.id, `Jaminan Tukar Guling dikembalikan (${reason})`.slice(0, 200));
+    await refundHold(tx, h.id, `Jaminan Barter dikembalikan (${reason})`.slice(0, 200));
   }
 
   // Selisih uang → kembali ke rekening pembayar. Penerima bersalah → pembayar kembali utuh (selisih + biaya transfer
@@ -371,8 +371,8 @@ export async function batalkan(
   if (fault && opsi.sanksi) await catatSanksi(tx, uidBersalah!, d.id, opsi.sanksi, reason);
 
   const judul =
-    status === "rejected" ? "Tawaran tukar ditolak" : status === "expired" ? "Tawaran tukar kedaluwarsa" : status === "resolved" ? "Sengketa diputus Syahbandar" : "Tukar dibatalkan";
-  const jaminan = holds.length ? " Jaminan Keteng sudah kembali" + (beaHangus ? `, kecuali bea ${rp(beaHangus)} milik pihak penyebab batal (hangus).` : ".") : "";
+    status === "rejected" ? "Tawaran tukar ditolak" : status === "expired" ? "Tawaran tukar kedaluwarsa" : status === "resolved" ? "Sengketa diputus Admin Sengketa" : "Tukar dibatalkan";
+  const jaminan = holds.length ? " Jaminan Saldo sudah kembali" + (beaHangus ? `, kecuali bea ${rp(beaHangus)} milik pihak penyebab batal (hangus).` : ".") : "";
   await kabarDeal(tx, d, "keduanya", judul, `${reason}.${jaminan}${catatanSelisih}`);
 }
 
@@ -580,7 +580,7 @@ export async function terima(
   );
 }
 
-/** Tahan jaminan Keteng pihak p (bea, deposit, ongkir paket yang ia terima, cadangan bila ia penerima selisih). */
+/** Tahan jaminan Saldo pihak p (bea, deposit, ongkir paket yang ia terima, cadangan bila ia penerima selisih). */
 async function tahanJaminan(tx: Tx, d: DealRow, p: Pihak) {
   const uid = pemilik(d, p);
   const label = labelDeal(d);
@@ -610,7 +610,7 @@ function hitungSetoranRow(d: DealRow, userId: string): Setoran {
   const g = giliranSetor(d);
   if (g !== p) throw new Error(g ? "Menunggu pihak lain menyetor dulu." : "Semua pembayaran sudah lunas.");
   const u = dealUang(d);
-  // B sudah menahan jaminan Keteng saat menerima; giliran B hanya membayar selisih uang.
+  // B sudah menahan jaminan Saldo saat menerima; giliran B hanya membayar selisih uang.
   return { pihak: p, keteng: p === "a" ? jaminanKeteng(u, "a") : 0, uang: uangSetor(u, p), tenggat: d.expires_at };
 }
 
@@ -655,7 +655,7 @@ async function setorSelesai(tx: Tx, d: DealRow, p: Pihak): Promise<boolean> {
   return false;
 }
 
-/** Setor jaminan Keteng dari saldo (tanpa selisih uang). Selisih uang wajib lewat DOKU (setorLunas). */
+/** Setor jaminan Saldo dari saldo (tanpa selisih uang). Selisih uang wajib lewat DOKU (setorLunas). */
 export async function setor(userId: string, dealId: string): Promise<{ siapKirim: boolean }> {
   return prisma.$transaction(async (tx) => {
     const d = await kunciDeal(tx, dealId);
@@ -667,7 +667,7 @@ export async function setor(userId: string, dealId: string): Promise<{ siapKirim
 }
 
 /**
- * Pembayaran DOKU untuk setor sudah lunas (dipanggil jalankanTujuan). Keteng bagian tagihan sudah masuk Pundi;
+ * Pembayaran DOKU untuk setor sudah lunas (dipanggil jalankanTujuan). Saldo bagian tagihan sudah masuk Dompet;
  * `rekber` = uang selisih + biaya transfer yang ditahan Kongsi. Gagal → pemanggil mengembalikan uangnya.
  */
 export async function setorLunas(
@@ -737,12 +737,12 @@ export async function batalDiTempat(userId: string, dealId: string, alasan: stri
     const p = pihakDari(d, userId);
     pastikanBoleh(d.status, p, d.mode === "kirim" ? "batal_sebelum_kirim" : "batal_di_tempat", d.mode);
     if (d.shipments.some((s) => s.order_id && s.status !== "failed")) {
-      throw new Error("Paket sudah dibuat di kurir — ajukan ke Syahbandar bila ada masalah.");
+      throw new Error("Paket sudah dibuat di kurir — ajukan ke Admin Sengketa bila ada masalah.");
     }
     // Anti-tipu: begitu satu kode dipindai (satu pihak sudah menyerahkan barang & kode), tukar tidak bisa dibatalkan
     // sepihak — kalau bisa, penipu membawa barang lalu membatalkan dan semua uang kembali kepadanya.
     if (d.scanned_a_at || d.scanned_b_at) {
-      throw new Error("Salah satu kode sudah dipindai — tukar tidak bisa dibatalkan sepihak. Ajukan ke Syahbandar bila ada masalah.");
+      throw new Error("Salah satu kode sudah dipindai — tukar tidak bisa dibatalkan sepihak. Ajukan ke Admin Sengketa bila ada masalah.");
     }
     const why = alasan.trim().slice(0, 200) || "tanpa alasan";
     if (tidakSesuai && d.mode === "cod") {
@@ -764,10 +764,10 @@ export async function batalDiTempat(userId: string, dealId: string, alasan: stri
 }
 
 // ============================================================
-// Sengketa & Syahbandar
+// Sengketa & Admin Sengketa
 // ============================================================
 
-/** Pihak mengajukan ke Syahbandar: wajib alasan + foto bukti. */
+/** Pihak mengajukan ke Admin Sengketa: wajib alasan + foto bukti. */
 export async function sengketa(userId: string, dealId: string, alasan: string, buktiUrl: string | null) {
   return prisma.$transaction(async (tx) => {
     const d = await kunciDeal(tx, dealId);
@@ -780,22 +780,22 @@ export async function sengketa(userId: string, dealId: string, alasan: string, b
       where: { id: d.id },
       data: { status: "disputed", cancel_reason: `Pihak ${p.toUpperCase()}: ${why}`, bukti_url: buktiUrl, sengketa_at: new Date() },
     });
-    await kabarDeal(tx, d, "keduanya", "Tukar diajukan ke Syahbandar", why);
+    await kabarDeal(tx, d, "keduanya", "Tukar diajukan ke Admin Sengketa", why);
   });
 }
 
-/** Sistem mengirim deal ke Syahbandar (paket bermasalah / penahanan silang / pindaian setengah). */
+/** Sistem mengirim deal ke Admin Sengketa (paket bermasalah / penahanan silang / pindaian setengah). */
 export async function sengketaSistem(tx: Tx, d: DealRow, alasan: string, fault: Pihak | null = null) {
   pastikanBoleh(d.status, "system", "sengketa", d.mode);
   await tx.barterDeal.update({
     where: { id: d.id },
     data: { status: "disputed", cancel_reason: alasan, fault_party: fault, sengketa_at: new Date() },
   });
-  await kabarDeal(tx, d, "keduanya", "Tukar diteruskan ke Syahbandar", alasan);
+  await kabarDeal(tx, d, "keduanya", "Tukar diteruskan ke Admin Sengketa", alasan);
 }
 
 /**
- * Syahbandar memutus: "sah" (tukar jadi) atau "batal". `bersalah` = pihak penyebab (bea-nya hangus bila batal,
+ * Admin Sengketa memutus: "sah" (tukar jadi) atau "batal". `bersalah` = pihak penyebab (bea-nya hangus bila batal,
  * menanggung biaya pengembalian selisih, dan dapat catatan pelanggaran). Alasan wajib & tercatat.
  */
 export async function putus(adminId: string, dealId: string, keputusan: "sah" | "batal", bersalah: Pihak | null, alasan: string) {
@@ -811,10 +811,10 @@ export async function putus(adminId: string, dealId: string, keputusan: "sah" | 
     }
     await tx.barterDeal.update({ where: { id: d.id }, data: { putus_oleh: adminId, putus_alasan: why, putus_at: new Date() } });
     if (keputusan === "sah") {
-      await selesaikan(tx, d, "resolved", `Disahkan Syahbandar: ${why}`);
+      await selesaikan(tx, d, "resolved", `Disahkan Admin Sengketa: ${why}`);
       if (bersalah) await catatSanksi(tx, pemilik(d, bersalah), d.id, "putusan_syahbandar", why);
     } else {
-      await batalkan(tx, d, "resolved", `Dibatalkan Syahbandar: ${why}`, {
+      await batalkan(tx, d, "resolved", `Dibatalkan Admin Sengketa: ${why}`, {
         fault: bersalah,
         hanguskanBea: bersalah !== null,
         sanksi: bersalah ? "putusan_syahbandar" : null,
@@ -837,7 +837,7 @@ export async function pindai(userId: string, dealId: string, input: string): Pro
     // Batas salah kode dihitung per orang: satu pihak tidak bisa mengunci pindaian pihak lain.
     const gagalKu = p === "a" ? d.scan_fails_a : d.scan_fails_b;
     if (gagalKu >= MAKS_GAGAL_PINDAI) {
-      throw new Error("Terlalu banyak kode salah. Ajukan ke Syahbandar bila ada masalah.");
+      throw new Error("Terlalu banyak kode salah. Ajukan ke Admin Sengketa bila ada masalah.");
     }
     const target = lawan(p);
     const benar = kodeKetemu(d.id, target, d.agreed_at);
@@ -912,10 +912,10 @@ export async function tutupBarang(userId: string, itemId: string) {
 /**
  * Dipanggil cron:
  * - tawaran tak dijawab 72 jam / pembayaran tak lunas sebelum tenggat (→ catatan pelanggaran pihak yang belum bayar) /
- *   kesepakatan lewat batas → kedaluwarsa (kecuali paket di kurir / pindaian setengah → Syahbandar);
+ *   kesepakatan lewat batas → kedaluwarsa (kecuali paket di kurir / pindaian setengah → Admin Sengketa);
  * - paket sampai lewat JAM_KONFIRMASI → selesai otomatis;
  * - pengingat bayar (2 jam sebelum tenggat) & konfirmasi (24 & 6 jam sebelum otomatis);
- * - penahanan silang → Syahbandar; sengketa > 7 hari → kabar ke Ketua.
+ * - penahanan silang → Admin Sengketa; sengketa > 7 hari → kabar ke Ketua.
  */
 export async function majukanTukar(now = new Date()) {
   const hasil = { kedaluwarsa: 0, selesai: 0, sengketa: 0, pengingat: 0 };
@@ -949,9 +949,9 @@ export async function majukanTukar(now = new Date()) {
         return "sengketa" as const;
       }
       // COD lewat batas dengan salah satu kode sudah dipindai → bukan dikembalikan otomatis (bisa menguntungkan
-      // penipu yang sudah membawa barang), tetapi diputus Syahbandar.
+      // penipu yang sudah membawa barang), tetapi diputus Admin Sengketa.
       if (d.status === "agreed" && d.mode === "cod" && (d.scanned_a_at || d.scanned_b_at)) {
-        await sengketaSistem(tx, d, `Batas ${JAM_COD} jam lewat setelah salah satu kode dipindai — perlu diputus Syahbandar`);
+        await sengketaSistem(tx, d, `Batas ${JAM_COD} jam lewat setelah salah satu kode dipindai — perlu diputus Admin Sengketa`);
         return "sengketa" as const;
       }
       if (d.status === "proposed") {
@@ -1018,7 +1018,7 @@ export async function majukanTukar(now = new Date()) {
           d,
           p,
           `Konfirmasi otomatis ${Math.ceil(sisaJam)} jam lagi`,
-          "Periksa barang yang kamu terima. Ada masalah? Ajukan ke Syahbandar sebelum konfirmasi otomatis.",
+          "Periksa barang yang kamu terima. Ada masalah? Ajukan ke Admin Sengketa sebelum konfirmasi otomatis.",
         );
       }
       return true;

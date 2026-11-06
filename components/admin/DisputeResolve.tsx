@@ -11,7 +11,7 @@ const on = "bg-kongsi-grenadine text-kongsi-parchment";
 const off = "bg-kongsi-parchment hover:bg-kongsi-beeswax";
 
 /**
- * Putusan Syahbandar: Sah (tukar jadi) / Batal + pihak bersalah + alasan wajib. Pihak bersalah: bea-nya hangus (bila
+ * Putusan Admin Sengketa: Sah (tukar jadi) / Batal + pihak bersalah + alasan wajib. Pihak bersalah: bea-nya hangus (bila
  * batal), menanggung biaya pengembalian selisih, dan mendapat catatan pelanggaran. Tanpa ganti rugi antar-user.
  */
 export function DisputeResolve({ id, saran }: { id: string; saran: "a" | "b" | null }) {

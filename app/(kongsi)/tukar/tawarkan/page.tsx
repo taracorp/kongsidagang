@@ -22,7 +22,7 @@ export default async function TawarkanPage() {
       <div className="mx-auto max-w-[1080px] px-5">
         <div className="mb-5 text-center">
           <div className="font-fraunces text-base font-semibold italic text-kongsi-grenadine">
-            Tukar Guling
+            Barter
           </div>
           <h2 className="mt-1 font-fraunces text-[30px] font-black text-kongsi-indigo">
             Tawarkan barangmu
@@ -31,7 +31,7 @@ export default async function TawarkanPage() {
         <TawarkanForm categories={categories} nowYear={new Date().getFullYear()} kotaAwal={terakhir?.city ?? null} />
         <p className="mt-4 text-center text-[12px] text-kongsi-ink-soft">
           <Link href="/tukar" className="font-bold text-kongsi-grenadine">
-            ← Kembali ke Tukar Guling
+            ← Kembali ke Barter
           </Link>
         </p>
       </div>

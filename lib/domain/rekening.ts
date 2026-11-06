@@ -4,7 +4,7 @@ import { BANK } from "@/lib/data/bank";
 import { beriKabar } from "@/lib/domain/kabar-user";
 import type { Tx } from "@/lib/domain/pundi";
 
-// Rekening bank user untuk menerima pencairan selisih Tukar Guling / pengembalian dana.
+// Rekening bank user untuk menerima pencairan selisih Barter / pengembalian dana.
 // Transfer keluar membaca rekening TERBARU saat pengurus membayar (dan menyimpan salinannya di catatan transfer).
 
 export type RekeningInput = { bank: string; nomor: string; atas_nama: string };
@@ -42,6 +42,6 @@ export function bacaRekening(db: Tx | typeof prisma, userId: string) {
 /** Lempar error bila user belum mengisi rekening (wajib sebelum ikut tukar ber-selisih uang). */
 export async function pastikanRekening(db: Tx | typeof prisma, userId: string, untuk: string) {
   const r = await bacaRekening(db, userId);
-  if (!r) throw new Error(`Isi rekening pencairan dulu di Pakhuis (${untuk}).`);
+  if (!r) throw new Error(`Isi rekening pencairan dulu di Akun Saya (${untuk}).`);
   return r;
 }

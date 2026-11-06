@@ -47,7 +47,7 @@ export default function KongsiKit() {
           <Pill variant="sage">Buka</Pill>
           <Pill variant="gold">Obral Kilat</Pill>
           <Pill variant="live">◉ Lelang · terbuka</Pill>
-          <Pill variant="indigo">Vendu = khusus login</Pill>
+          <Pill variant="indigo">Lelang Khusus = khusus login</Pill>
           <SegelBadge />
           <SegelBadge label="Saudagar Bersegel" />
         </div>
@@ -56,7 +56,7 @@ export default function KongsiKit() {
       <Section title="Tombol">
         <div className="flex flex-wrap items-center gap-3">
           <KongsiButton variant="primary">Ikut Lelang</KongsiButton>
-          <KongsiButton variant="gold">Isi Pundi</KongsiButton>
+          <KongsiButton variant="gold">Isi Saldo</KongsiButton>
           <KongsiButton variant="ghost">Lihat semua</KongsiButton>
           <KongsiLinkButton href="/" variant="primary">
             Ke Beranda

@@ -28,7 +28,7 @@ const label = "mb-[5px] block text-[13px] font-bold";
 const pilihan =
   "cursor-pointer rounded-[6px] border-2 border-kongsi-ink px-3 py-2 text-left text-[13px] font-bold shadow-hard-sm transition-transform hover:translate-x-[1px] hover:translate-y-[1px]";
 
-/** Pesan galat; bila saldo kurang, sertakan tautan Isi Pundi dengan nominal kekurangan. */
+/** Pesan galat; bila saldo kurang, sertakan tautan Isi Saldo dengan nominal kekurangan. */
 function Pesan({ m, kurang, tanpaIsi }: { m: string | null; kurang?: number; tanpaIsi?: boolean }) {
   return m ? (
     <p className="mt-2 rounded-[4px] border-2 border-kongsi-grenadine bg-kongsi-parchment-3 px-3 py-2 text-[13px] text-kongsi-grenadine-dark">
@@ -37,7 +37,7 @@ function Pesan({ m, kurang, tanpaIsi }: { m: string | null; kurang?: number; tan
         <>
           {" "}
           <a href={tautanIsi(kurang ?? 0)} className="font-bold underline">
-            Isi Pundi{kurang ? ` ${formatKeping(saranIsi(kurang))}` : ""}
+            Isi Saldo{kurang ? ` ${formatKeping(saranIsi(kurang))}` : ""}
           </a>
         </>
       ) : null}
@@ -85,7 +85,7 @@ export function TerimaTawaran({
   alamat?: AlamatPilihan[];
   kurang?: number; // kekurangan saldo untuk jaminan saat menerima (perkiraan)
   saldo?: number;
-  kebutuhan?: number | null; // Keteng jaminan saat menerima (null = ada ongkir yang belum diketahui)
+  kebutuhan?: number | null; // Saldo jaminan saat menerima (null = ada ongkir yang belum diketahui)
   langsung?: boolean; // Bayar Langsung (DOKU) tersedia
 }) {
   const { busy, err, jalankan } = useAksi();
@@ -190,8 +190,8 @@ export function TerimaTawaran({
 }
 
 /**
- * Setor setelah tawaran diterima: jaminan Keteng (dari saldo atau dibeli) + selisih uang lewat QRIS/VA bila aku
- * pembayarnya. Selisih tidak pernah dibayar dengan Keteng.
+ * Setor setelah tawaran diterima: jaminan Saldo (dari saldo atau dibeli) + selisih uang lewat QRIS/VA bila aku
+ * pembayarnya. Selisih tidak pernah dibayar dengan Saldo.
  */
 export function SetorTukar({
   dealId,
@@ -214,7 +214,7 @@ export function SetorTukar({
   return (
     <div>
       <KongsiButton type="button" block disabled={busy} onClick={() => jalankan(() => setorTukar(dealId))}>
-        {busy ? "Memproses…" : `Tahan jaminan ${formatKeping(keteng)} dari Pundi`}
+        {busy ? "Memproses…" : `Tahan jaminan ${formatKeping(keteng)} dari Dompet`}
       </KongsiButton>
       <Pesan m={err} kurang={Math.max(0, keteng - saldo)} />
     </div>
@@ -270,7 +270,7 @@ export function BayarOngkir({
   return (
     <div>
       <KongsiButton type="button" block disabled={busy} onClick={() => jalankan(() => bayarOngkirTukar(dealId))}>
-        {busy ? "Memproses…" : `Bayar ongkir ${formatKeping(amount)} dari Pundi`}
+        {busy ? "Memproses…" : `Bayar ongkir ${formatKeping(amount)} dari Dompet`}
       </KongsiButton>
       <Pesan m={err} kurang={kurang} />
     </div>
@@ -426,7 +426,7 @@ export function PindaiKode({ dealId }: { dealId: string }) {
 }
 
 /**
- * Batal (COD sebelum ada pindaian / Kirim sebelum paket dibuat) atau ajukan ke Syahbandar (alasan + foto bukti).
+ * Batal (COD sebelum ada pindaian / Kirim sebelum paket dibuat) atau ajukan ke Admin Sengketa (alasan + foto bukti).
  * COD: "barang lawan tidak sesuai" → semua kembali, lawan dicatat; alasan lain → bea-mu hangus + catatan pelanggaran.
  */
 export function BatalAtauSengketa({
@@ -455,7 +455,7 @@ export function BatalAtauSengketa({
           </KongsiButton>
         ) : null}
         <KongsiButton type="button" variant="ghost" className="text-kongsi-bad" onClick={() => setAksi("sengketa")}>
-          ⚖️ Ajukan ke Syahbandar
+          ⚖️ Ajukan ke Admin Sengketa
         </KongsiButton>
       </div>
     );
@@ -475,7 +475,7 @@ export function BatalAtauSengketa({
         <div className="mb-3 grid gap-2">
           {[
             { v: true, l: "Barang lawan tidak sesuai foto/keterangan", d: "Semua jaminan kembali; lawan dicatat sebagai penyebab." },
-            { v: false, l: "Alasan lain / berubah pikiran", d: "Bea-mu hangus dan dicatat sebagai pelanggaran." },
+            { v: false, l: "Alasan lain / berubah pikiran", d: "Biaya Layanan-mu hangus dan dicatat sebagai pelanggaran." },
           ].map((o) => (
             <button
               key={String(o.v)}
@@ -496,7 +496,7 @@ export function BatalAtauSengketa({
         </p>
       ) : null}
       <label className={label} htmlFor="alasan">
-        {aksi === "batal" ? "Ceritakan alasannya" : "Ceritakan masalahnya ke Syahbandar (jaminan & selisih tetap ditahan sampai diputus)"}
+        {aksi === "batal" ? "Ceritakan alasannya" : "Ceritakan masalahnya ke Admin Sengketa (jaminan & selisih tetap ditahan sampai diputus)"}
       </label>
       <textarea
         id="alasan"
@@ -532,7 +532,7 @@ export function BatalAtauSengketa({
           disabled={busy || (aksi === "sengketa" && (!bukti || alasan.trim().length < 10))}
           onClick={() => jalankan(() => (aksi === "batal" ? batalDiTempat(dealId, alasan, mode === "cod" && tidakSesuai) : kirimSengketa()))}
         >
-          {busy ? "Memproses…" : aksi === "batal" ? "Ya, batalkan" : "Kirim ke Syahbandar"}
+          {busy ? "Memproses…" : aksi === "batal" ? "Ya, batalkan" : "Kirim ke Admin Sengketa"}
         </KongsiButton>
       </div>
       <Pesan m={err} />

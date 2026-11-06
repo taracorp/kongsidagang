@@ -9,12 +9,12 @@ import { antrikanTransfer } from "@/lib/domain/transfer";
 import { BIAYA_TRANSFER, HARI_KERJA_PENCAIRAN, tambahHariKerja } from "@/lib/domain/tukar-aturan";
 import { catatPemakaianDiskon, kunciHitungDiskon, lepasDiskon, pakaiDiskon, type DiskonItem } from "@/lib/domain/diskon";
 
-// Belanja e-voucher lapak — dibayar UANG lewat DOKU (sejak 7 Okt 2026 Keteng hanya untuk Tukar Guling).
+// Belanja e-voucher lapak — dibayar UANG lewat DOKU (sejak 7 Okt 2026 Saldo hanya untuk Barter).
 // - Harga diambil dari DB; angka dari browser tidak dipakai sama sekali.
 // - Tagihan = harga voucher (titipan milik lapak) + platform fee (pendapatan Kongsi, + PPN bila PKP)
 //   + biaya pembayaran DOKU metode terpilih (gross-up, termasuk PPN; ditanggung pembeli).
 //   Hasilnya: setelah dipotong DOKU, Kongsi menerima bersih harga voucher + platform fee.
-// - Pesanan dibuat "menunggu" lengkap dengan snapshot harga; Surat Jalan terbit saat DOKU mengabarkan lunas.
+// - Pesanan dibuat "menunggu" lengkap dengan snapshot harga; Voucher terbit saat DOKU mengabarkan lunas.
 // - E-voucher terikat cabang yang dipilih saat beli; ditebus petugas lapak di cabang itu.
 
 const MAKS_BARIS = 20;
@@ -336,7 +336,7 @@ export async function lunasiBelanja(invoice: string, amount: number, channel: st
       });
       await beriKabar(tx, o.user_id, {
         kind: "voucher",
-        title: `${jumlahVoucher} Surat Jalan terbit`,
+        title: `${jumlahVoucher} Voucher terbit`,
         body: "Tunjukkan kodenya ke petugas di cabang yang kamu pilih.",
         href: "/pakhuis#surat-jalan",
       });

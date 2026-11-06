@@ -7,7 +7,7 @@ import { useCart } from "@/components/kongsi/cart";
 import { cn, formatKeping } from "@/lib/utils";
 import { PLATFORM_FEE } from "@/lib/payment/biaya";
 
-// Perkiraan: platform fee flat; biaya pembayaran DOKU dihitung di Gerbang Tebus setelah metode dipilih.
+// Perkiraan: platform fee flat; biaya pembayaran DOKU dihitung di Pembayaran setelah metode dipilih.
 const BEA = PLATFORM_FEE;
 
 const toneBg: Record<string, string> = {

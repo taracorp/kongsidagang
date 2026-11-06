@@ -227,7 +227,7 @@ export async function getFeatured(userId: string | null): Promise<{
 }
 
 // ------------------------------------------------------------
-// Neraca: bandingkan harga perawatan antar-lapak
+// Banding Harga: bandingkan harga perawatan antar-lapak
 // ------------------------------------------------------------
 
 export type NeracaBaris = {
@@ -267,7 +267,7 @@ export async function getNeraca(query: string): Promise<NeracaBaris[]> {
 }
 
 // ------------------------------------------------------------
-// Juru Tunjuk: produk berdasar tag + anggaran (+ kota cabang)
+// Pemandu Belanja: produk berdasar tag + anggaran (+ kota cabang)
 // ------------------------------------------------------------
 
 export async function cariProdukTag(tag: string, min: number, maks: number, kota: string | null): Promise<ProdukTampil[]> {
@@ -285,7 +285,7 @@ export async function cariProdukTag(tag: string, min: number, maks: number, kota
   return data.map(keProduk);
 }
 
-/** Kota-kota cabang aktif (untuk pilihan Juru Tunjuk). */
+/** Kota-kota cabang aktif (untuk pilihan Pemandu Belanja). */
 export async function getKotaCabang(): Promise<string[]> {
   const rows = await prisma.merchantBranch.findMany({
     where: { is_active: true, merchant: { is_active: true } },

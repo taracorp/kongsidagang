@@ -25,7 +25,7 @@ function AuctionCard({ auction }: { auction: AuctionPublic }) {
           className="absolute left-[14px] top-[14px] inline-flex items-center gap-[6px]"
         >
           <LiveDot live />
-          Lelang {auction.type === "vendu" ? "Vendu" : "Reguler"} ·{" "}
+          Lelang {auction.type === "vendu" ? "Khusus" : "Reguler"} ·{" "}
           {desc(auction.status)}
         </Pill>
         <div className="mt-[14px] font-fraunces text-2xl font-black">
@@ -119,7 +119,7 @@ export function LiveAuction({
       {auction ? <AuctionCard auction={auction} /> : <AdSlot ad={ad} />}
       <p className="mt-[10px] text-[12px] text-kongsi-ink-soft">
         ◆ <b>Lelang Reguler</b> terbuka untuk siapa saja (daftar hanya saat mau
-        menebus). <b>Vendu</b> (lelang khusus) hanya untuk yang sudah masuk.
+        menebus). <b>Lelang Khusus</b> (lelang khusus) hanya untuk yang sudah masuk.
       </p>
     </div>
   );

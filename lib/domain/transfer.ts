@@ -55,7 +55,7 @@ export async function antrikanTransfer(
     kind: "pundi",
     title: `${LABEL_TRANSFER[t.jenis]}: Rp ${nominal.toLocaleString("id-ID")}`,
     body: `${t.keterangan} Ditransfer paling lambat ${t.tenggat.toLocaleDateString("id-ID", { timeZone: "Asia/Jakarta", weekday: "long", day: "numeric", month: "long" })}.${
-      rek ? "" : t.merchantId ? " Isi rekening setoran di Kelola Lapak agar bisa ditransfer." : " Isi rekening pencairan di Pakhuis agar bisa ditransfer."
+      rek ? "" : t.merchantId ? " Isi rekening setoran di Kelola Lapak agar bisa ditransfer." : " Isi rekening pencairan di Akun Saya agar bisa ditransfer."
     }`,
     href: "/pakhuis#transfer",
   });
@@ -172,7 +172,7 @@ export async function daftarTransferAdmin(): Promise<{ antri: BarisTransfer[]; r
   return { antri: antri.map(ke), riwayat: riwayat.map(ke) };
 }
 
-/** Transfer milik user (Pakhuis). */
+/** Transfer milik user (Akun Saya). */
 export async function transferSaya(userId: string) {
   return prisma.transferKeluar.findMany({
     where: { user_id: userId },

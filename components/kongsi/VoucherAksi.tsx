@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 const kecil = "cursor-pointer rounded-[3px] border-2 border-kongsi-ink px-2 py-[4px] text-[12px] font-bold disabled:opacity-60";
 const masukan = "w-full rounded-[3px] border-2 border-kongsi-ink bg-white px-2 py-1 text-[12px]";
 
-/** Aksi pembeli atas Surat Jalan lapak: pindah cabang (gratis) dan laporkan masalah ke Kongsi. */
+/** Aksi pembeli atas Voucher lapak: pindah cabang (gratis) dan laporkan masalah ke Kongsi. */
 export function VoucherAksi({
   id,
   cabangLain,
@@ -84,7 +84,7 @@ export function VoucherAksi({
             className={masukan}
           />
           <p className="text-[11px] text-kongsi-ink-soft">
-            Kongsi memeriksa. Bila lapak terbukti tidak melayani, uangmu kembali utuh ke rekening (isi di Pakhuis → Rekening).
+            Kongsi memeriksa. Bila lapak terbukti tidak melayani, uangmu kembali utuh ke rekening (isi di Akun Saya → Rekening).
           </p>
           <div className="flex gap-2">
             <button type="button" className={cn(kecil, "bg-kongsi-parchment")} onClick={() => setBuka(null)}>

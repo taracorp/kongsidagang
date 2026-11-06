@@ -140,7 +140,7 @@ export function AuthForm({ redirectTo = "/pakhuis" }: { redirectTo?: string }) {
         </KongsiButton>
         <p className="mt-3 text-center text-[12px] text-kongsi-ink-soft">
           Keliling &amp; isi keranjang tak perlu akun. Masuk hanya untuk
-          menebus, ikut Vendu, &amp; menyimpan Surat Jalan.
+          menebus, ikut Lelang Khusus, &amp; menyimpan Voucher.
         </p>
         <div className="my-4 flex items-center gap-3 text-[11px] font-bold uppercase tracking-[1px] text-kongsi-olive">
           <span className="h-px flex-1 bg-kongsi-ink/20" />
