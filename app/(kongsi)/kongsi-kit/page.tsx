@@ -6,6 +6,7 @@ import {
 } from "@/components/kongsi/KongsiButton";
 import { ProdukCard } from "@/components/kongsi/ProdukCard";
 import { PintuCard } from "@/components/kongsi/PintuCard";
+import { BangKongsiDemo } from "@/components/kongsi/BangKongsiDemo";
 
 function Section({
   title,
@@ -40,6 +41,10 @@ export default function KongsiKit() {
           <CompassRose size={48} className="text-kongsi-indigo" />
           <WaxSeal size={32} className="text-kongsi-grenadine" />
         </div>
+      </Section>
+
+      <Section title="Bang Kongsi — host lelang (live shopping)">
+        <BangKongsiDemo />
       </Section>
 
       <Section title="Pill & Segel">

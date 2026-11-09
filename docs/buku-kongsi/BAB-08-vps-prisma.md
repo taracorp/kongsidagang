@@ -1276,3 +1276,17 @@ Traefik yang sudah ada di VPS, cukup atur port.
   perubahan `CONTENT_TYPE` ter-deploy (saat ini `/uploads/tvc/*.mp4` → 404 di produksi lama — expected).
 - **Rollback:** `git revert` commit. Hapus URL dari Setting (`UPDATE settings SET value='[]' WHERE key='tvc_lelang_urls'`).
   Hapus file `/var/www/kongsidagang-uploads/tvc/*` bila perlu.
+
+### Ch 8.50 — Tokoh "Bang Kongsi" (host lelang gaya live shopping)
+2026-11-09
+- **Tujuan:** panggung lelang terasa seperti live shopping — ada pembawa acara beranimasi.
+- **Tokoh:** `components/kongsi/BangKongsi.tsx` — SVG inline berlapis (kepala, mata, mulut, lengan, palu, peci,
+  rompi grenadine) bertema saudagar. Prop `gerak` + `bicara`. 7 gerakan halus berulang (CSS di `app/globals.css`
+  bagian "Bang Kongsi"): diam(napas+kedip) · lambai(kumpul) · tunjuk(clue) · nonton(TVC) · palu(tebak) ·
+  menang(kaget+tepuk) · bisik(lelang khusus). Mulut bergerak saat `bicara`. Hormati `prefers-reduced-motion`.
+- **Demo:** `components/kongsi/BangKongsiDemo.tsx` di `/kongsi-kit` (tombol ganti gerakan + badge LIVE + gelembung).
+- **Suara (ElevenLabs, kunci Tara):** uji 6 suara bawaan → Tara pilih **Daniel** (`onwK4e9ZLuTAKqWW03F9`).
+  Kunci + voice id di `.env.local` (gitignore, chmod 600) — belum di VPS. Akun gratis hanya suara bawaan
+  (library voice butuh paket berbayar). Integrasi TTS menyusul (Ch berikutnya).
+- **Verifikasi:** `npx tsc --noEmit` ✅. Pratinjau animasi dikirim ke Tara & disetujui.
+- **Rollback:** `git revert` commit ini (murni UI, tanpa DB).

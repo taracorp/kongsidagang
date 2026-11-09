@@ -195,6 +195,145 @@ html {
   animation: kongsi-confetti 2.4s linear infinite;
 }
 
+/* ===== Bang Kongsi (tokoh host lelang) ===== */
+.bang {
+  display: block;
+  overflow: visible;
+}
+.bang g {
+  transform-box: fill-box;
+}
+/* napas dasar + anggukan + goyang topi — selalu aktif */
+.bk-all {
+  transform-origin: 50% 100%;
+  animation: bk-breath 3.4s ease-in-out infinite;
+}
+.bk-head {
+  transform-origin: 50% 90%;
+  animation: bk-nod 3.4s ease-in-out infinite;
+}
+.bk-eyes {
+  transform-origin: 50% 50%;
+  animation: bk-blink 4.2s infinite;
+}
+@keyframes bk-breath {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-2px) scale(1.012); }
+}
+@keyframes bk-nod {
+  0%, 100% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.5deg); }
+}
+@keyframes bk-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95% { transform: scaleY(0.1); }
+}
+
+/* mulut bergerak saat bicara */
+.bk-mouth-wrap {
+  transform-origin: 50% 0%;
+}
+.bang[data-bicara="1"] .bk-mouth-wrap {
+  animation: bk-talk 0.26s ease-in-out infinite;
+}
+@keyframes bk-talk {
+  0%, 100% { transform: scaleY(0.5); }
+  50% { transform: scaleY(1.5); }
+}
+
+/* lengan palu & lengan lambai — pivot di bahu */
+.bk-arm-gavel {
+  transform-origin: 85% 6%;
+}
+.bk-arm-wave {
+  transform-origin: 20% 6%;
+}
+
+/* diam: lengan santai (tanpa animasi lengan) */
+
+/* lambai — fase kumpul */
+.bang[data-gerak="lambai"] .bk-arm-wave {
+  animation: bk-lambai 1s ease-in-out infinite;
+}
+@keyframes bk-lambai {
+  0%, 100% { transform: rotate(8deg); }
+  50% { transform: rotate(-24deg); }
+}
+
+/* menunjuk — slide clue (lengan palu terangkat menuding) */
+.bang[data-gerak="tunjuk"] .bk-arm-gavel {
+  transform: rotate(-32deg);
+  animation: bk-tunjuk 1.6s ease-in-out infinite;
+}
+@keyframes bk-tunjuk {
+  0%, 100% { transform: rotate(-30deg); }
+  50% { transform: rotate(-40deg); }
+}
+
+/* nonton bareng — kedua lengan sedikit terangkat */
+.bang[data-gerak="nonton"] .bk-arm-wave {
+  animation: bk-nonton 2.2s ease-in-out infinite;
+}
+.bang[data-gerak="nonton"] .bk-arm-gavel {
+  animation: bk-nonton 2.2s ease-in-out infinite reverse;
+}
+@keyframes bk-nonton {
+  0%, 100% { transform: rotate(-10deg); }
+  50% { transform: rotate(-18deg); }
+}
+
+/* ketuk palu — slide tebak */
+.bang[data-gerak="palu"] .bk-arm-gavel {
+  animation: bk-ketuk 0.7s ease-in-out infinite;
+}
+@keyframes bk-ketuk {
+  0%, 100% { transform: rotate(-38deg); }
+  55% { transform: rotate(-4deg); }
+  70% { transform: rotate(0deg); }
+}
+
+/* menang — kaget lalu tepuk tangan (dua lengan bertemu) */
+.bang[data-gerak="menang"] .bk-all {
+  animation: bk-breath 3.4s ease-in-out infinite, bk-kaget 0.9s ease-out;
+}
+.bang[data-gerak="menang"] .bk-arm-wave {
+  animation: bk-tepuk-kiri 0.4s ease-in-out infinite;
+}
+.bang[data-gerak="menang"] .bk-arm-gavel {
+  animation: bk-tepuk-kanan 0.4s ease-in-out infinite;
+}
+@keyframes bk-kaget {
+  0% { transform: translateY(0) scale(1); }
+  30% { transform: translateY(-8px) scale(1.06); }
+  100% { transform: translateY(0) scale(1); }
+}
+@keyframes bk-tepuk-kiri {
+  0%, 100% { transform: rotate(-26deg); }
+  50% { transform: rotate(-4deg); }
+}
+@keyframes bk-tepuk-kanan {
+  0%, 100% { transform: rotate(26deg); }
+  50% { transform: rotate(4deg); }
+}
+
+/* bisik — lelang khusus (tangan dekat mulut, badan condong) */
+.bang[data-gerak="bisik"] .bk-arm-wave {
+  transform: rotate(-58deg) translateX(6px);
+}
+.bang[data-gerak="bisik"] .bk-head {
+  animation: bk-bisik 3s ease-in-out infinite;
+}
+@keyframes bk-bisik {
+  0%, 100% { transform: rotate(-4deg); }
+  50% { transform: rotate(-7deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bk-all, .bk-head, .bk-eyes, .bk-arm-wave, .bk-arm-gavel, .bk-mouth-wrap {
+    animation: none !important;
+  }
+}
+
 body {
   background-color: var(--color-kongsi-parchment);
   background-image:
