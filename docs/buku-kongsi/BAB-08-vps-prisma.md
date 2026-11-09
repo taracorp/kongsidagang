@@ -1254,3 +1254,25 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - **Verifikasi:** `npx tsc --noEmit` ✅; grep sisa istilah lama & duplikasi = kosong; `/lelang` HTTP 200 tampil,
   harga rahasia tak bocor.
 - **Rollback:** `git revert` commit ini (kode/teks). Lelang: batalkan via `/admin` / `Lel.batalkanLelang`.
+
+### Ch 8.49 — TVC Carousel panggung lelang + lelang durasi pendek
+2026-11-09
+- **Tujuan:** 3 video promosi (TVC) tayang bergantian di halaman `/lelang`, kelola lewat admin.
+- **Video sumber:** 3 reel vertikal (9:16) dari Tara (WhatsApp MP4, 1080p/1440p, total ±140 MB).
+  Transcode ke 720×1280 H.264/AAC (crf 23, maxrate 1.4Mbps, audio 96k, faststart) → total **11.4 MB**:
+  `tvc-01.mp4` 15 dtk 2.5 MB · `tvc-02.mp4` 33 dtk 4.6 MB · `tvc-03.mp4` 33 dtk 4.3 MB. Diunggah ke
+  `/var/www/kongsidagang-uploads/tvc/`.
+- **Penyimpanan URL:** `Setting` key baru `tvc_lelang_urls` berisi JSON `string[]` (maks 6) — tanpa migrasi.
+- **UI:** komponen baru `components/kongsi/TvcCarousel.tsx` (autoplay + muted + inline + preload berikutnya;
+  toggle suara & navigasi manual ‹ ›; dot indikator). Dipasang di atas panggung di `app/(kongsi)/lelang/page.tsx`.
+- **Admin:** `PariwaraForm` ditambah daftar baris URL TVC (+/−); `simpanPariwara(video, image, tvcUrls[])` menyimpan
+  ke Setting dalam satu transaksi.
+- **Query baru:** `getTvcLelang()` di `lib/queries.ts` membaca Setting (dengan `connection()` anti-prerender).
+- **MIME:** `CONTENT_TYPE` di `lib/uploads.ts` ditambah `mp4`/`webm` supaya `app/uploads/[...path]` menyajikan
+  video (sebelumnya hanya gambar).
+- **Lelang durasi pendek:** `e6d75b4b` sudah `gagal` (habis durasi panjang 12+24 jam tanpa peserta); dibuat ulang
+  lelang `f7f212db` dari produk sama (Gold Glow Package) — **kumpul 60 mnt + tebak 120 mnt**, status `kumpul`.
+- **Verifikasi:** `npx tsc --noEmit` ✅. File mp4 sudah di VPS (`ls -lh` 11.4 MB). URL belum tersaji sampai
+  perubahan `CONTENT_TYPE` ter-deploy (saat ini `/uploads/tvc/*.mp4` → 404 di produksi lama — expected).
+- **Rollback:** `git revert` commit. Hapus URL dari Setting (`UPDATE settings SET value='[]' WHERE key='tvc_lelang_urls'`).
+  Hapus file `/var/www/kongsidagang-uploads/tvc/*` bila perlu.

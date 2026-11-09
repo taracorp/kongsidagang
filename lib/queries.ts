@@ -689,6 +689,20 @@ export async function getAdSettings(): Promise<AdSettings> {
   }
 }
 
+/** URL TVC panggung lelang (hingga 6 mp4, berganti otomatis). Setting key `tvc_lelang_urls` berisi JSON string[]. */
+export async function getTvcLelang(): Promise<string[]> {
+  await connection();
+  try {
+    const row = await prisma.setting.findUnique({ where: { key: "tvc_lelang_urls" } });
+    if (!row?.value) return [];
+    const parsed = JSON.parse(row.value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((s): s is string => typeof s === "string" && s.length > 0).slice(0, 6);
+  } catch {
+    return [];
+  }
+}
+
 export async function getMyGuess(auctionId: string): Promise<number | null> {
   await connection(); // data DB selalu per-request, jangan diprerender saat build
   try {

@@ -21,14 +21,17 @@ export async function putuskanPengajuan(appId: string, status: "approved" | "rej
   });
 }
 
-export async function simpanPariwara(video: string, image: string) {
+export async function simpanPariwara(video: string, image: string, tvcUrls: string[] = []) {
   return run(async () => {
     await requireAdminUp();
     const now = new Date();
+    // TVC: bersihkan & maks 6 entri non-kosong.
+    const tvc = tvcUrls.map((s) => String(s ?? "").trim()).filter(Boolean).slice(0, 6);
     await prisma.$transaction(
       [
         ["ad_video_url", video.trim()],
         ["ad_image_url", image.trim()],
+        ["tvc_lelang_urls", JSON.stringify(tvc)],
       ].map(([key, value]) =>
         prisma.setting.upsert({
           where: { key },

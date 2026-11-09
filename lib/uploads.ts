@@ -27,6 +27,8 @@ export async function saveUpload(bucket: "barter" | "sengketa", ownerId: string,
   return `/uploads/${rel}`;
 }
 
-export const CONTENT_TYPE: Record<string, string> = Object.fromEntries(
-  Object.entries(EXT).map(([mime, ext]) => [ext, mime]),
-);
+export const CONTENT_TYPE: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(EXT).map(([mime, ext]) => [ext, mime])),
+  mp4: "video/mp4",
+  webm: "video/webm",
+};
