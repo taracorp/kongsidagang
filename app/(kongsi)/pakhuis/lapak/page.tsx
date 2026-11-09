@@ -3,8 +3,10 @@ import { redirect } from "next/navigation";
 import { SegelBadge, Pill } from "@/components/kongsi/Pill";
 import { KongsiLinkButton } from "@/components/kongsi/KongsiButton";
 import { ProfilLapak, CabangManager, ProdukManager, ValidasiVoucher } from "@/components/kongsi/KelolaLapak";
+import { AjukanLelang } from "@/components/kongsi/AjukanLelang";
 import { getStaffSession, isAdminUp } from "@/lib/roles";
 import { getLapakKelola, getRiwayatTebus } from "@/lib/queries-lapak";
+import { getUsulanLapak } from "@/lib/queries";
 import { RekeningLapakForm } from "@/components/kongsi/RekeningForm";
 import { PromoManager } from "@/components/kongsi/PromoForm";
 import { buatDiskonLapak, aturDiskonLapakAktif } from "@/app/actions/loji";
@@ -21,6 +23,7 @@ export default async function KelolaLapakPage() {
   const riwayat = new Map(await Promise.all(lapak.map(async (m) => [m.id, await getRiwayatTebus(m.id, 10)] as const)));
   const uang = new Map((await ringkasanLapak(lapak.map((m) => m.id))).map((r) => [r.merchantId, r]));
   const promo = new Map(await Promise.all(lapak.map(async (m) => [m.id, await daftarDiskonLapak(m.id)] as const)));
+  const usulan = new Map(await Promise.all(lapak.map(async (m) => [m.id, await getUsulanLapak(m.id)] as const)));
   const setoran = await prisma.setoranLapak.findMany({
     where: { merchant_id: { in: lapak.map((m) => m.id) } },
     orderBy: { created_at: "desc" },
@@ -157,6 +160,13 @@ export default async function KelolaLapakPage() {
                     aturAktif={aturDiskonLapakAktif.bind(null, m.id)}
                   />
                 </div>
+              ) : null}
+
+              {m.isOwner ? (
+                <AjukanLelang
+                  produk={m.products.filter((p) => p.is_active).map((p) => ({ id: p.id, name: p.name, price: p.price }))}
+                  usulan={usulan.get(m.id) ?? []}
+                />
               ) : null}
 
               <ProfilLapak m={m} />

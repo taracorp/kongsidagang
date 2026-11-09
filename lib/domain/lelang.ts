@@ -6,6 +6,8 @@ import { buatPesanan } from "@/lib/domain/belanja";
 import { BIAYA_TRANSFER, tenggatBayar } from "@/lib/domain/tukar-aturan";
 import { isSuperadminEmail } from "@/lib/roles";
 import { broadcastLelang } from "@/lib/realtime";
+import { sanitizeSlides, type SlideData } from "@/lib/domain/slide";
+import { buatSuara } from "@/lib/tts/elevenlabs";
 
 // Balai Lelang v2 (Fase 4, Ch 8.39) — Kongsi tidak pernah menanggung barang lelang yang tidak dibayar.
 // - Barang = produk e-voucher lapak (MerchantProduct). deal_price = hak lapak; set_price = harga yang ditebak & DIBAYAR
@@ -37,7 +39,7 @@ export type LelangBaru = {
   productId: string;
   type: "reguler" | "vendu";
   clueCategory: string;
-  clueNameMasked: string;
+  clueNameMasked?: string; // opsional — nama lapak kini ditampilkan apa adanya
   normalPrice: number;
   dealPrice: number;
   setPrice: number;
@@ -45,12 +47,31 @@ export type LelangBaru = {
   facilities: string[];
   durasiKumpul?: number; // menit (default 30)
   durasiTebak?: number; // menit (default 60)
+  slides?: unknown; // materi slide (clues/videos/fasilitas) — mentah dari form, akan di-sanitize
+  usulanId?: string; // bila dibuat dari usulan lapak → ditandai diterima
 };
+
+/** Naskah sapaan Bang Kongsi (publik — tak menyebut harga rahasia). */
+function naskahPembuka(produk: string, lapak: string, normal: number) {
+  return `Halo sobat Kongsi! Bang Kongsi di sini. Lelang kali ini: ${produk} dari ${lapak}. Harga normalnya ${rp(normal)}, tapi kamu bisa menang jauh lebih murah. Ayo ikut dan tebak harganya!`;
+}
+const NASKAH_TEBAK = "Sekarang saatnya menebak harga set. Yang tebakannya paling dekat, dialah pemenangnya. Ketok!";
+
+/** Buat suara Bang Kongsi untuk satu lelang (best-effort). Menyimpan URL ke kolom slides. */
+async function buatSuaraLelang(auctionId: string, produk: string, lapak: string, normal: number, s: SlideData) {
+  const pembuka = await buatSuara(naskahPembuka(produk, lapak, normal), `${auctionId}-pembuka`);
+  const clues = await Promise.all(
+    s.clues.map((c, idx) => (c.teks ? buatSuara(c.teks, `${auctionId}-clue${idx}`) : Promise.resolve(null))),
+  );
+  const tebak = await buatSuara(NASKAH_TEBAK, `${auctionId}-tebak`);
+  const slides: SlideData = { ...s, suara: { pembuka, clues, tebak } };
+  await prisma.auction.update({ where: { id: auctionId }, data: { slides: slides as object } });
+}
 
 export async function buatLelang(adminId: string, i: LelangBaru) {
   const p = await prisma.merchantProduct.findUnique({
     where: { id: i.productId },
-    include: { merchant: { select: { id: true, owner_id: true, is_active: true } } },
+    include: { merchant: { select: { id: true, owner_id: true, is_active: true, name: true } } },
   });
   if (!p || !p.is_active || !p.merchant.is_active || p.kind !== "evoucher") throw new Error("Pilih produk e-voucher aktif dari lapak aktif.");
   if (p.merchant.owner_id === adminId) throw new Error("Tidak boleh melelang produk lapakmu sendiri.");
@@ -61,9 +82,11 @@ export async function buatLelang(adminId: string, i: LelangBaru) {
   }
   if (i.normalPrice < i.setPrice) throw new Error("Harga normal tidak boleh di bawah harga set.");
   const clue = i.clueCategory.trim().slice(0, 80);
-  const samar = i.clueNameMasked.trim().slice(0, 40);
-  if (clue.length < 3 || samar.length < 2) throw new Error("Isi clue kategori & nama samaran lapak.");
-  return prisma.auction.create({
+  if (clue.length < 3) throw new Error("Isi clue kategori produk.");
+  const samar = (i.clueNameMasked ?? p.merchant.name).trim().slice(0, 40) || p.merchant.name;
+  const materi = i.slides != null ? sanitizeSlides(i.slides) : null;
+
+  const auction = await prisma.auction.create({
     data: {
       type: i.type === "vendu" ? "vendu" : "reguler",
       status: "draf",
@@ -75,12 +98,35 @@ export async function buatLelang(adminId: string, i: LelangBaru) {
       capacity: Math.min(1000, i.capacity),
       durasi_kumpul: Math.min(1440, Math.max(1, Math.floor(i.durasiKumpul ?? 30))),
       durasi_tebak: Math.min(1440, Math.max(1, Math.floor(i.durasiTebak ?? 60))),
-      facilities: i.facilities.map((f) => f.trim().slice(0, 80)).filter(Boolean).slice(0, 8),
+      facilities: (materi?.fasilitas ?? i.facilities).map((f) => f.trim().slice(0, 80)).filter(Boolean).slice(0, 8),
       merchant_id: p.merchant.id,
       product_id: p.id,
       dibuat_oleh: adminId,
+      ...(materi ? { slides: materi as object } : {}),
     },
   });
+
+  if (i.usulanId) {
+    await prisma.auctionUsulan.updateMany({
+      where: { id: i.usulanId, status: { not: "diterima" } },
+      data: { status: "diterima", diputus_oleh: adminId, auction_id: auction.id },
+    });
+    await beriKabar(prisma, p.merchant.owner_id, {
+      kind: "lelang",
+      title: `Usulan lelang diterima: ${p.name}`,
+      body: "Lelangmu sudah dibuat sebagai draf dan akan segera tayang di Balai Lelang.",
+      href: "/pakhuis/lapak",
+    });
+  }
+  // Suara dibuat sekali di sini (best-effort; tak menggagalkan pembuatan lelang).
+  if (materi) {
+    try {
+      await buatSuaraLelang(auction.id, p.name, p.merchant.name, i.normalPrice, materi);
+    } catch (e) {
+      console.error("Gagal buat suara lelang:", e);
+    }
+  }
+  return auction;
 }
 
 export async function mulaiLelang(adminId: string, id: string) {
@@ -103,6 +149,75 @@ export async function batalkanLelang(adminId: string, id: string, alasan: string
   });
   if (r.count !== 1) throw new Error("Lelang tidak bisa dibatalkan setelah pemenang ditentukan.");
   broadcastLelang();
+}
+
+// ============================================================
+// Usulan lelang dari lapak (Ch 8.51)
+// ============================================================
+
+export type UsulanBaru = { productId: string; slides: unknown; usulDeal: number };
+
+/** Lapak (pemilik) atau pengurus (atas nama lapak) mengajukan materi lelang untuk sebuah produk. */
+export async function ajukanUsulan(userId: string, isPengurus: boolean, i: UsulanBaru) {
+  const p = await prisma.merchantProduct.findUnique({
+    where: { id: i.productId },
+    include: { merchant: { select: { id: true, owner_id: true, is_active: true } } },
+  });
+  if (!p || !p.is_active || !p.merchant.is_active || p.kind !== "evoucher") {
+    throw new Error("Pilih produk e-voucher aktif dari lapak aktif.");
+  }
+  if (!isPengurus && p.merchant.owner_id !== userId) {
+    throw new Error("Hanya pemilik lapak yang boleh mengajukan produk ini.");
+  }
+  const deal = Math.floor(Number(i.usulDeal));
+  if (!Number.isInteger(deal) || deal <= 0) throw new Error("Isi usulan hak lapak (rupiah) yang wajar.");
+  if (deal > p.price) throw new Error("Usulan hak lapak tidak boleh di atas harga normal produk.");
+  const materi = sanitizeSlides(i.slides);
+  // Maks 3 usulan menunggu per lapak.
+  const menunggu = await prisma.auctionUsulan.count({ where: { merchant_id: p.merchant.id, status: "diajukan" } });
+  if (menunggu >= 3) throw new Error("Sudah ada 3 usulan menunggu untuk lapak ini. Tunggu ditinjau pengurus dulu.");
+  return prisma.auctionUsulan.create({
+    data: {
+      merchant_id: p.merchant.id,
+      product_id: p.id,
+      slides: materi as object,
+      usul_deal: deal,
+      dibuat_oleh: userId,
+    },
+  });
+}
+
+/** Pengurus menyunting materi/harga usulan yang masih menunggu. */
+export async function ubahUsulan(adminId: string, usulanId: string, i: { slides: unknown; usulDeal: number }) {
+  const u = await prisma.auctionUsulan.findUnique({ where: { id: usulanId }, select: { status: true } });
+  if (!u || u.status !== "diajukan") throw new Error("Usulan tidak bisa diubah (bukan status menunggu).");
+  const deal = Math.floor(Number(i.usulDeal));
+  if (!Number.isInteger(deal) || deal <= 0) throw new Error("Isi usulan hak lapak yang wajar.");
+  const materi = sanitizeSlides(i.slides);
+  await prisma.auctionUsulan.update({
+    where: { id: usulanId },
+    data: { slides: materi as object, usul_deal: deal },
+  });
+}
+
+/** Pengurus menolak usulan + catatan; mengabari lapak. */
+export async function tolakUsulan(adminId: string, usulanId: string, catatan: string) {
+  const why = String(catatan ?? "").trim().slice(0, 300);
+  if (why.length < 5) throw new Error("Tulis alasan penolakan (minimal 5 huruf).");
+  const u = await prisma.auctionUsulan.findUnique({
+    where: { id: usulanId },
+    include: { merchant: { select: { owner_id: true, name: true } }, product: { select: { name: true } } },
+  });
+  if (!u || u.status !== "diajukan") throw new Error("Usulan tidak bisa ditolak (bukan status menunggu).");
+  await prisma.$transaction(async (tx) => {
+    await tx.auctionUsulan.update({ where: { id: usulanId }, data: { status: "ditolak", diputus_oleh: adminId, catatan: why } });
+    await beriKabar(tx, u.merchant.owner_id, {
+      kind: "lelang",
+      title: `Usulan lelang ditolak: ${u.product.name}`,
+      body: why,
+      href: "/pakhuis/lapak",
+    });
+  });
 }
 
 // ============================================================

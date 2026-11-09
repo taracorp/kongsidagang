@@ -334,6 +334,52 @@ html {
   }
 }
 
+/* ===== Slide panggung lelang ===== */
+.sl-enter { animation: sl-enter 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+@keyframes sl-enter {
+  from { opacity: 0; transform: translateX(16px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.sl-drop { animation: sl-drop 0.6s cubic-bezier(0.2, 1.4, 0.4, 1); }
+@keyframes sl-drop {
+  from { opacity: 0; transform: translateY(-18px); }
+  to { opacity: 1; transform: none; }
+}
+.sl-rise { animation: sl-rise 0.5s ease 0.1s both; }
+@keyframes sl-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+.sl-pop { animation: sl-pop 0.5s cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+@keyframes sl-pop {
+  from { opacity: 0; transform: scale(0.6); }
+  to { opacity: 1; transform: none; }
+}
+.sl-stagger { animation: sl-rise 0.4s ease both; }
+.sl-strike { transform-origin: left; animation: sl-strike 0.5s ease 0.5s both; }
+@keyframes sl-strike {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.sl-shake { animation: sl-shake 0.8s ease 0.6s infinite; }
+@keyframes sl-shake {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-2deg); }
+  75% { transform: rotate(2deg); }
+}
+.sl-progress { animation: sl-progress linear forwards; }
+@keyframes sl-progress {
+  from { width: 0; }
+  to { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sl-enter, .sl-drop, .sl-rise, .sl-pop, .sl-stagger, .sl-strike, .sl-shake {
+    animation: none !important;
+  }
+  .sl-strike { transform: scaleX(1); }
+  .sl-progress { width: 100%; animation: none !important; }
+}
+
 body {
   background-color: var(--color-kongsi-parchment);
   background-image:

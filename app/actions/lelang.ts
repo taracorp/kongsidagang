@@ -1,6 +1,7 @@
 "use server";
 
 import * as Lelang from "@/lib/domain/lelang";
+import { getStaffSession, isAdminUp } from "@/lib/roles";
 import { run, requireUser, requireAdminUp, toInt } from "./_util";
 
 export async function ikutLelang(auctionId: string) {
@@ -27,10 +28,12 @@ export async function bayarLelang(auctionId: string, branchId: string, metode: s
   });
 }
 
-/** Pengurus membuat lelang (status draf). */
+/** Pengurus membuat lelang (status draf). Bila `slides`/`usulan_id` ada → materi slide + suara dibuat. */
 export async function buatLelang(form: FormData) {
   return run(async () => {
     const s = await requireAdminUp();
+    const slidesRaw = String(form.get("slides") ?? "");
+    const usulanId = String(form.get("usulan_id") ?? "") || undefined;
     await Lelang.buatLelang(s.userId!, {
       productId: String(form.get("product_id") ?? ""),
       type: form.get("type") === "vendu" ? "vendu" : "reguler",
@@ -43,7 +46,36 @@ export async function buatLelang(form: FormData) {
       durasiKumpul: toInt(form.get("durasi_kumpul")) || 30,
       durasiTebak: toInt(form.get("durasi_tebak")) || 60,
       facilities: String(form.get("facilities") ?? "").split("\n"),
+      slides: slidesRaw ? (JSON.parse(slidesRaw) as unknown) : undefined,
+      usulanId,
     });
+  });
+}
+
+/** Lapak (pemilik) atau pengurus (atas nama lapak) mengajukan usulan lelang. `slides` = JSON. */
+export async function ajukanLelang(input: { productId: string; slides: unknown; usulDeal: number }) {
+  return run(async () => {
+    const user = await requireUser();
+    const staff = await getStaffSession();
+    await Lelang.ajukanUsulan(user.id, isAdminUp(staff.role), {
+      productId: String(input.productId),
+      slides: input.slides,
+      usulDeal: Number(input.usulDeal),
+    });
+  });
+}
+
+export async function ubahUsulan(usulanId: string, input: { slides: unknown; usulDeal: number }) {
+  return run(async () => {
+    const s = await requireAdminUp();
+    await Lelang.ubahUsulan(s.userId!, String(usulanId), { slides: input.slides, usulDeal: Number(input.usulDeal) });
+  });
+}
+
+export async function tolakUsulan(usulanId: string, catatan: string) {
+  return run(async () => {
+    const s = await requireAdminUp();
+    await Lelang.tolakUsulan(s.userId!, String(usulanId), String(catatan ?? ""));
   });
 }
 

@@ -1,6 +1,7 @@
 import { cn, formatKeping } from "@/lib/utils";
 import { Pill, LiveDot } from "./Pill";
 import { KongsiLinkButton } from "./KongsiButton";
+import { BangKongsi } from "./BangKongsi";
 import type { AuctionPublic, AdSettings } from "@/lib/queries";
 
 const desc = (s: string): string => {
@@ -29,14 +30,16 @@ function AuctionCard({ auction }: { auction: AuctionPublic }) {
           {desc(auction.status)}
         </Pill>
         <div className="mt-[14px] font-fraunces text-2xl font-black">
-          {auction.clue_category}
+          {auction.product_name ?? auction.clue_category}
         </div>
         <div className="mt-[2px] text-sm opacity-85">
-          Nama lapak:{" "}
-          <b className="font-fraunces tracking-[3px] text-kongsi-beeswax">
-            {auction.clue_name_masked}
-          </b>{" "}
-          · disamarkan sampai menang
+          Lapak:{" "}
+          <b className="font-fraunces tracking-wide text-kongsi-beeswax">
+            {auction.merchant_name ?? auction.clue_name_masked}
+          </b>
+        </div>
+        <div className="pointer-events-none absolute -bottom-1 right-1 opacity-90">
+          <BangKongsi gerak="lambai" size={92} />
         </div>
       </div>
       <div className="flex flex-col justify-center bg-kongsi-parchment p-6 text-center">

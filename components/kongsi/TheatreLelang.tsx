@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Panggung } from "./Panggung";
-import { LelangLive } from "./LelangLive";
+import { PanelTebak } from "./LelangLive";
+import { SlideLelang } from "./SlideLelang";
 import { Pill, LiveDot } from "./Pill";
 import { cn } from "@/lib/utils";
 import type { AuctionPublic, AdSettings } from "@/lib/queries";
@@ -150,17 +151,17 @@ export function TheatreLelang({
     // Begitu user menyentuh/mengetik di kartu lelang, auto-ganti produk berhenti (biar sempat menawar).
     <div onPointerDownCapture={() => setPaused(true)} onFocusCapture={() => setPaused(true)}>
       <Panggung open={open} celebrate={celebrate}>
-        {current ? (
-          <LelangLive
-            key={current.id}
-            auction={current}
-            userId={userId}
-            initialGuess={guesses[current.id] ?? null}
-          />
-        ) : (
-          <StageAd ad={ad} />
-        )}
+        {current ? <SlideLelang key={current.id} auction={current} /> : <StageAd ad={ad} />}
       </Panggung>
+
+      {current ? (
+        <PanelTebak
+          key={`panel-${current.id}`}
+          auction={current}
+          userId={userId}
+          initialGuess={guesses[current.id] ?? null}
+        />
+      ) : null}
 
       {count > 1 ? (
         <div className="mt-4 flex items-center justify-between gap-3">

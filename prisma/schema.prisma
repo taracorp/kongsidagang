@@ -164,6 +164,7 @@ model Merchant {
   potongan      PotonganLapak[]
   auctions      Auction[]
   diskon        Diskon[]
+  auctionUsulan AuctionUsulan[]
 
   @@map("merchants")
 }
@@ -191,6 +192,7 @@ model MerchantProduct {
   orderItems OrderItem[]
   vouchers   Voucher[]
   auctions   Auction[]
+  auctionUsulan AuctionUsulan[]
 
   @@index([merchant_id])
   @@map("merchant_products")
@@ -346,11 +348,38 @@ model Auction {
   batal_alasan    String?
   selesai_at      DateTime?
 
+  // Materi slide panggung (Ch 8.51): { clues:[{teks,gambar?,suara?}], videos:[url], fasilitas:[string],
+  // suaraPembuka?, suaraTebak? }. Hanya teks publik — TIDAK memuat harga rahasia.
+  slides          Json?
+
   participants AuctionParticipant[]
   guesses      AuctionGuess[]
   hak          AuctionHak[]
 
   @@map("auctions")
+}
+
+// Usulan lelang dari lapak (Ch 8.51). Lapak mengisi materi (clue/foto/video/fasilitas) + usul harga deal;
+// pengurus meninjau, mengisi harga set rahasia, lalu membuat lelang (draf). Admin boleh mengisi atas nama lapak.
+model AuctionUsulan {
+  id          String          @id @default(uuid())
+  merchant_id String
+  merchant    Merchant        @relation(fields: [merchant_id], references: [id], onDelete: Cascade)
+  product_id  String
+  product     MerchantProduct @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  slides      Json // { clues, videos, fasilitas } — sama bentuk dengan Auction.slides
+  usul_deal   Int // usulan hak lapak (rupiah) — pengurus boleh ubah
+  status      String          @default("diajukan") // diajukan | diterima | ditolak
+  catatan     String? // catatan pengurus saat menolak/menerima
+  dibuat_oleh String
+  diputus_oleh String?
+  auction_id  String? // lelang yang terbit setelah diterima
+  created_at  DateTime        @default(now())
+  updated_at  DateTime        @default(now()) @updatedAt
+
+  @@index([merchant_id])
+  @@index([status])
+  @@map("auction_usulan")
 }
 
 model AuctionParticipant {

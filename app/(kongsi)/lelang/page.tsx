@@ -1,8 +1,7 @@
 import { KongsiLinkButton } from "@/components/kongsi/KongsiButton";
 import { TheatreLelang } from "@/components/kongsi/TheatreLelang";
-import { TvcCarousel } from "@/components/kongsi/TvcCarousel";
 import { getSessionUser } from "@/lib/auth";
-import { getStageAuctions, getMyGuesses, getAdSettings, getTvcLelang } from "@/lib/queries";
+import { getStageAuctions, getMyGuesses, getAdSettings } from "@/lib/queries";
 
 export default async function LelangPage({
   searchParams,
@@ -15,10 +14,9 @@ export default async function LelangPage({
   const user = await getSessionUser();
 
   const auctions = await getStageAuctions(isVendu ? "vendu" : "reguler");
-  const [guesses, ad, tvc] = await Promise.all([
+  const [guesses, ad] = await Promise.all([
     getMyGuesses(auctions.map((a) => a.id)),
     getAdSettings(),
-    getTvcLelang(),
   ]);
 
   return (
@@ -62,15 +60,12 @@ export default async function LelangPage({
             </KongsiLinkButton>
           </div>
         ) : (
-          <>
-            {tvc.length > 0 ? <div className="mt-7"><TvcCarousel urls={tvc} /></div> : null}
-            <TheatreLelang
-              auctions={auctions}
-              ad={ad}
-              userId={user?.id ?? null}
-              guesses={guesses}
-            />
-          </>
+          <TheatreLelang
+            auctions={auctions}
+            ad={ad}
+            userId={user?.id ?? null}
+            guesses={guesses}
+          />
         )}
       </div>
     </section>

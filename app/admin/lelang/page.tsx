@@ -1,7 +1,8 @@
 import { redirect } from "next/navigation";
 import { AksiLelang, FormLelangBaru } from "@/components/admin/LelangAdmin";
+import { UsulanAdmin } from "@/components/admin/UsulanAdmin";
 import { prisma } from "@/lib/db";
-import { getAdminData } from "@/lib/queries";
+import { getAdminData, getUsulanMenunggu } from "@/lib/queries";
 import { getStaffSession, isAdminUp } from "@/lib/roles";
 import { formatKeping } from "@/lib/utils";
 
@@ -11,13 +12,14 @@ const sel = "border-t-[1.5px] border-kongsi-ink/15 p-2 align-top";
 export default async function AdminLelang() {
   const { role } = await getStaffSession();
   if (!isAdminUp(role)) redirect("/admin");
-  const [{ auctions }, produk] = await Promise.all([
+  const [{ auctions }, produk, usulan] = await Promise.all([
     getAdminData(),
     prisma.merchantProduct.findMany({
       where: { is_active: true, kind: "evoucher", merchant: { is_active: true } },
       select: { id: true, name: true, price: true, merchant: { select: { name: true } } },
       orderBy: [{ merchant: { name: "asc" } }, { name: "asc" }],
     }),
+    getUsulanMenunggu(),
   ]);
 
   return (
@@ -28,6 +30,8 @@ export default async function AdminLelang() {
         platform fee + biaya pembayaran sebelum Voucher terbit; tidak bayar → hak turun ke peringkat 2 lalu 3, lalu lelang
         gagal tanpa kewajiban ke lapak.
       </div>
+
+      <UsulanAdmin usulan={usulan} />
 
       <FormLelangBaru produk={produk.map((p) => ({ id: p.id, label: `${p.merchant.name} — ${p.name}`, harga: p.price }))} />
 

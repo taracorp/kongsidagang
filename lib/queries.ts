@@ -2,6 +2,7 @@ import "server-only";
 import { connection } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { parseSlides, type SlideData } from "@/lib/domain/slide";
 import { getStaffSession, isAdminUp, canEditKabar, isKetua, isSuperadminEmail } from "@/lib/roles";
 import type { Tone } from "@/components/kongsi/ProdukCard";
 import {
@@ -584,8 +585,14 @@ export type AuctionPublic = {
   type: string;
   clue_category: string;
   clue_name_masked: string;
+  /** nama lapak asli + slug (ditampilkan apa adanya sejak Ch 8.51) */
+  merchant_name: string | null;
+  merchant_slug: string | null;
+  product_name: string | null;
   normal_price: number;
   facilities: string[];
+  /** materi slide publik (clue/video/suara) — TANPA harga rahasia */
+  slides: SlideData | null;
   status: string;
   capacity: number;
   peserta_count: number;
@@ -619,11 +626,14 @@ async function getPublicAuctionItems(
       clue_name_masked: true,
       normal_price: true,
       facilities: true,
+      slides: true,
       status: true,
       capacity: true,
       set_price: true,
       winning_guess: true,
       winner_id: true,
+      merchant: { select: { name: true, slug: true } },
+      product: { select: { name: true } },
       winner: {
         select: { name: true, email: true, profile: { select: { full_name: true } } },
       },
@@ -634,13 +644,19 @@ async function getPublicAuctionItems(
   });
   return rows.map((a) => {
     const reveal = REVEAL_STATUSES.includes(a.status);
+    const slides = parseSlides(a.slides);
+    // Jangan pernah kirim info internal; slides kita sudah hanya teks/URL publik.
     return {
       id: a.id,
       type: a.type,
       clue_category: a.clue_category,
       clue_name_masked: a.clue_name_masked,
+      merchant_name: a.merchant?.name ?? null,
+      merchant_slug: a.merchant?.slug ?? null,
+      product_name: a.product?.name ?? null,
       normal_price: a.normal_price,
       facilities: a.facilities,
+      slides,
       status: a.status,
       capacity: a.capacity,
       peserta_count: a._count.participants,
@@ -666,6 +682,76 @@ export async function getActiveAuction(
     return first ?? null;
   } catch {
     return null;
+  }
+}
+
+export type UsulanRow = {
+  id: string;
+  merchant_id: string;
+  merchant_name: string;
+  product_id: string;
+  product_name: string;
+  normal_price: number;
+  usul_deal: number;
+  status: string;
+  catatan: string | null;
+  auction_id: string | null;
+  slides: SlideData | null;
+  created_at: string;
+};
+
+function mapUsulan(u: {
+  id: string; merchant_id: string; product_id: string; usul_deal: number; status: string;
+  catatan: string | null; auction_id: string | null; created_at: Date; slides: unknown;
+  merchant: { name: string }; product: { name: string; price: number };
+}): UsulanRow {
+  return {
+    id: u.id,
+    merchant_id: u.merchant_id,
+    merchant_name: u.merchant.name,
+    product_id: u.product_id,
+    product_name: u.product.name,
+    normal_price: u.product.price,
+    usul_deal: u.usul_deal,
+    status: u.status,
+    catatan: u.catatan,
+    auction_id: u.auction_id,
+    slides: parseSlides(u.slides),
+    created_at: u.created_at.toISOString(),
+  };
+}
+
+const USULAN_INCLUDE = { merchant: { select: { name: true } }, product: { select: { name: true, price: true } } } as const;
+
+/** Usulan lelang milik satu lapak (dasbor Kelola Lapak). */
+export async function getUsulanLapak(merchantId: string): Promise<UsulanRow[]> {
+  await connection();
+  try {
+    const rows = await prisma.auctionUsulan.findMany({
+      where: { merchant_id: merchantId },
+      include: USULAN_INCLUDE,
+      orderBy: { created_at: "desc" },
+      take: 30,
+    });
+    return rows.map(mapUsulan);
+  } catch {
+    return [];
+  }
+}
+
+/** Usulan yang menunggu tinjauan pengurus (admin). */
+export async function getUsulanMenunggu(): Promise<UsulanRow[]> {
+  await connection();
+  try {
+    const rows = await prisma.auctionUsulan.findMany({
+      where: { status: "diajukan" },
+      include: USULAN_INCLUDE,
+      orderBy: { created_at: "asc" },
+      take: 50,
+    });
+    return rows.map(mapUsulan);
+  } catch {
+    return [];
   }
 }
 

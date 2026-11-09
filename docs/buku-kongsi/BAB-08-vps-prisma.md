@@ -1290,3 +1290,26 @@ Traefik yang sudah ada di VPS, cukup atur port.
   (library voice butuh paket berbayar). Integrasi TTS menyusul (Ch berikutnya).
 - **Verifikasi:** `npx tsc --noEmit` ✅. Pratinjau animasi dikirim ke Tara & disetujui.
 - **Rollback:** `git revert` commit ini (murni UI, tanpa DB).
+
+### Ch 8.51 — Panggung lelang jadi slide presentasi (Bang Kongsi + TVC di dalam) + usulan lapak
+2026-11-09
+- **Tujuan:** panggung `/lelang` terasa seperti live shopping — clue jadi slide beranimasi berganti otomatis,
+  TVC jadi salah satu slide di dalam bingkai (tidak terpisah), Bang Kongsi membawakan, nama lapak tampil apa adanya.
+- **DB (migrasi `20261109025907_lelang_slide_usulan`, dev ✓; produksi: menunggu izin Tara):**
+  `Auction.slides Json?` (clues/videos/fasilitas/suara — hanya teks publik) + tabel `auction_usulan`
+  (pengajuan lapak: materi + usul_deal + status diajukan|diterima|ditolak + auction_id).
+- **Alur (keputusan Tara):** pemilik lapak mengisi materi di Kelola Lapak (`AjukanLelang` + `SlideEditor`:
+  clue, foto, video dari HP, fasilitas, usul hak lapak) → pengurus meninjau di `/admin/lelang` (`UsulanAdmin`:
+  sunting, isi harga set rahasia, Terima→draf / Tolak+catatan). Admin boleh mengisi atas nama lapak.
+  Nama lapak ditampilkan (tak lagi disamarkan); `clue_name_masked` jadi opsional.
+- **Slide (`SlideLelang`):** pembuka → clue 1..3 → TVC → fasilitas → tebak (+ reveal pemenang). Progress bar ala
+  stories, auto-ganti (TVC menunggu video selesai), navigasi ‹ ›, badge LIVE + peserta asli. `LelangLive`
+  dipecah → `PanelTebak` (form tebak/ikut/reveal) menempel di bawah panggung. `TvcCarousel` terpisah dihapus dari `/lelang`.
+- **Suara:** `lib/tts/elevenlabs.ts` (voice Daniel) membuat mp3 sekali saat pengurus Terima (best-effort; gagal→null).
+  Browser: tombol "Nyalakan suara" (localStorage); fallback Web Speech API bila tak ada mp3. Mulut Bang Kongsi
+  bergerak saat bicara. Hormati `prefers-reduced-motion`.
+- **Unggahan:** `lib/uploads.ts` bucket `lelang` (gambar ≤5MB) + `saveVideoTvc` (≤100MB → ffmpeg 720p faststart).
+  Route `app/api/lelang/unggah` (cek sesi + pemilik lapak/pengurus). URL dibatasi pola `/uploads/lelang/...` (anti-SSRF).
+- **Keamanan:** harga deal/set TIDAK pernah masuk `AuctionPublic`/`slides`. Diverifikasi skrip uji
+  (ajukan→terima→publik, 9/9 lolos) + `tsc`/`lint`/`build` lolos.
+- **Rollback:** `git revert` commit. Migrasi batal: `DROP TABLE auction_usulan; ALTER TABLE auctions DROP COLUMN slides;`.
