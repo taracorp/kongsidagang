@@ -57,12 +57,16 @@ function naskahPembuka(produk: string, lapak: string, normal: number) {
 }
 const NASKAH_TEBAK = "Sekarang saatnya menebak harga set. Yang tebakannya paling dekat, dialah pemenangnya. Ketok!";
 
-/** Buat suara Bang Kongsi untuk satu lelang (best-effort). Menyimpan URL ke kolom slides. */
+/**
+ * Buat suara Bang Kongsi untuk satu lelang (best-effort). BERURUTAN — paket gratis ElevenLabs
+ * membatasi 2 request bersamaan, jadi jangan paralel. Menyimpan URL ke kolom slides.
+ */
 async function buatSuaraLelang(auctionId: string, produk: string, lapak: string, normal: number, s: SlideData) {
   const pembuka = await buatSuara(naskahPembuka(produk, lapak, normal), `${auctionId}-pembuka`);
-  const clues = await Promise.all(
-    s.clues.map((c, idx) => (c.teks ? buatSuara(c.teks, `${auctionId}-clue${idx}`) : Promise.resolve(null))),
-  );
+  const clues: (string | null)[] = [];
+  for (let idx = 0; idx < s.clues.length; idx++) {
+    clues.push(s.clues[idx].teks ? await buatSuara(s.clues[idx].teks, `${auctionId}-clue${idx}`) : null);
+  }
   const tebak = await buatSuara(NASKAH_TEBAK, `${auctionId}-tebak`);
   const slides: SlideData = { ...s, suara: { pembuka, clues, tebak } };
   await prisma.auction.update({ where: { id: auctionId }, data: { slides: slides as object } });

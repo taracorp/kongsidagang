@@ -1313,3 +1313,14 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - **Keamanan:** harga deal/set TIDAK pernah masuk `AuctionPublic`/`slides`. Diverifikasi skrip uji
   (ajukan→terima→publik, 9/9 lolos) + `tsc`/`lint`/`build` lolos.
 - **Rollback:** `git revert` commit. Migrasi batal: `DROP TABLE auction_usulan; ALTER TABLE auctions DROP COLUMN slides;`.
+
+### Ch 8.52 — Deploy produksi slide lelang + perbaikan batas suara ElevenLabs
+2026-11-09
+- **Deploy produksi (disetujui Tara):** migrasi `20261109025907_lelang_slide_usulan` diterapkan ke DB `kongsi`
+  (kolom `auctions.slides` + tabel `auction_usulan`), kunci `ELEVENLABS_API_KEY`+`ELEVENLABS_VOICE_ID` (Daniel)
+  ditaruh di `/var/www/kongsidagang/.env` (chmod 600, via stdin — tak masuk git), build + pm2 reload. HTTP 200.
+- **Lelang contoh:** `bcdddbd0` (Gold Glow Package, Beauty Center DRW) dengan 3 video TVC lama disalin ke
+  `/uploads/lelang/umum/` + 3 clue + fasilitas; suara dibuat otomatis.
+- **Perbaikan:** `buatSuaraLelang` dibuat BERURUTAN (bukan `Promise.all`) — paket gratis ElevenLabs batas 2 request
+  bersamaan (1 clue sempat 429 saat paralel). Suara yang gagal → fallback Web Speech di browser.
+- **Rollback:** `git revert` commit; lelang dibatalkan via `/admin`.
