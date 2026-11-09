@@ -588,6 +588,7 @@ export type AuctionPublic = {
   /** nama lapak asli + slug (ditampilkan apa adanya sejak Ch 8.51) */
   merchant_name: string | null;
   merchant_slug: string | null;
+  merchant_logo: string | null;
   product_name: string | null;
   normal_price: number;
   facilities: string[];
@@ -632,7 +633,7 @@ async function getPublicAuctionItems(
       set_price: true,
       winning_guess: true,
       winner_id: true,
-      merchant: { select: { name: true, slug: true } },
+      merchant: { select: { name: true, slug: true, logo_url: true } },
       product: { select: { name: true } },
       winner: {
         select: { name: true, email: true, profile: { select: { full_name: true } } },
@@ -653,6 +654,7 @@ async function getPublicAuctionItems(
       clue_name_masked: a.clue_name_masked,
       merchant_name: a.merchant?.name ?? null,
       merchant_slug: a.merchant?.slug ?? null,
+      merchant_logo: a.merchant?.logo_url ?? null,
       product_name: a.product?.name ?? null,
       normal_price: a.normal_price,
       facilities: a.facilities,

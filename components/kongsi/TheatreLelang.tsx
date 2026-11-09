@@ -1,54 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Panggung } from "./Panggung";
-import { PanelTebak } from "./LelangLive";
 import { SlideLelang } from "./SlideLelang";
-import { Pill, LiveDot } from "./Pill";
-import { cn } from "@/lib/utils";
 import type { AuctionPublic, AdSettings } from "@/lib/queries";
 
-const SWAP_MS = 1300;
-const AUTOPLAY_MS = 12000;
-
-function StageAd({ ad }: { ad: AdSettings }) {
-  const { video, image } = ad;
-  return (
-    <div className="text-center text-kongsi-parchment">
-      <Pill variant="indigo" className="inline-flex items-center gap-[6px]">
-        <LiveDot live={false} />
-        Sekilas Pariwara
-      </Pill>
-      <div className="mt-4 overflow-hidden rounded-[6px] border-2 border-kongsi-ink bg-black/70">
-        {video ? (
-          <video
-            src={video}
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="mx-auto max-h-[300px] w-full object-cover"
-          />
-        ) : image ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={image}
-            alt="Pariwara"
-            className="mx-auto max-h-[300px] w-full object-cover"
-          />
-        ) : (
-          <div className="px-4 py-16 text-sm text-kongsi-parchment/80">
-            Belum ada lelang berjalan.
-            <br />
-            Ruang panggung ini menayangkan iklan / video promosi Pekan Raya.
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
+// Panggung lelang layar-penuh (reels). Satu lelang memenuhi layar; antar-lelang digeser lewat tombol
+// "lihat lelang lain" di bar aksi (onSkip). Form tebak/bayar menyatu di dalam bingkai (SlideLelang).
 export function TheatreLelang({
   auctions,
   ad,
@@ -62,154 +20,46 @@ export function TheatreLelang({
 }) {
   const count = auctions.length;
   const [index, setIndex] = useState(0);
-  const [open, setOpen] = useState(false);
-  const [paused, setPaused] = useState(false); // berhenti auto-ganti saat user berinteraksi
-  const pausedRef = useRef(false);
-  const swapTimer = useRef<number | null>(null);
-  const reduce = useRef(false);
   const router = useRouter();
 
-  useEffect(() => {
-    reduce.current =
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const t = window.setTimeout(() => setOpen(true), reduce.current ? 0 : 550);
-    return () => clearTimeout(t);
-  }, []);
-
-  useEffect(() => {
-    pausedRef.current = paused;
-  }, [paused]);
-
-  // Realtime: dengar sinyal server lewat SSE (/api/lelang/stream) → refetch data server.
+  // Realtime: dengar sinyal server lewat SSE → refetch data.
   useEffect(() => {
     const es = new EventSource("/api/lelang/stream");
     es.addEventListener("update", () => router.refresh());
     return () => es.close();
   }, [router]);
 
-  // Saat data lelang berubah (mis. admin ubah status), mainkan transisi tirai.
-  const signature = auctions.map((a) => `${a.id}:${a.status}`).join("|");
-  const prevSig = useRef(signature);
-  useEffect(() => {
-    if (prevSig.current === signature) return;
-    prevSig.current = signature;
-    setIndex((i) => (i >= count ? 0 : i));
-    setOpen(false);
-    const t = window.setTimeout(
-      () => setOpen(true),
-      reduce.current ? 0 : SWAP_MS,
-    );
-    return () => clearTimeout(t);
-  }, [signature, count]);
-
-  const goTo = useCallback((next: number) => {
-    if (swapTimer.current) return;
-    setOpen(false);
-    const delay = reduce.current ? 0 : SWAP_MS;
-    swapTimer.current = window.setTimeout(() => {
-      setIndex(next);
-      setOpen(true);
-      swapTimer.current = null;
-    }, delay);
-  }, []);
-
-  const step = useCallback(
-    (dir: 1 | -1) => {
-      if (count < 2) return;
-      setPaused(true); // navigasi manual → berhenti auto-ganti
-      goTo((index + dir + count) % count);
-    },
-    [count, index, goTo],
-  );
-
-  useEffect(() => {
-    if (count < 2) return;
-    const id = window.setInterval(() => {
-      if (pausedRef.current) return; // user sedang berinteraksi → jangan ganti produk
-      setOpen(false);
-      window.setTimeout(() => {
-        setIndex((i) => (i + 1) % count);
-        setOpen(true);
-      }, reduce.current ? 0 : SWAP_MS);
-    }, AUTOPLAY_MS);
-    return () => clearInterval(id);
-  }, [count]);
-
-  useEffect(
-    () => () => {
-      if (swapTimer.current) clearTimeout(swapTimer.current);
-    },
-    [],
-  );
-
-  const current = count ? auctions[index] : null;
-  const celebrate = current?.status === "pemenang";
-  const nextItem = count > 1 ? auctions[(index + 1) % count] : null;
-
-  return (
-    // Begitu user menyentuh/mengetik di kartu lelang, auto-ganti produk berhenti (biar sempat menawar).
-    <div onPointerDownCapture={() => setPaused(true)} onFocusCapture={() => setPaused(true)}>
-      <Panggung open={open} celebrate={celebrate}>
-        {current ? <SlideLelang key={current.id} auction={current} /> : <StageAd ad={ad} />}
-      </Panggung>
-
-      {current ? (
-        <PanelTebak
-          key={`panel-${current.id}`}
-          auction={current}
-          userId={userId}
-          initialGuess={guesses[current.id] ?? null}
-        />
-      ) : null}
-
-      {count > 1 ? (
-        <div className="mt-4 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            aria-label="Barang sebelumnya"
-            onClick={() => step(-1)}
-            className="cursor-pointer rounded-[3px] border-2 border-kongsi-ink bg-kongsi-parchment px-3 py-2 font-bold shadow-hard-sm transition-transform hover:translate-x-[1px] hover:translate-y-[1px]"
-          >
-            ‹
-          </button>
-          <div className="flex-1 text-center">
-            <div className="flex justify-center gap-[6px]">
-              {auctions.map((a, i) => (
-                <span
-                  key={a.id}
-                  className={cn(
-                    "h-[7px] w-[7px] rounded-full border border-kongsi-ink",
-                    i === index ? "bg-kongsi-grenadine" : "bg-kongsi-parchment-2",
-                  )}
-                />
-              ))}
-            </div>
-            {paused ? (
-              <button
-                type="button"
-                onClick={() => setPaused(false)}
-                className="mt-[6px] cursor-pointer text-[12px] font-bold text-kongsi-grenadine underline"
-              >
-                ⏸ Geser otomatis dijeda · Lanjutkan
-              </button>
-            ) : nextItem ? (
-              <div className="mt-[6px] text-[12px] text-kongsi-ink-soft">
-                Berikutnya:{" "}
-                <b className="text-kongsi-indigo">{nextItem.clue_category}</b>
-              </div>
-            ) : null}
+  if (count === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center rounded-[10px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment p-8 text-center">
+        <div className="text-4xl">🎪</div>
+        <h3 className="mt-3 font-fraunces text-xl font-black text-kongsi-indigo">Belum ada lelang berjalan</h3>
+        <p className="mt-2 text-sm text-kongsi-ink-soft">Saat balai kosong, nantikan sesi lelang berikutnya dari para saudagar.</p>
+        {ad.video || ad.image ? (
+          <div className="mt-4 overflow-hidden rounded-[6px] border-2 border-kongsi-ink">
+            {ad.video ? (
+              <video src={ad.video} autoPlay muted loop playsInline className="max-h-[260px] w-full object-cover" />
+            ) : (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={ad.image} alt="Pariwara" className="max-h-[260px] w-full object-cover" />
+            )}
           </div>
-          <button
-            type="button"
-            aria-label="Barang berikutnya"
-            onClick={() => step(1)}
-            className="cursor-pointer rounded-[3px] border-2 border-kongsi-ink bg-kongsi-parchment px-3 py-2 font-bold shadow-hard-sm transition-transform hover:translate-x-[1px] hover:translate-y-[1px]"
-          >
-            ›
-          </button>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
+    );
+  }
+
+  const current = auctions[Math.min(index, count - 1)];
+  return (
+    <div className="h-full">
+      <SlideLelang
+        key={current.id}
+        auction={current}
+        userId={userId}
+        initialGuess={guesses[current.id] ?? null}
+        hasOther={count > 1}
+        onSkip={() => setIndex((i) => (i + 1) % count)}
+      />
     </div>
   );
 }

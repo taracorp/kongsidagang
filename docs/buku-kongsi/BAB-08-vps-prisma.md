@@ -1324,3 +1324,20 @@ Traefik yang sudah ada di VPS, cukup atur port.
 - **Perbaikan:** `buatSuaraLelang` dibuat BERURUTAN (bukan `Promise.all`) — paket gratis ElevenLabs batas 2 request
   bersamaan (1 clue sempat 429 saat paralel). Suara yang gagal → fallback Web Speech di browser.
 - **Rollback:** `git revert` commit; lelang dibatalkan via `/admin`.
+
+### Ch 8.53 — Panggung lelang jadi "reels" layar penuh + alur bercerita (anti hard-selling)
+2026-11-09
+- **Masukan Tara:** panggung lama terlalu hard-selling & perlu scroll. Mau seperti reels IG/TikTok: **1 layar HP
+  penuh tanpa scroll**, dan **bercerita dulu** (brand → produk → fungsi/masalah → pemicu → harga asli → ajak).
+- **Alur slide (SlideLelang ditulis ulang):** brand (lapak + tagline) → produk → **fungsi/masalah** ("buat kamu
+  yang kusam…") → **pemicu** (urgency) → keunggulan (clue) → video TVC → fasilitas → harga asli (dicoret) →
+  ajakan. Bar aksi (Ikut & Tebak / Masuk / Bayar / "lihat lelang lain") **menempel di bawah bingkai** — form tebak
+  tak lagi di kartu terpisah. `PanelTebak`/`LelangLive` & `TvcCarousel` dihapus.
+- **Layar penuh:** `/lelang` tinggi pasti `calc(100dvh-148px)`; header dipangkas jadi toggle kecil. Satu lelang
+  memenuhi layar; antar-lelang lewat tombol "lihat lelang lain" (onSkip di TheatreLelang).
+- **Data (tanpa migrasi — kolom Json):** `SlideData` + `brandTagline`, `fungsi`, `pemicu`; `suara` jadi map
+  per-bagian (brand/produk/fungsi/pemicu/clue*/harga/tebak). `SlideEditor` menuntun lapak mengisi cerita
+  (fungsi wajib). Suara ElevenLabs dibuat per-bagian, berurutan.
+- **Verifikasi:** `tsc`/`lint`/`build` lolos; screenshot HP (390×844) — reels pas 1 layar, slide brand & masalah
+  tampil, Bang Kongsi + bar aksi menempel. Harga rahasia tetap tak bocor.
+- **Rollback:** `git revert` commit ini.

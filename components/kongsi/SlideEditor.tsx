@@ -17,15 +17,25 @@ async function unggah(file: File, jenis: "gambar" | "video"): Promise<string> {
   return data.url as string;
 }
 
-export type SlideDraft = { clues: SlideClue[]; videos: string[]; fasilitas: string[] };
+export type SlideDraft = {
+  brandTagline: string;
+  fungsi: string;
+  pemicu: string;
+  clues: SlideClue[];
+  videos: string[];
+  fasilitas: string[];
+};
 
 export function emptyDraft(): SlideDraft {
-  return { clues: [{ teks: "" }], videos: [], fasilitas: [] };
+  return { brandTagline: "", fungsi: "", pemicu: "", clues: [{ teks: "" }], videos: [], fasilitas: [] };
 }
 
 export function fromSlideData(s: SlideData | null): SlideDraft {
   if (!s) return emptyDraft();
   return {
+    brandTagline: s.brandTagline ?? "",
+    fungsi: s.fungsi ?? "",
+    pemicu: s.pemicu ?? "",
     clues: s.clues.length ? s.clues.map((c) => ({ teks: c.teks, gambar: c.gambar })) : [{ teks: "" }],
     videos: [...s.videos],
     fasilitas: [...s.fasilitas],
@@ -62,8 +72,23 @@ export function SlideEditor({
 
   return (
     <div className="space-y-4">
+      <div className="rounded-[4px] border-2 border-dashed border-kongsi-olive bg-kongsi-parchment-3 p-2 text-[11px] text-kongsi-ink-soft">
+        Ceritakan dulu, jangan langsung jualan: kenalkan brand → produk → <b>masalah yang diatasi</b> → pemicu → harga asli.
+      </div>
       <div>
-        <div className={label}>Clue (petunjuk/keunggulan) — maks 3</div>
+        <div className={label}>Tagline brand (opsional) — 1 kalimat</div>
+        <input value={value.brandTagline} maxLength={160} onChange={(e) => set({ brandTagline: e.target.value })} className={fieldInput} placeholder="mis. Klinik kecantikan tepercaya sejak 2015" />
+      </div>
+      <div>
+        <div className={label}>Fungsi / masalah yang diatasi *</div>
+        <textarea value={value.fungsi} maxLength={160} rows={2} onChange={(e) => set({ fungsi: e.target.value })} className={fieldInput} placeholder="mis. Buat kamu yang wajahnya kusam, lelah, dan kurang cerah…" />
+      </div>
+      <div>
+        <div className={label}>Pemicu / kenapa harus sekarang (opsional)</div>
+        <textarea value={value.pemicu} maxLength={160} rows={2} onChange={(e) => set({ pemicu: e.target.value })} className={fieldInput} placeholder="mis. Makin ditunda, kulit makin susah diperbaiki. Mulai rawat dari sekarang." />
+      </div>
+      <div>
+        <div className={label}>Keunggulan tambahan (opsional) — maks 3</div>
         <div className="space-y-2">
           {value.clues.map((c, i) => (
             <div key={i} className="rounded-[4px] border-2 border-kongsi-ink/40 p-2">
@@ -135,8 +160,11 @@ export function SlideEditor({
 }
 
 /** Rapikan draft untuk dikirim ke server (buang baris kosong). */
-export function draftToSlides(d: SlideDraft): SlideDraft {
+export function draftToSlides(d: SlideDraft) {
   return {
+    brandTagline: d.brandTagline.trim(),
+    fungsi: d.fungsi.trim(),
+    pemicu: d.pemicu.trim(),
     clues: d.clues.map((c) => ({ teks: c.teks.trim(), ...(c.gambar ? { gambar: c.gambar } : {}) })).filter((c) => c.teks || c.gambar),
     videos: d.videos,
     fasilitas: d.fasilitas.map((f) => f.trim()).filter(Boolean),

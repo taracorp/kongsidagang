@@ -51,25 +51,27 @@ export type LelangBaru = {
   usulanId?: string; // bila dibuat dari usulan lapak → ditandai diterima
 };
 
-/** Naskah sapaan Bang Kongsi (publik — tak menyebut harga rahasia). */
-function naskahPembuka(produk: string, lapak: string, normal: number) {
-  return `Halo sobat Kongsi! Bang Kongsi di sini. Lelang kali ini: ${produk} dari ${lapak}. Harga normalnya ${rp(normal)}, tapi kamu bisa menang jauh lebih murah. Ayo ikut dan tebak harganya!`;
-}
-const NASKAH_TEBAK = "Sekarang saatnya menebak harga set. Yang tebakannya paling dekat, dialah pemenangnya. Ketok!";
+const NASKAH_TEBAK = "Nah, sekarang giliranmu. Tebak harga tebusnya — yang paling dekat, dialah pemenangnya. Yuk ikut!";
 
 /**
- * Buat suara Bang Kongsi untuk satu lelang (best-effort). BERURUTAN — paket gratis ElevenLabs
+ * Buat suara Bang Kongsi per bagian cerita (best-effort). BERURUTAN — paket gratis ElevenLabs
  * membatasi 2 request bersamaan, jadi jangan paralel. Menyimpan URL ke kolom slides.
+ * Teks mengikuti alur: brand → produk → fungsi → pemicu → clue → harga → tebak.
  */
 async function buatSuaraLelang(auctionId: string, produk: string, lapak: string, normal: number, s: SlideData) {
-  const pembuka = await buatSuara(naskahPembuka(produk, lapak, normal), `${auctionId}-pembuka`);
-  const clues: (string | null)[] = [];
-  for (let idx = 0; idx < s.clues.length; idx++) {
-    clues.push(s.clues[idx].teks ? await buatSuara(s.clues[idx].teks, `${auctionId}-clue${idx}`) : null);
-  }
-  const tebak = await buatSuara(NASKAH_TEBAK, `${auctionId}-tebak`);
-  const slides: SlideData = { ...s, suara: { pembuka, clues, tebak } };
-  await prisma.auction.update({ where: { id: auctionId }, data: { slides: slides as object } });
+  const narasi: { key: string; teks: string }[] = [
+    { key: "brand", teks: `Kenalin, ${lapak}.${s.brandTagline ? " " + s.brandTagline : ""}` },
+    { key: "produk", teks: `Hari ini kita bahas: ${produk}.` },
+  ];
+  if (s.fungsi) narasi.push({ key: "fungsi", teks: s.fungsi });
+  if (s.pemicu) narasi.push({ key: "pemicu", teks: s.pemicu });
+  s.clues.forEach((c, i) => { if (c.teks) narasi.push({ key: `clue${i}`, teks: c.teks }); });
+  narasi.push({ key: "harga", teks: `Harga aslinya ${rp(normal)}. Tapi di lelang ini, kamu bisa dapat jauh lebih murah.` });
+  narasi.push({ key: "tebak", teks: NASKAH_TEBAK });
+
+  const suara: Record<string, string | null> = {};
+  for (const n of narasi) suara[n.key] = await buatSuara(n.teks, `${auctionId}-${n.key}`);
+  await prisma.auction.update({ where: { id: auctionId }, data: { slides: { ...s, suara } as object } });
 }
 
 export async function buatLelang(adminId: string, i: LelangBaru) {
